@@ -34,8 +34,8 @@ db_info = {
         "ann": (".mat", "<some_path>/CoNSeP/Train/Labels/"),
     },
     "valid": {
-        "img": (".png", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Test/Images/"),
-        "ann": (".mat", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Test/Labels/"),
+        "img": (".png", "<some_path>/CoNSeP/Test/Images/"),
+        "ann": (".mat", "<some_path>/CoNSeP/Test/Labels/"),
     },
 }
 
