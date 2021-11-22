@@ -38,10 +38,11 @@ class ProcessDataset:
 
     def __init__(self, **kwargs):
         """
+        Initializes the object instance
 
         kwargs:
-            win_size <tuple>: a tuple of (h, w). Default (540, 540)
-            step_size <tuple>: a tuple of (h, w). Default (164, 164)
+            win_size <tuple>: patch size (h, w). Default (540, 540)
+            step_size <tuple>: step size for the height and width (h, w). Default (164, 164)
             extract_type <str>: Patch type to extract. See utils.patches.constants.py -> PatchExtractType
                                 Default PatchExtractType.MIRROR
             type_classification <bool>: Determines whether to extract type map (only applicable to
