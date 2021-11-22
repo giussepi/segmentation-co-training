@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 """ main """
 
+import glob
 import logzero
+import os
+
+from gtorch_utils.constants import DB
+from torch.utils.data import DataLoader
 
 import settings
-
+from dataloaders.train_loader import FileLoader, SeedWorker
 from utils.patches.patches import ProcessDataset
 
 
@@ -12,21 +17,59 @@ logzero.loglevel(settings.LOG_LEVEL)
 
 
 def main():
+    num_gpus = 1
+    patch_size = (540, 540)
+    step_size = (164, 164)
+    model_input_shape = (270, 270)
+    model_outut_shape = (80, 80)
+    batch_size = 16  # train and val
+    run_mode = DB.TRAIN
+    num_workers = 16
+
     ###########################################################################
     #                      Extracting patches from CoNSeP                      #
     ###########################################################################
-    db_info = {
-        "train": {
-            "img": (".png", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Train/Images/"),
-            "ann": (".mat", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Train/Labels/"),
-        },
-        "valid": {
-            "img": (".png", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Test/Images/"),
-            "ann": (".mat", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Test/Labels/"),
-        },
-    }
+    # db_info = {
+    #     "train": {
+    #         "img": (".png", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Train/Images/"),
+    #         "ann": (".mat", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Train/Labels/"),
+    #     },
+    #     "valid": {
+    #         "img": (".png", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Test/Images/"),
+    #         "ann": (".mat", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Test/Labels/"),
+    #     },
+    # }
 
-    ProcessDataset(dataset_info=db_info)()
+    # ProcessDataset(dataset_info=db_info, win_size=patch_size, step_size=step_size)()
+
+    ###########################################################################
+    #                          LOADING CoNSeP patches                         #
+    ###########################################################################
+
+    train_path = 'dataset/training_data/consep/train/540x540_164x164'
+    train_list = glob.glob(os.path.join(train_path, '*.npy'))
+    train_list.sort()
+
+    val_path = 'dataset/training_data/consep/valid/540x540_164x164'
+
+    input_dataset = FileLoader(
+        file_list=train_list,
+        input_shape=model_input_shape,
+        mask_shape=model_outut_shape,
+        mode=DB.TRAIN,
+        setup_augmentor=True,
+    )
+
+    train_dataloader = DataLoader(
+        input_dataset,
+        num_workers=num_workers,
+        batch_size=batch_size * num_gpus,
+        shuffle=run_mode == DB.TRAIN,
+        drop_last=run_mode == DB.TRAIN,
+        **SeedWorker(preserve_reproductibility=False)(),
+    )
+
+    data = next(iter(train_dataloader))
 
 
 if __name__ == '__main__':
