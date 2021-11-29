@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-""" datasets/datasets """
+""" consep/datasets/datasets """
 
 import cv2
 import numpy as np
 import scipy.io as sio
 
-from datasets.constants import Dataset
+from consep.datasets.constants import Dataset
 
 
 class AbstractDataset:
@@ -31,7 +31,6 @@ class Kumar(AbstractDataset):
     computational pathology." IEEE transactions on medical imaging 36, no. 7 (2017): 1550-1560.
 
     Source: https://github.com/vqdang/hover_net/blob/master/dataset.py
-
     """
 
     def load_img(self, path):

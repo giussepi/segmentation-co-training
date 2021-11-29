@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" utils/patches/patches """
+""" consep/utils/patches/patches """
 
 import glob
 import pathlib
@@ -8,11 +8,11 @@ import re
 import numpy as np
 import tqdm
 
-from datasets.constants import Dataset
-from datasets.datasets import get_dataset
-from utils.patches.constants import PatchExtractType
-from utils.patches.extractor import PatchExtractor
-from utils.utils import rm_n_mkdir
+from consep.datasets.constants import Dataset
+from consep.datasets.datasets import get_dataset
+from consep.utils.patches.constants import PatchExtractType
+from consep.utils.patches.extractor import PatchExtractor
+from consep.utils.utils import rm_n_mkdir
 
 
 class ProcessDataset:

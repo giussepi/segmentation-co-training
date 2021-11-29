@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/patches/extractor
+consep/utils/patches/extractor
 
 Source: https://github.com/vqdang/hover_net/blob/master/misc/patch_extractor.py
 """
@@ -11,8 +11,8 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-from utils.patches.constants import PatchExtractType
-from utils.utils import cropping_center
+from consep.utils.patches.constants import PatchExtractType
+from consep.utils.utils import cropping_center
 
 
 class PatchExtractor:

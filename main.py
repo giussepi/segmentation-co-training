@@ -9,8 +9,9 @@ from gtorch_utils.constants import DB
 from torch.utils.data import DataLoader
 
 import settings
-from dataloaders.train_loader import FileLoader, SeedWorker
-from utils.patches.patches import ProcessDataset
+from consep.dataloaders.train_loader import FileLoader, SeedWorker
+from consep.utils.patches.patches import ProcessDataset
+from utils.segmentation.plot import plot_img_and_mask
 
 
 logzero.loglevel(settings.LOG_LEVEL)
@@ -24,7 +25,7 @@ def main():
     model_outut_shape = (80, 80)
     batch_size = 16  # train and val
     run_mode = DB.TRAIN
-    num_workers = 16
+    num_workers = 1
 
     ###########################################################################
     #                      Extracting patches from CoNSeP                      #
@@ -50,7 +51,7 @@ def main():
     train_list = glob.glob(os.path.join(train_path, '*.npy'))
     train_list.sort()
 
-    val_path = 'dataset/training_data/consep/valid/540x540_164x164'
+    # val_path = 'dataset/training_data/consep/valid/540x540_164x164'
 
     input_dataset = FileLoader(
         file_list=train_list,
@@ -66,10 +67,15 @@ def main():
         batch_size=batch_size * num_gpus,
         shuffle=run_mode == DB.TRAIN,
         drop_last=run_mode == DB.TRAIN,
-        **SeedWorker(preserve_reproductibility=False)(),
+        **SeedWorker(preserve_reproductibility=True)(),
     )
 
     data = next(iter(train_dataloader))
+
+    for i in range(batch_size * num_gpus):
+        plot_img_and_mask(data['img'][i, :], data['mask'][i, :])
+
+    # __import__("pdb").set_trace()
 
 
 if __name__ == '__main__':

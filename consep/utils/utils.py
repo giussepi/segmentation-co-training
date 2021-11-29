@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/utils
+consep/utils/utils
 
 Source: https://github.com/vqdang/hover_net/blob/master/misc/utils.py
 """

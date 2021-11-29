@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-utils/augmentations
+consep/utils/augmentations
 
 SOURCE: https://github.com/vqdang/hover_net/blob/master/dataloader/augs.py
 """

@@ -6,11 +6,13 @@
 
 2. [OPTIONAL] Create your virtual enviroment and activate it
 
-3. Install the requirements
+3. Install [OpenSlide](https://openslide.org/download/)
+
+4. Install the requirements
 
    `pip install -r requirements`
 
-4. Make a copy of the configuration file and update it properly
+5. Make a copy of the configuration file and update it properly
    `cp settings.py.template settings.py`
 
 
@@ -26,7 +28,11 @@ The main rule is running everything from the `main.py`
 ### Extract patches from [CoNSep](https://warwick.ac.uk/fac/cross_fac/tia/data/hovernet/) dataset
 
 ```python
-from utils.patches.patches import ProcessDataset
+from consep.utils.patches.patches import ProcessDataset
+
+patch_size = (540, 540)
+step_size = (164, 164)
+
 
 db_info = {
     "train": {
@@ -39,7 +45,7 @@ db_info = {
     },
 }
 
-ProcessDataset(dataset_info=db_info)()
+ProcessDataset(dataset_info=db_info, win_size=patch_size, step_size=step_size)()
 ```
 
 ### Loading patches from [CoNSep](https://warwick.ac.uk/fac/cross_fac/tia/data/hovernet/) dataset
@@ -52,8 +58,14 @@ import torch
 from gtorch_utils.constants import DB
 from torch.utils.data import DataLoader
 
-from dataloaders.train_loader import FileLoader, SeedWorker
+from consep.dataloaders.train_loader import FileLoader, SeedWorker
 
+num_gpus = 1
+model_input_shape = (270, 270)
+model_outut_shape = (80, 80)
+batch_size = 16  # train and val
+run_mode = DB.TRAIN
+num_workers = 16
 
 train_path = 'dataset/training_data/consep/train/540x540_164x164'
 train_list = glob.glob(os.path.join(train_path, '*.npy'))
@@ -63,16 +75,15 @@ train_list.sort()
 
 input_dataset = FileLoader(
     file_list=train_list,
-    input_shape=(270, 270),
-    mask_shape=(164, 164),
+    input_shape=model_input_shape,
+    mask_shape=model_outut_shape,
     mode=DB.TRAIN,
     setup_augmentor=True,
 )
 
-# when debbuging set num_workers = 0
 train_dataloader = DataLoader(
     input_dataset,
-    num_workers=16,
+    num_workers=num_workers,
     batch_size=batch_size * num_gpus,
     shuffle=run_mode == DB.TRAIN,
     drop_last=run_mode == DB.TRAIN,
@@ -81,6 +92,10 @@ train_dataloader = DataLoader(
 
 # test the loader
 data = next(iter(train_dataloader))
+
+for i in range(batch_size * num_gpus):
+    plot_img_and_mask(data['img'][i, :], data['mask'][i, :])
+
 ```
 
 

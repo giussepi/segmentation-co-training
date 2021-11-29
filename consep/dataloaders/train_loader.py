@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" dataloaders/train_loader """
+""" consep/dataloaders/train_loader """
 
 import random
 
@@ -9,8 +9,8 @@ import torch.utils.data
 from gtorch_utils.constants import DB
 from imgaug import augmenters as iaa
 
-from utils.utils import cropping_center
-from utils.augmentations import (
+from consep.utils.utils import cropping_center
+from consep.utils.augmentations import (
     add_to_brightness,
     add_to_contrast,
     add_to_hue,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" datasets/constants """
+""" consep/datasets/constants """
 
 
 class Dataset:
