@@ -47,7 +47,7 @@ class ProcessDataset:
                                 Default PatchExtractType.MIRROR
             type_classification <bool>: Determines whether to extract type map (only applicable to
                                 datasets with class labels). Default True
-            database_name <str>: Name of the dataset to process. See datasets.constants.py -> Dataset
+            database_name <str>: Name of the dataset to process. See consep.datasets.constants.py -> Dataset
                                  Default Dataset.CoNSeP
             save_root <str>: Path to the directory where the processed dataset will be saved.
                              Default 'dataset/training_data/'
@@ -93,7 +93,7 @@ class ProcessDataset:
     def process(self):
         """  """
         parser = get_dataset(self.dataset_name)
-        xtractor = PatchExtractor(self.win_size, self.step_size)
+        xtractor = PatchExtractor(self.win_size, self.step_size, self.extract_type)
 
         for split_name, split_desc in self.dataset_info.items():
             img_ext, img_dir = split_desc["img"]

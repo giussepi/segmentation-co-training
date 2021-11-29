@@ -33,7 +33,7 @@ class PatchExtractor:
         Args:
             win_size <tuple>: a tuple of (h, w)
             step_size <tuple>: a tuple of (h, w)
-            patch_type <str>: Patch type to extract. See utils.patches.constants.py -> PatchExtractType
+            patch_type <str>: Patch type to extract. See consep.utils.patches.constants.py -> PatchExtractType
                               Default PatchExtractType.MIRROR
             debug <bool>: flag to see how it is done
         """

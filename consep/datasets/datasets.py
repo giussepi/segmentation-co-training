@@ -60,6 +60,11 @@ class CoNSeP(AbstractDataset):
         return cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
 
     def load_ann(self, path, with_type=False):
+        """
+
+        Returns:
+            ann <np.ndarray>
+        """
         # assumes that ann is HxW
         ann_inst = sio.loadmat(path)["inst_map"]
         if with_type:

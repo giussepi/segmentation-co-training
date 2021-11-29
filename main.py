@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 
 import settings
 from consep.dataloaders.train_loader import FileLoader, SeedWorker
+from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
 from utils.segmentation.plot import plot_img_and_mask
 
@@ -22,26 +23,27 @@ def main():
     patch_size = (540, 540)
     step_size = (164, 164)
     model_input_shape = (270, 270)
-    model_outut_shape = (80, 80)
+    model_outut_shape = (270, 270)  # (80, 80)
     batch_size = 16  # train and val
     run_mode = DB.TRAIN
-    num_workers = 1
+    num_workers = 0
 
     ###########################################################################
     #                      Extracting patches from CoNSeP                      #
     ###########################################################################
-    # db_info = {
-    #     "train": {
-    #         "img": (".png", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Train/Images/"),
-    #         "ann": (".mat", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Train/Labels/"),
-    #     },
-    #     "valid": {
-    #         "img": (".png", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Test/Images/"),
-    #         "ann": (".mat", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Test/Labels/"),
-    #     },
-    # }
+    db_info = {
+        "train": {
+            "img": (".png", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Train/Images/"),
+            "ann": (".mat", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Train/Labels/"),
+        },
+        "valid": {
+            "img": (".png", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Test/Images/"),
+            "ann": (".mat", "/home/giussepi/Public/datasets/segmentation/consep/CoNSeP/Test/Labels/"),
+        },
+    }
 
-    # ProcessDataset(dataset_info=db_info, win_size=patch_size, step_size=step_size)()
+    # ProcessDataset(dataset_info=db_info, win_size=patch_size,
+    #                step_size=step_size, extract_type=PatchExtractType.MIRROR)()
 
     ###########################################################################
     #                          LOADING CoNSeP patches                         #
@@ -76,6 +78,9 @@ def main():
         plot_img_and_mask(data['img'][i, :], data['mask'][i, :])
 
     # __import__("pdb").set_trace()
+
+    # TODO: something weird with the crops... regenerate then without augmentations /reflections
+    # TODO: modify the data loader to save images and mask to disk!
 
 
 if __name__ == '__main__':
