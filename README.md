@@ -62,7 +62,7 @@ from consep.dataloaders.train_loader import FileLoader, SeedWorker
 
 num_gpus = 1
 model_input_shape = (270, 270)
-model_outut_shape = (80, 80)
+model_outut_shape = (270, 270) # (80, 80)
 batch_size = 16  # train and val
 run_mode = DB.TRAIN
 num_workers = 16
