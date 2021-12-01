@@ -30,7 +30,7 @@ class FileLoader(torch.utils.data.Dataset):
         input_shape    <tuple>: shape of the network input [h,w] - defined in config.py
         mask_shape     <tuple>: shape of the network output [h,w] - defined in config.py
         mode             <str>: subdataset (see gtorch_utils.constants.py -> DB class). Default DB.TRAIN
-        setup_augmentor <bool>: Wheter or not perform data augmentation. Default=True
+        setup_augmentor <bool>: Whether or not perform data augmentation. Default=True
 
     Inspired on: https://github.com/vqdang/hover_net/blob/master/dataloader/train_loader.py
     """
@@ -186,7 +186,7 @@ class FileLoader(torch.utils.data.Dataset):
 
 class SeedWorker:
     """
-    Returns arguments for the DataLoader to produce deterministic or stochastic
+    Returns arguments for the DataLoader to produce deterministic or stochastic results
 
     Usage:
         DataLoader(

@@ -95,9 +95,15 @@ data = next(iter(train_dataloader))
 
 for i in range(batch_size * num_gpus):
     plot_img_and_mask(data['img'][i, :], data['mask'][i, :])
-
 ```
 
+### Creating crop dataset from patches (offline data augmentation)
+```python
+    CreateDataset(
+        train_path='<path_to_consep_train_subdataset>',
+        val_path='<path_to_consep_validation_subdataset>',
+    )()
+```
 
 ## LOGGING
 This application is using [logzero](https://logzero.readthedocs.io/en/latest/). Thus, some functionalities can print extra data. To enable this just open your `settings.py` and set `DEBUG = True`. By default, the log level is set to [logging.INFO](https://docs.python.org/2/library/logging.html#logging-levels).

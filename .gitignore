@@ -3,4 +3,5 @@
 __pycache__/
 checkpoints/
 dataset/
+consep_dataset/
 settings.py

@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 
 import settings
 from consep.dataloaders.train_loader import FileLoader, SeedWorker
+from consep.processors.offline import CreateDataset
 from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
 
@@ -19,14 +20,14 @@ logzero.loglevel(settings.LOG_LEVEL)
 
 
 def main():
-    num_gpus = 1
+    num_gpus = 2
     patch_size = (540, 540)
     step_size = (164, 164)
     model_input_shape = (270, 270)
     model_outut_shape = (270, 270)  # (80, 80)
     batch_size = 16  # train and val
     run_mode = DB.TRAIN
-    num_workers = 0
+    num_workers = 16
 
     ###########################################################################
     #                      Extracting patches from CoNSeP                      #
@@ -49,35 +50,44 @@ def main():
     #                          LOADING CoNSeP patches                         #
     ###########################################################################
 
-    train_path = 'dataset/training_data/consep/train/540x540_164x164'
-    train_list = glob.glob(os.path.join(train_path, '*.npy'))
-    train_list.sort()
+    # train_path = 'dataset/training_data/consep/train/540x540_164x164'
+    # train_list = glob.glob(os.path.join(train_path, '*.npy'))
+    # train_list.sort()
 
-    # val_path = 'dataset/training_data/consep/valid/540x540_164x164'
+    # # val_path = 'dataset/training_data/consep/valid/540x540_164x164'
 
-    input_dataset = FileLoader(
-        file_list=train_list,
-        input_shape=model_input_shape,
-        mask_shape=model_outut_shape,
-        mode=DB.TRAIN,
-        setup_augmentor=True,
-    )
+    # input_dataset = FileLoader(
+    #     file_list=train_list,
+    #     input_shape=model_input_shape,
+    #     mask_shape=model_outut_shape,
+    #     mode=DB.TRAIN,
+    #     setup_augmentor=True,
+    # )
 
-    train_dataloader = DataLoader(
-        input_dataset,
-        num_workers=num_workers,
-        batch_size=batch_size * num_gpus,
-        shuffle=run_mode == DB.TRAIN,
-        drop_last=run_mode == DB.TRAIN,
-        **SeedWorker(preserve_reproductibility=True)(),
-    )
+    # train_dataloader = DataLoader(
+    #     input_dataset,
+    #     num_workers=num_workers,
+    #     batch_size=batch_size * num_gpus,
+    #     shuffle=run_mode == DB.TRAIN,
+    #     drop_last=run_mode == DB.TRAIN,
+    #     **SeedWorker(preserve_reproductibility=True)(),
+    # )
 
-    data = next(iter(train_dataloader))
+    # data = next(iter(train_dataloader))
 
-    for i in range(batch_size * num_gpus):
-        plot_img_and_mask(data['img'][i, :], data['mask'][i, :])
+    # for i in range(batch_size * num_gpus):
+    #     plot_img_and_mask(data['img'][i, :], data['mask'][i, :])
 
-    # __import__("pdb").set_trace()
+    ###########################################################################
+    #                       CREATING THE OFFLINE DATASET                      #
+    ###########################################################################
+
+    CreateDataset(
+        train_path='dataset/training_data/consep/train/540x540_164x164',
+        val_path='dataset/training_data/consep/valid/540x540_164x164',
+        num_gpus=2,
+        num_workers=16
+    )()
 
 
 if __name__ == '__main__':
