@@ -6,13 +6,13 @@ import logzero
 import os
 
 from gtorch_utils.constants import DB
+from gtorch_utils.segmentation.visualisation import plot_img_and_mask
 from torch.utils.data import DataLoader
 
 import settings
 from consep.dataloaders.train_loader import FileLoader, SeedWorker
 from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
-from utils.segmentation.plot import plot_img_and_mask
 
 
 logzero.loglevel(settings.LOG_LEVEL)
@@ -78,9 +78,6 @@ def main():
         plot_img_and_mask(data['img'][i, :], data['mask'][i, :])
 
     # __import__("pdb").set_trace()
-
-    # TODO: something weird with the crops... regenerate then without augmentations /reflections
-    # TODO: modify the data loader to save images and mask to disk!
 
 
 if __name__ == '__main__':
