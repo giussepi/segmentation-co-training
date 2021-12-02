@@ -97,12 +97,31 @@ for i in range(batch_size * num_gpus):
     plot_img_and_mask(data['img'][i, :], data['mask'][i, :])
 ```
 
-### Creating crop dataset from patches (offline data augmentation)
+### Creating and loading crop dataset from patches (offline data augmentation)
 ```python
-    CreateDataset(
-        train_path='<path_to_consep_train_subdataset>',
-        val_path='<path_to_consep_validation_subdataset>',
-    )()
+from torch.utils.data import DataLoader
+
+from consep.processors.offline import CreateDataset
+from consep.dataloaders.train_loader import SeedWorker, CoNSePDataset
+
+
+CreateDataset(
+    train_path='<path_to_consep_train_subdataset>',
+    val_path='<path_to_consep_validation_subdataset>',
+)()
+
+train, val, test = CoNSePDataset.get_subdatasets(
+    train_path='consep_dataset/train', val_path='consep_dataset/val')
+
+train_dataloader = DataLoader(
+    train,
+    num_workers=0,
+    batch_size=batch_size * num_gpus,
+    shuffle=run_mode == DB.TRAIN,
+    drop_last=run_mode == DB.TRAIN,
+    **SeedWorker(preserve_reproductibility=True)(),
+)
+data = next(iter(train_dataloader))
 ```
 
 ## LOGGING
