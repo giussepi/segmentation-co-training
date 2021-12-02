@@ -67,6 +67,7 @@ class CoNSeP(AbstractDataset):
         """
         # assumes that ann is HxW
         ann_inst = sio.loadmat(path)["inst_map"]
+
         if with_type:
             ann_type = sio.loadmat(path)["type_map"]
 

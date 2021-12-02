@@ -44,7 +44,8 @@ def main():
     }
 
     # ProcessDataset(dataset_info=db_info, win_size=patch_size,
-    #                step_size=step_size, extract_type=PatchExtractType.MIRROR)()
+    #                step_size=step_size, extract_type=PatchExtractType.MIRROR,
+    #                type_classification=True, ann_percentage=.3)()
 
     ###########################################################################
     #                          LOADING CoNSeP patches                         #
@@ -83,14 +84,15 @@ def main():
     ###########################################################################
 
     # CreateDataset(
-    #     train_path='dataset/training_data/consep/train/540x540_164x164',
-    #     val_path='dataset/training_data/consep/valid/540x540_164x164',
+    #     train_path='dataset_.3/training_data/consep/train/540x540_164x164',
+    #     val_path='dataset_.3/training_data/consep/valid/540x540_164x164',
     #     num_gpus=2,
-    #     num_workers=16
+    #     num_workers=16,
+    #     saving_path='consep_dataset_.3'
     # )()
 
     ###########################################################################
-    #                      Loading ConSeP images dataset                      #
+    #                      Loading ConSeP images dataset                       #
     ###########################################################################
 
     # train, val, test = OfflineCoNSePDataset.get_subdatasets(

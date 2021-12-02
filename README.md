@@ -45,7 +45,8 @@ db_info = {
     },
 }
 
-ProcessDataset(dataset_info=db_info, win_size=patch_size, step_size=step_size)()
+ProcessDataset(
+    dataset_info=db_info, win_size=patch_size, step_size=step_size, ann_percentage=0.3)()
 ```
 
 ### Loading patches from [CoNSep](https://warwick.ac.uk/fac/cross_fac/tia/data/hovernet/) dataset
