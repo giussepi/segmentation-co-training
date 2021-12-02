@@ -10,7 +10,7 @@ from gtorch_utils.segmentation.visualisation import plot_img_and_mask
 from torch.utils.data import DataLoader
 
 import settings
-from consep.dataloaders.train_loader import FileLoader, SeedWorker, CoNSePDataset
+from consep.dataloaders import OnlineCoNSePDataset, SeedWorker, OfflineCoNSePDataset
 from consep.processors.offline import CreateDataset
 from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
@@ -56,7 +56,7 @@ def main():
 
     # # val_path = 'dataset/training_data/consep/valid/540x540_164x164'
 
-    # input_dataset = FileLoader(
+    # input_dataset = OnlineCoNSePDataset(
     #     file_list=train_list,
     #     input_shape=model_input_shape,
     #     mask_shape=model_outut_shape,
@@ -93,18 +93,18 @@ def main():
     #                      Loading ConSeP images dataset                      #
     ###########################################################################
 
-    train, val, test = CoNSePDataset.get_subdatasets(
-        train_path='consep_dataset/train', val_path='consep_dataset/val')
+    # train, val, test = OfflineCoNSePDataset.get_subdatasets(
+    #     train_path='consep_dataset/train', val_path='consep_dataset/val')
 
-    train_dataloader = DataLoader(
-        train,
-        num_workers=0,
-        batch_size=batch_size * num_gpus,
-        shuffle=run_mode == DB.TRAIN,
-        drop_last=run_mode == DB.TRAIN,
-        **SeedWorker(preserve_reproductibility=True)(),
-    )
-    data = next(iter(train_dataloader))
+    # train_dataloader = DataLoader(
+    #     train,
+    #     num_workers=0,
+    #     batch_size=batch_size * num_gpus,
+    #     shuffle=run_mode == DB.TRAIN,
+    #     drop_last=run_mode == DB.TRAIN,
+    #     **SeedWorker(preserve_reproductibility=True)(),
+    # )
+    # data = next(iter(train_dataloader))
 
 
 if __name__ == '__main__':

@@ -13,7 +13,7 @@ from PIL import Image
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from consep.dataloaders.train_loader import FileLoader, SeedWorker
+from consep.dataloaders import OnlineCoNSePDataset, SeedWorker
 
 
 DBObj = namedtuple('DBObj', ['mode', 'path'])
@@ -23,7 +23,6 @@ class CreateDataset:
     """
     Processes the patches from CoNSeP dataset created by consep.utils.patches.patches.ProcessDataset
     and creates image and mask crops
-
 
     Usage:
         CreateDataset(
@@ -102,7 +101,7 @@ class CreateDataset:
         train_list.sort()
         total_batch_size = self.batch_size * self.num_gpus
 
-        dataset = FileLoader(
+        dataset = OnlineCoNSePDataset(
             file_list=train_list,
             input_shape=self.crop_img_shape,
             mask_shape=self.crop_mask_shape,

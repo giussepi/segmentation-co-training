@@ -58,7 +58,7 @@ import torch
 from gtorch_utils.constants import DB
 from torch.utils.data import DataLoader
 
-from consep.dataloaders.train_loader import FileLoader, SeedWorker
+from consep.dataloaders import OnlineCoNSePDataset, SeedWorker
 
 num_gpus = 1
 model_input_shape = (270, 270)
@@ -73,7 +73,7 @@ train_list.sort()
 
 # val_path = 'dataset/training_data/consep/valid/540x540_164x164'
 
-input_dataset = FileLoader(
+input_dataset = OnlineCoNSePDataset(
     file_list=train_list,
     input_shape=model_input_shape,
     mask_shape=model_outut_shape,
@@ -102,7 +102,7 @@ for i in range(batch_size * num_gpus):
 from torch.utils.data import DataLoader
 
 from consep.processors.offline import CreateDataset
-from consep.dataloaders.train_loader import SeedWorker, CoNSePDataset
+from consep.dataloaders import SeedWorker, OfflineCoNSePDataset
 
 
 CreateDataset(
@@ -110,7 +110,7 @@ CreateDataset(
     val_path='<path_to_consep_validation_subdataset>',
 )()
 
-train, val, test = CoNSePDataset.get_subdatasets(
+train, val, test = OfflineCoNSePDataset.get_subdatasets(
     train_path='consep_dataset/train', val_path='consep_dataset/val')
 
 train_dataloader = DataLoader(
