@@ -1,0 +1,55 @@
+# -*- coding: utf-8 -*-
+""" settings """
+
+import os
+import logging
+
+###############################################################################
+#                                GENERAL CONFIG                               #
+###############################################################################
+
+BASE_PATH = os.getenv("HOME")
+PROJECT_PATH = os.path.join(BASE_PATH, '<path to your project>')
+LOG_LEVEL = logging.INFO
+
+###############################################################################
+#                                     NNS                                     #
+###############################################################################
+
+DIR_CHECKPOINTS = os.path.join(PROJECT_PATH, 'checkpoints')
+PLOT_DIRECTORY = os.path.join(PROJECT_PATH, 'plots')
+
+###############################################################################
+#                                    CONSEP                                    #
+###############################################################################
+NUM_GPUS = 2  # NUM_GPUS >= 0
+PATCH_SIZE = (540, 540)
+PATCH_STEP_SIZE = (164, 164)
+# crops are extracted from the patches
+CROP_IMG_SHAPE = (270, 270)
+CROP_MASK_SHAPE = (270, 270)  # (80, 80)
+BATCH_SIZE = 16
+TOTAL_BATCH_SIZE = BATCH_SIZE * NUM_GPUS
+NUM_WORKERS = 16  # set it to 0 when debugging the dataset
+CREATEDATASET_SAVING_PATH = 'consep_dataset'
+
+###############################################################################
+#                                   DATASETS                                  #
+###############################################################################
+
+# CoNSeP (dataset created after running consep.processors.offline.CreateDataset)
+CONSEP_TRAIN_PATH = os.path.join(PROJECT_PATH, CREATEDATASET_SAVING_PATH, 'train')
+CONSEP_VAL_PATH = os.path.join(PROJECT_PATH, CREATEDATASET_SAVING_PATH, 'val')
+CONSEP_TEST_PATH = ''
+
+###############################################################################
+#                                  DEBUGGING                                  #
+###############################################################################
+
+DEBUG = False
+
+if DEBUG:
+    # Add any extra debugging behaviour here
+    LOG_LEVEL = logging.DEBUG
+    NUM_GPUS = 1
+    NUM_WORKERS = 0  # necessary to properly use the breakpoints
