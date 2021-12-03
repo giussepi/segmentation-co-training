@@ -56,7 +56,7 @@ class CreateDataset:
         self.val_path = kwargs.get('val_path')
         self.test_path = kwargs.get('test_path', '')
         self.saving_path = kwargs.get('saving_path', 'consep_dataset')
-        self.num_gpus = kwargs.get('num_gpus')
+        self.num_gpus = kwargs.get('num_gpus', 0)
         self.num_workers = kwargs.get('num_workers', 0)
         self.crop_img_shape = kwargs.get('crop_img_shape', (270, 270))
         self.crop_mask_shape = kwargs.get('crop_mask_shape', (270, 270))
