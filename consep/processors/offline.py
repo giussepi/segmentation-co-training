@@ -103,8 +103,8 @@ class CreateDataset:
 
         dataset = OnlineCoNSePDataset(
             file_list=train_list,
-            input_shape=self.crop_img_shape,
-            mask_shape=self.crop_mask_shape,
+            crop_img_shape=self.crop_img_shape,
+            crop_mask_shape=self.crop_mask_shape,
             mode=db_obj.mode,
             setup_augmentor=self.setup_augmentor,
         )
