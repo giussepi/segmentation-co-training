@@ -29,7 +29,7 @@ class OfflineCoNSePDataset(DatasetTemplate):
     )
     """
 
-    NUM_CLASSES = 2
+    NUM_CLASSES = 1
 
     def __init__(self, **kwargs):
         """
@@ -84,8 +84,7 @@ class OfflineCoNSePDataset(DatasetTemplate):
         image = np.array(image.convert('RGB')) if image.mode != 'RGB' else np.array(image)
         mask = np.array(mask.convert('L')) if mask.mode != 'L' else np.array(mask)
         target_mask = np.zeros((*mask.shape[:2], self.NUM_CLASSES), dtype=np.float32)
-        target_mask[..., 1] = (mask == 255).astype(np.float32)  # nuclei class
-        target_mask[..., 0] = 1 - target_mask[..., 1]  # other class
+        target_mask[..., 0] = (mask == 255).astype(np.float32)  # nuclei class
 
         return image, target_mask, '', '', ''
 
