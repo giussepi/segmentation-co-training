@@ -154,20 +154,20 @@ class ModelMGR(ModelMGRMixin):
         if val_extra_data:
             assert isinstance(val_extra_data, dict), type(val_extra_data)
 
-        # plotting current training batch
-        for i, data in enumerate(zip(pred, true_masks, imgs)):
-            writer.add_images(
-                f'Training_{validation_step}_ImgBatch[{i}]/img', torch.unsqueeze(data[2], 0), global_step)
-            writer.add_images(
-                f'Training_{validation_step}_ImgBatch[{i}]/_gt',
-                torch.unsqueeze(torch.unsqueeze(data[1][0, :, :], 0), 0),
-                global_step
-            )
-            writer.add_images(
-                f'Training_{validation_step}_ImgBatch[{i}]/_pred',
-                torch.unsqueeze(torch.unsqueeze(data[0][0, :, :], 0), 0),
-                global_step
-            )
+        # # plotting current training batch
+        # for i, data in enumerate(zip(pred, true_masks, imgs)):
+        #     writer.add_images(
+        #         f'Training_{validation_step}_ImgBatch[{i}]/img', torch.unsqueeze(data[2], 0), global_step)
+        #     writer.add_images(
+        #         f'Training_{validation_step}_ImgBatch[{i}]/_gt',
+        #         torch.unsqueeze(torch.unsqueeze(data[1][0, :, :], 0), 0),
+        #         global_step
+        #     )
+        #     writer.add_images(
+        #         f'Training_{validation_step}_ImgBatch[{i}]/_pred',
+        #         torch.unsqueeze(torch.unsqueeze(data[0][0, :, :], 0), 0),
+        #         global_step
+        #     )
 
         # plotting last validation batch
         if val_extra_data:
