@@ -20,6 +20,22 @@
 
 The main rule is running everything from the `main.py`
 
+### Running the TensorBoard
+
+1. Make `run_tensorboard.sh` executable:
+
+	`chmod +x run_tensorboard.sh`
+
+2. Execute it
+
+	`./run_tensorboard.sh`
+
+3. Open your browser and go to [http://localhost:6006/](http://localhost:6006/)
+
+
+### Debugging
+
+Just open your `settings.py` and set `DEBUG = True`. This will set the log level to debug and your dataloader will not use workers so you can use `pdb.set_trace()` without any problem.
 
 ## Main Features
 
@@ -122,6 +138,89 @@ train_dataloader = DataLoader(
 
 data = next(iter(train_dataloader))
 ```
+
+### Training, Testing and Plotting on TensorBoard
+Use the `ModelMGR` to train models and make predictions.
+
+``` python
+import logzero
+
+import torch
+from gtorch_utils.nns.models.segmentation import UNet
+from gtorch_utils.segmentation import metrics
+
+import numpy as np
+import settings
+from consep.dataloaders import OfflineCoNSePDataset
+from consep.datasets.constants import BinaryCoNSeP
+from nns.managers import ModelMGR
+from nns.mixins.constants import LrShedulerTrack
+
+
+logzero.loglevel(settings.LOG_LEVEL)
+
+ModelMGR(
+    model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
+    # model=UNet(n_channels=3, n_classes=1, bilinear=True),
+    cuda=True,
+    epochs=20,
+    intrain_val=2,
+    optimizer=torch.optim.Adam,
+    optimizer_kwargs=dict(lr=1e-3),
+    labels_data=BinaryCoNSeP,
+    dataset=OfflineCoNSePDataset,
+    dataset_kwargs={
+        'train_path': settings.CONSEP_TRAIN_PATH,
+        'val_path': settings.CONSEP_VAL_PATH,
+        'test_path': settings.CONSEP_TEST_PATH,
+    },
+    train_dataloader_kwargs={
+        'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+    },
+    testval_dataloader_kwargs={
+        'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+    },
+    lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+    # TODO: the mode can change based on the quantity monitored
+    # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+    lr_scheduler_kwargs={'mode': 'min', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
+    lr_scheduler_track=LrShedulerTrack.LOSS,
+    criterions=[
+        torch.nn.BCEWithLogitsLoss()
+        # torch.nn.CrossEntropyLoss()
+    ],
+    mask_threshold=0.5,
+    metric=metrics.dice_coeff_metric,
+    earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
+    checkpoint_interval=1,
+    train_eval_chkpt=True,
+    ini_checkpoint='',
+    dir_checkpoints=settings.DIR_CHECKPOINTS,
+    tensorboard=True,
+    # TODO: there a bug that appeared once when plotting to disk after a long training
+    # anyway I can always plot from the checkpoints :)
+    plot_to_disk=False,
+    plot_dir=settings.PLOT_DIRECTORY
+)()
+```
+
+### Showing Logs Summary from a Checkpoint
+Use the `ModelMGR.print_data_logger_summary` method to do it.
+
+``` python
+model = ModelMGR(<your settings>, ini_checkpoint='chkpt_X.pth.tar', dir_checkpoints=settings.DIR_CHECKPOINTS)
+model.print_data_logger_summary()
+```
+
+The summary will be a table like this one
+
+| key         | Validation   |   corresponding training value |
+|-------------|--------------|--------------------------------|
+| Best metric | 0.7495       |                         0.7863 |
+| Min loss    | 0.2170       |                         0.1691 |
+| Max LR      |              |                         0.001  |
+| Min LR      |              |                         1e-07  |
+
 
 ## LOGGING
 This application is using [logzero](https://logzero.readthedocs.io/en/latest/). Thus, some functionalities can print extra data. To enable this just open your `settings.py` and set `DEBUG = True`. By default, the log level is set to [logging.INFO](https://docs.python.org/2/library/logging.html#logging-levels).

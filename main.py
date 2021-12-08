@@ -5,18 +5,22 @@ import glob
 import logzero
 import os
 
+import numpy as np
 import torch
 from gtorch_utils.constants import DB
-from gtorch_utils.nns.models.segmentation import UNet
+from gtorch_utils.nns.models.segmentation import UNet, UNet_3Plus_DeepSup, UNet_3Plus, UNet_3Plus_DeepSup_CGM
+from gtorch_utils.segmentation import metrics
 from gtorch_utils.segmentation.visualisation import plot_img_and_mask
 from torch.utils.data import DataLoader
 
 import settings
 from consep.dataloaders import OnlineCoNSePDataset, SeedWorker, OfflineCoNSePDataset
+from consep.datasets.constants import BinaryCoNSeP
 from consep.processors.offline import CreateDataset
 from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
 from nns.managers import ModelMGR
+from nns.mixins.constants import LrShedulerTrack
 
 
 logzero.loglevel(settings.LOG_LEVEL)
@@ -80,8 +84,8 @@ def main():
     ###########################################################################
 
     # CreateDataset(
-    #     train_path='dataset/training_data/consep/train/540x540_164x164',
-    #     val_path='dataset/training_data/consep/valid/540x540_164x164',
+    #     train_path='dataset_.3/training_data/consep/train/540x540_164x164',
+    #     val_path='dataset_.3/training_data/consep/valid/540x540_164x164',
     #     crop_img_shape=settings.CROP_IMG_SHAPE,
     #     crop_mask_shape=settings.CROP_MASK_SHAPE,
     #     num_gpus=settings.NUM_GPUS,
@@ -111,13 +115,19 @@ def main():
     #                               Experiments                               #
     ###########################################################################
     # model = ModelMGR(
-    #     model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=10, bilinear=True)),
+    #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
+    #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
+    #     model=torch.nn.DataParallel(UNet_3Plus(n_channels=3, n_classes=1, is_deconv=False)),
+    #     # model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
+    #     # model=UNet(n_channels=3, n_classes=1, bilinear=True),
+    #     # logits=True, # TODO: review if it is still necessary
+    #     # sigmoid=False, # TODO: review if it is still necessary
     #     cuda=True,
-    #     epochs=10,
+    #     epochs=20,
     #     intrain_val=2,
     #     optimizer=torch.optim.Adam,
     #     optimizer_kwargs=dict(lr=1e-3),
-    #     labels_data=MyLabelClass,
+    #     labels_data=BinaryCoNSeP,
     #     dataset=OfflineCoNSePDataset,
     #     dataset_kwargs={
     #         'train_path': settings.CONSEP_TRAIN_PATH,
@@ -131,30 +141,29 @@ def main():
     #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
     #     },
     #     lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
-    #     lr_scheduler_kwargs={'mode': 'max', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
+    #     # TODO: the mode can change based on the quantity monitored
+    #     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+    #     lr_scheduler_kwargs={'mode': 'min', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
+    #     lr_scheduler_track=LrShedulerTrack.LOSS,
     #     criterions=[
-    #         # nn.BCEWithLogitsLoss()
-    #         # MSSSIMLoss(window_size=11, size_average=True, channel=3),
-    #         # nn.BCELoss(size_average=True),
-    #         # IOULoss(),
-    #         # nn.CrossEntropyLoss()
-    #         # bce_dice_loss  # 1866.6306
-    #         # bce_dice_loss_ # 1890.8262
-    #         DC_RNPV_LOSS(dice_threshold=0.25, always_conditioned=True)
+    #         torch.nn.BCEWithLogitsLoss()
+    #         # torch.nn.CrossEntropyLoss()
     #     ],
     #     mask_threshold=0.5,
-    #     metric=DC_RNPV(dice_threshold=0.25, always_conditioned=True),   # dice_coeff,
-    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf),
+    #     metric=metrics.dice_coeff_metric,
+    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
     #     checkpoint_interval=1,
     #     train_eval_chkpt=True,
     #     ini_checkpoint='',
-    #     dir_checkpoints=settings.DIR_CHECKPOINTS,
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'exp6'),
     #     tensorboard=True,
     #     # TODO: there a bug that appeared once when plotting to disk after a long training
     #     # anyway I can always plot from the checkpoints :)
     #     plot_to_disk=False,
     #     plot_dir=settings.PLOT_DIRECTORY
     # )()
+
+    # model.print_data_logger_summary()
 
 
 if __name__ == '__main__':
