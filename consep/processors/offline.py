@@ -5,6 +5,7 @@ import os
 import glob
 from collections import namedtuple
 
+import numpy as np
 from gtorch_utils.constants import DB
 from gutils.decorators import timing
 from gutils.folders import clean_create_folder
@@ -51,6 +52,7 @@ class CreateDataset:
             mask_format       <str>: Saving mask extension. Default 'png'
             batch_size        <int>: batch size. Default 16
             setup_augmentor  <bool>: Whether or not perform data augmentation. Default=True
+            only_with_ann    <bool>: Whether or not discard crops without annotations. Default True
         """
         self.train_path = kwargs.get('train_path')
         self.val_path = kwargs.get('val_path')
@@ -64,6 +66,7 @@ class CreateDataset:
         self.mask_format = kwargs.get('mask_format', 'png')
         self.batch_size = kwargs.get('batch_size', 16)
         self.setup_augmentor = kwargs.get('setup_augmentor', True)
+        self.only_with_ann = kwargs.get('only_with_ann', True)
 
         assert os.path.isdir(self.train_path)
         assert os.path.isdir(self.val_path)
@@ -81,6 +84,7 @@ class CreateDataset:
         assert isinstance(self.batch_size, int), type(self.batch_size)
         assert self.batch_size > 0
         assert isinstance(self.setup_augmentor, bool), type(self.setup_augmentor)
+        assert isinstance(self.only_with_ann, bool), type(self.only_with_ann)
 
         self.num_gpus = self.num_gpus if self.num_gpus > 0 else 1
 
@@ -96,7 +100,6 @@ class CreateDataset:
         """
         assert isinstance(db_obj, DBObj), type(db_obj)
 
-        # TODO: maybe I should pass the paths for train val and test...
         train_list = glob.glob(os.path.join(db_obj.path, '*.npy'))
         train_list.sort()
         total_batch_size = self.batch_size * self.num_gpus
@@ -119,12 +122,10 @@ class CreateDataset:
         )
 
         clean_create_folder(os.path.join(self.saving_path, db_obj.mode))
-        counter = 0
+        counter = crops_discarded = 0
 
         for batch in tqdm(dataloader, desc='Creating crops', unit='batch'):
             for i in range(total_batch_size):
-                counter += 1
-
                 # dealing with the case when the last returned batch has less elements
                 # than total_batch_size
                 try:
@@ -133,12 +134,27 @@ class CreateDataset:
                 except IndexError:
                     break
                 else:
+                    counter += 1
+                    # Disregarding the cops if its mask does not have annotations
+                    if 1 not in np.unique(mask):
+                        crops_discarded += 1
+
+                        if self.only_with_ann:
+                            continue
+
                     mask[mask == 1] = 255
                     mask = Image.fromarray(mask).convert('L')
                     img.save(os.path.join(
                         self.saving_path, db_obj.mode, f'{counter}.ann.{self.img_format}'))
                     mask.save(os.path.join(
                         self.saving_path, db_obj.mode, f'{counter}.mask.{self.mask_format}'))
+
+        logger.info(f'{counter-crops_discarded} crops were created.')
+
+        if self.only_with_ann:
+            logger.info(f'{crops_discarded} crops without annotations were discarded.')
+        else:
+            logger.warning(f'{crops_discarded} crops without annotations were created.')
 
     @timing
     def process_dataset(self):
