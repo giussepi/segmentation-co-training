@@ -24,12 +24,15 @@ class ModelMGR(ModelMGRMixin):
             batch <dict>: Dictionary contaning batch data
 
         Returns:
-            imgs<torch.tensor>, true_masks<torch.tensor>, masks_pred<tuple of torch.Tensors>
+            imgs<torch.tensor>, true_masks<torch.tensor>, masks_pred<tuple of torch.Tensors>, labels<list>, label_names<list>
         """
         assert isinstance(batch, dict)
         assert len(batch) > 0, 'the provided batch is empty'
 
-        imgs, true_masks, labels = batch['image'], batch['mask'], batch['label']
+        imgs = batch['image']
+        true_masks = batch['mask']
+        labels = batch.get('label', ['']*self.testval_dataloader_kwargs['batch_size'])
+        label_names = batch.get('label_name', ['']*self.testval_dataloader_kwargs['batch_size'])
 
         # commenting out main label validation because at level 1
         # while creating the crops with the desired size some of them
@@ -38,7 +41,8 @@ class ModelMGR(ModelMGRMixin):
         #     assert true_masks[i][labels[i]].max() == 1, labels[i].item()
 
         if len(imgs.shape) == 5:
-            imgs, _, true_masks, _ = self.reshape_data(imgs, labels, true_masks)
+            # TODO: see how to use and process label_names
+            imgs, labels, true_masks, _ = self.reshape_data(imgs, labels, true_masks)
 
         imgs = imgs.to(device=self.device, dtype=torch.float32)
         # changing this becaue of the error
@@ -55,7 +59,7 @@ class ModelMGR(ModelMGRMixin):
         # to not break the workflow
         masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
 
-        return imgs, true_masks, masks_pred
+        return imgs, true_masks, masks_pred, labels, label_names
 
     def validation_step(self, **kwargs):
         """
@@ -72,7 +76,7 @@ class ModelMGR(ModelMGRMixin):
                                 Default None
 
         Returns:
-            loss<torch.Tensor>, metric<float>, imgs_counter<int>
+            loss<torch.Tensor>, metric<float>, imgs_counter<int>, extra_data<dict>
         """
         batch = kwargs.get('batch')
         testing = kwargs.get('testing', False)
@@ -86,8 +90,7 @@ class ModelMGR(ModelMGRMixin):
             assert isinstance(mask_plotter, MaskPlotter), type(mask_plotter)
 
         loss = imgs_counter = metric = 0
-
-        imgs, true_masks, masks_pred = self.get_validation_data(batch)
+        imgs, true_masks, masks_pred, labels, label_names = self.get_validation_data(batch)
 
         if not testing:
             loss += torch.sum(torch.stack([
@@ -110,7 +113,9 @@ class ModelMGR(ModelMGRMixin):
         pred = (pred > self.mask_threshold).float()
         metric += self.metric(pred, true_masks).item()
 
-        return loss, metric, imgs_counter
+        extra_data = dict(imgs=imgs, pred=pred, true_masks=true_masks, labels=labels, label_names=label_names)
+
+        return loss, metric, imgs_counter, extra_data
 
     def validation_post(self, **kwargs):
         """
@@ -125,6 +130,8 @@ class ModelMGR(ModelMGRMixin):
             writer <SummaryWriter, MagicMock>: instance of SummaryWriter or MagicMock
             validation_step      <int>: number of times the validation has been run
             global_step          <int>: global step counter
+            val_extra_data      <dict>: dictionary containig the val_extra_data returned by the
+                                        validation method. Default None
         """
         pred = kwargs.get('pred')
         true_masks = kwargs.get('true_masks')
@@ -134,6 +141,7 @@ class ModelMGR(ModelMGRMixin):
         writer = kwargs.get('writer')
         validation_step = kwargs.get('validation_step')
         global_step = kwargs.get('global_step')
+        val_extra_data = kwargs.get('val_extra_data', None)
 
         assert isinstance(pred, torch.Tensor), type(pred)
         assert isinstance(true_masks, torch.Tensor), type(true_masks)
@@ -143,20 +151,39 @@ class ModelMGR(ModelMGRMixin):
         assert isinstance(writer, (SummaryWriter, MagicMock)), type(writer)
         assert isinstance(validation_step, int), type(validation_step)
         assert isinstance(global_step, int), type(global_step)
+        if val_extra_data:
+            assert isinstance(val_extra_data, dict), type(val_extra_data)
 
+        # plotting current training batch
         for i, data in enumerate(zip(pred, true_masks, imgs)):
             writer.add_images(
-                f'InTrainValidation_{validation_step}_ImgBatch[{i}]/img', torch.unsqueeze(data[2], 0), global_step)
+                f'Training_{validation_step}_ImgBatch[{i}]/img', torch.unsqueeze(data[2], 0), global_step)
             writer.add_images(
-                f'InTrainValidation_{validation_step}_ImgBatch[{i}]/_gt',
+                f'Training_{validation_step}_ImgBatch[{i}]/_gt',
                 torch.unsqueeze(torch.unsqueeze(data[1][0, :, :], 0), 0),
                 global_step
             )
             writer.add_images(
-                f'InTrainValidation_{validation_step}_ImgBatch[{i}]/_pred',
+                f'Training_{validation_step}_ImgBatch[{i}]/_pred',
                 torch.unsqueeze(torch.unsqueeze(data[0][0, :, :], 0), 0),
                 global_step
             )
+
+        # plotting last validation batch
+        if val_extra_data:
+            for i, data in enumerate(zip(val_extra_data['pred'], val_extra_data['true_masks'], val_extra_data['imgs'])):
+                writer.add_images(
+                    f'Validation_{validation_step}_ImgBatch[{i}]/img', torch.unsqueeze(data[2], 0), global_step)
+                writer.add_images(
+                    f'Validation_{validation_step}_ImgBatch[{i}]/_gt',
+                    torch.unsqueeze(torch.unsqueeze(data[1][0, :, :], 0), 0),
+                    global_step
+                )
+                writer.add_images(
+                    f'Validation_{validation_step}_ImgBatch[{i}]/_pred',
+                    torch.unsqueeze(torch.unsqueeze(data[0][0, :, :], 0), 0),
+                    global_step
+                )
 
     def training_step(self, batch):
         """
@@ -166,10 +193,11 @@ class ModelMGR(ModelMGRMixin):
             batch <dict>: Dictionary contaning batch data
 
         Returns:
-            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>, metric<float>, labels, label_names <list>
+            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>, metric<float>, labels<list>, label_names<list>
         """
         assert isinstance(batch, dict), type(batch)
-
+        # TODO: part of these lines can be re-used for get_validation_data with minors tweaks
+        #       review if this is a good idea o not
         imgs = batch['image']
         true_masks = batch['mask']
         labels = batch.get('label', ['']*self.train_dataloader_kwargs['batch_size'])

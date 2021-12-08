@@ -409,7 +409,7 @@ If true it track the loss values, else it tracks the metric values.
                                           nns.callbacks.plotters.masks import MaskPlotter
                                           Default dict(alpha=.7, dir_per_file=False, superimposed=False, max_values=False, decoupled=False)
         Returns:
-            loss, metric_score
+            loss<torch.Tensor>, metric_score<float>, extra_data<dict>
         """
         dataloader = kwargs.get('dataloader')
         testing = kwargs.get('testing', False)
@@ -445,9 +445,11 @@ If true it track the loss values, else it tracks the metric values.
         loss = 0
         metric = 0
         imgs_counter = 0
+        # the folowing variables will store extra data from the last validation batch
+        extra_data = None
 
         for batch in tqdm(dataloader, total=n_val, desc='Testing round', unit='batch', leave=True, disable=not testing):
-            loss_, metric_, imgs_counter_ = self.validation_step(
+            loss_, metric_, imgs_counter_, extra_data = self.validation_step(
                 batch=batch, testing=testing, loss=loss, plot_to_png=plot_to_png,
                 imgs_counter=imgs_counter, mask_plotter=mask_plotter, metric=metric
             )
@@ -460,7 +462,7 @@ If true it track the loss values, else it tracks the metric values.
 
         self.model.train()
 
-        return loss / n_val,  metric / n_val
+        return loss / n_val,  metric / n_val, extra_data
 
     def validation_post(self, **kwargs):
         """ Logic to be executed after the validation step """
@@ -474,8 +476,7 @@ If true it track the loss values, else it tracks the metric values.
             batch            <dict>: Dictionary contaning batch data
 
         Returns:
-            # TODO: update the types
-            pred, true_masks, imgs, loss, metric, labels, label_names
+            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>, metric<float>, labels<list>, label_names<list>
         """
         # Example #############################################################
         # imgs = batch['image']
@@ -598,7 +599,7 @@ If true it track the loss values, else it tracks the metric values.
 
                     if global_step % step_divider == 0:
                         validation_step += 1
-                        val_loss, val_metric = self.validation(dataloader=self.val_loader)
+                        val_loss, val_metric, val_extra_data = self.validation(dataloader=self.val_loader)
                         val_loss_min = min(val_loss.item(), val_loss_min)
 
                         # maybe if there's no scheduler then the lr shouldn't be plotted
@@ -621,7 +622,7 @@ If true it track the loss values, else it tracks the metric values.
                         self.validation_post(
                             pred=pred, true_masks=true_masks, labels=labels, imgs=imgs,
                             label_names=label_names, writer=writer, validation_step=validation_step,
-                            global_step=global_step
+                            global_step=global_step, val_extra_data=val_extra_data
                         )
 
                         # TODO: find out if it's better to apply the early stopping to
@@ -659,7 +660,7 @@ If true it track the loss values, else it tracks the metric values.
             data_logger['epoch_train_losses'].append(train_loss / train_batches)
             data_logger['epoch_train_metrics'].append(train_metric / train_batches)
 
-            val_loss, val_metric = self.validation(dataloader=self.val_loader)
+            val_loss, val_metric, _ = self.validation(dataloader=self.val_loader)
             data_logger['epoch_val_losses'].append(val_loss)
             data_logger['epoch_val_metrics'].append(val_metric)
 

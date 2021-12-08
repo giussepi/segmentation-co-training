@@ -114,54 +114,54 @@ def main():
     ###########################################################################
     #                               Experiments                               #
     ###########################################################################
-    # model = ModelMGR(
-    #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
-    #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
-    #     model=torch.nn.DataParallel(UNet_3Plus(n_channels=3, n_classes=1, is_deconv=False)),
-    #     # model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
-    #     # model=UNet(n_channels=3, n_classes=1, bilinear=True),
-    #     # logits=True, # TODO: review if it is still necessary
-    #     # sigmoid=False, # TODO: review if it is still necessary
-    #     cuda=True,
-    #     epochs=20,
-    #     intrain_val=2,
-    #     optimizer=torch.optim.Adam,
-    #     optimizer_kwargs=dict(lr=1e-3),
-    #     labels_data=BinaryCoNSeP,
-    #     dataset=OfflineCoNSePDataset,
-    #     dataset_kwargs={
-    #         'train_path': settings.CONSEP_TRAIN_PATH,
-    #         'val_path': settings.CONSEP_VAL_PATH,
-    #         'test_path': settings.CONSEP_TEST_PATH,
-    #     },
-    #     train_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
-    #     },
-    #     testval_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-    #     },
-    #     lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
-    #     # TODO: the mode can change based on the quantity monitored
-    #     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-    #     lr_scheduler_kwargs={'mode': 'min', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
-    #     lr_scheduler_track=LrShedulerTrack.LOSS,
-    #     criterions=[
-    #         torch.nn.BCEWithLogitsLoss()
-    #         # torch.nn.CrossEntropyLoss()
-    #     ],
-    #     mask_threshold=0.5,
-    #     metric=metrics.dice_coeff_metric,
-    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
-    #     checkpoint_interval=1,
-    #     train_eval_chkpt=True,
-    #     ini_checkpoint='',
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'exp6'),
-    #     tensorboard=True,
-    #     # TODO: there a bug that appeared once when plotting to disk after a long training
-    #     # anyway I can always plot from the checkpoints :)
-    #     plot_to_disk=False,
-    #     plot_dir=settings.PLOT_DIRECTORY
-    # )()
+    model = ModelMGR(
+        # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
+        # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
+        # model=torch.nn.DataParallel(UNet_3Plus(n_channels=3, n_classes=1, is_deconv=False)),
+        model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
+        # model=UNet(n_channels=3, n_classes=1, bilinear=True),
+        # logits=True, # TODO: review if it is still necessary
+        # sigmoid=False, # TODO: review if it is still necessary
+        cuda=True,
+        epochs=20,
+        intrain_val=2,
+        optimizer=torch.optim.Adam,
+        optimizer_kwargs=dict(lr=1e-3),
+        labels_data=BinaryCoNSeP,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        },
+        lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+        # TODO: the mode can change based on the quantity monitored
+        # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        lr_scheduler_kwargs={'mode': 'min', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
+        lr_scheduler_track=LrShedulerTrack.LOSS,
+        criterions=[
+            torch.nn.BCEWithLogitsLoss()
+            # torch.nn.CrossEntropyLoss()
+        ],
+        mask_threshold=0.3,
+        metric=metrics.dice_coeff_metric,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
+        checkpoint_interval=1,
+        train_eval_chkpt=True,
+        ini_checkpoint='',
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'exp7'),
+        tensorboard=True,
+        # TODO: there a bug that appeared once when plotting to disk after a long training
+        # anyway I can always plot from the checkpoints :)
+        plot_to_disk=False,
+        plot_dir=settings.PLOT_DIRECTORY
+    )()
 
     # model.print_data_logger_summary()
 
