@@ -44,7 +44,7 @@ def main():
 
     # ProcessDataset(dataset_info=db_info, win_size=settings.PATCH_SIZE,
     #                step_size=settings.PATCH_STEP_SIZE, extract_type=PatchExtractType.MIRROR,
-    #                type_classification=True, ann_percentage=.3)()
+    #                type_classification=True, ann_percentage=.7)()
 
     ###########################################################################
     #                          LOADING CoNSeP patches                         #
@@ -84,8 +84,8 @@ def main():
     ###########################################################################
 
     # CreateDataset(
-    #     train_path='dataset_.3/training_data/consep/train/540x540_164x164',
-    #     val_path='dataset_.3/training_data/consep/valid/540x540_164x164',
+    #     train_path='dataset_.7/training_data/consep/train/540x540_164x164',
+    #     val_path='dataset_.7/training_data/consep/valid/540x540_164x164',
     #     crop_img_shape=settings.CROP_IMG_SHAPE,
     #     crop_mask_shape=settings.CROP_MASK_SHAPE,
     #     num_gpus=settings.NUM_GPUS,
@@ -117,8 +117,8 @@ def main():
     model = ModelMGR(
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
-        # model=torch.nn.DataParallel(UNet_3Plus(n_channels=3, n_classes=1, is_deconv=False)),
-        model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
+        model=torch.nn.DataParallel(UNet_3Plus(n_channels=3, n_classes=1, is_deconv=False)),
+        # model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
         # model=UNet(n_channels=3, n_classes=1, bilinear=True),
         # logits=True, # TODO: review if it is still necessary
         # sigmoid=False, # TODO: review if it is still necessary
@@ -149,13 +149,13 @@ def main():
             torch.nn.BCEWithLogitsLoss()
             # torch.nn.CrossEntropyLoss()
         ],
-        mask_threshold=0.3,
+        mask_threshold=0.5,
         metric=metrics.dice_coeff_metric,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
         checkpoint_interval=1,
         train_eval_chkpt=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'exp7'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'exp10'),
         tensorboard=True,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
