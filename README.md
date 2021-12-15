@@ -12,7 +12,9 @@
 
    `pip install -r requirements`
 
-5. Make a copy of the configuration file and update it properly
+5. Install pytorch using the script provided in the page [pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/)
+
+6. Make a copy of the configuration file and update it properly
    `cp settings.py.template settings.py`
 
 
