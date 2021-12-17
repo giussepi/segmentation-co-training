@@ -26,9 +26,10 @@ from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.checkpoints import CheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
+from nns.mixins.subdatasets import SubDatasetsMixin
 
 
-class ModelMGRMixin(CheckPointMixin, DataLoggerMixin):
+class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
     """
     General segmentation model manager
 
@@ -44,6 +45,9 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin):
             optimizer=torch.optim.Adam,
             optimizer_kwargs=dict(lr=1e-3),
             labels_data=MyLabelClass,
+            ###################################################################
+            #                         SubDatasetsMixin                         #
+            ###################################################################
             dataset=CRLMMultiClassDataset,
             dataset_kwargs={
                 'train_path': settings.CRLM_TRAIN_PATH,
@@ -56,6 +60,7 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin):
             testval_dataloader_kwargs={
                 'batch_size': 2, 'shuffle': False, 'num_workers': 12, 'pin_memory': False, 'drop_last': True
             },
+            ###################################################################
             lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
             lr_scheduler_kwargs={'mode': 'max', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
             lr_scheduler_track=LrShedulerTrack.NO_ARGS,
@@ -103,11 +108,15 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin):
             optimizer_kwargs: optimizer keyword arguments
             labels_data <object>: class containing all the details of the classes/labels. See
                                    nns.callbacks.plotters.masks.MaskPlotter definition
-            dataset (DatasetTemplate): Custom dataset class descendant of utils.datasets.DatasetTemplate.
+            ###################################################################
+            #                         SubDatasetsMixin                        #
+            ###################################################################
+            dataset (DatasetTemplate): Custom dataset class descendant of gtorch_utils.datasets.segmentation.DatasetTemplate.
                                        See https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#dataset-class
             dataset_kwargs (dict): keyword arguments for the dataset
             train_dataloader_kwargs <dict>: Keyword arguments for the train DataLoader
             testval_dataloader_kwargs <dict>: Keyword arguments for the test and validation DataLoaders
+            ###################################################################
             lr_scheduler: one learing rate scheuler from torch.optim.lr_scheduler
             lr_scheduler_kwargs (dict): keyword arguments for lr_scheduler_class. Some lr_schedulers
                                         like ReduceLROnPlateau have the option 'mode' to speficy if
@@ -155,15 +164,6 @@ If true it track the loss values, else it tracks the metric values.
         self.optimizer_kwargs = kwargs.get('optimizer_kwargs', dict(lr=1e-4, weight_decay=1e-8, momentum=.9))
         self.labels_data = kwargs['labels_data']
         self.dataset = kwargs['dataset']
-        self.dataset_kwargs = kwargs.get('dataset_kwargs', {})
-        self.train_dataloader_kwargs = kwargs.get(
-            'train_dataloader_kwargs',
-            {'batch_size': 1, 'shuffle': True, 'num_workers': 8, 'pin_memory': True}
-        )
-        self.testval_dataloader_kwargs = kwargs.get(
-            'testval_dataloader_kwargs',
-            {'batch_size': 1, 'shuffle': False, 'num_workers': 8, 'pin_memory': True, 'drop_last': True}
-        )
 
         self.lr_scheduler = kwargs.get('lr_scheduler', None)
         self.lr_scheduler_kwargs = kwargs.get('lr_scheduler_kwargs', {})
@@ -196,9 +196,6 @@ If true it track the loss values, else it tracks the metric values.
         assert isinstance(self.epochs, int), type(self.epochs)
         assert isinstance(self.intrain_val, int), type(self.intrain_val)
         assert isinstance(self.optimizer_kwargs, dict), type(self.optimizer_kwargs)
-        assert isinstance(self.dataset_kwargs, dict), type(self.dataset_kwargs)
-        assert isinstance(self.train_dataloader_kwargs, dict), type(self.train_dataloader_kwargs)
-        assert isinstance(self.testval_dataloader_kwargs, dict), type(self.testval_dataloader_kwargs)
         assert isinstance(self.lr_scheduler_kwargs, dict), type(self.lr_scheduler_kwargs)
         LrShedulerTrack.validate(self.lr_scheduler_track)
         assert isinstance(self.criterions, list), type(self.criterions)
@@ -236,7 +233,7 @@ If true it track the loss values, else it tracks the metric values.
             self.device = "cpu"
 
         self.model.to(self.device)
-        self.get_and_set_subdatasets()
+        self.init_SubDatasetsMixin(**kwargs)
 
     @staticmethod
     def calculate_loss(criterion_list, pred_masks, true_masks):
@@ -276,19 +273,6 @@ If true it track the loss values, else it tracks the metric values.
             return self.model.module
 
         return self.model
-
-    def get_and_set_subdatasets(self):
-        """
-        Gets the sub datasets and set their corresponding Dataloaders instances into
-        instance attributes
-        """
-        train, val, test = self.dataset.get_subdatasets(**self.dataset_kwargs)
-        self.n_train = len(train) if train is not None else 0
-        self.n_val = len(val) if val is not None else 0
-        self.n_test = len(test) if test is not None else 0
-        self.train_loader = DataLoader(train, **self.train_dataloader_kwargs) if train is not None else None
-        self.val_loader = DataLoader(val, **self.testval_dataloader_kwargs) if val is not None else None
-        self.test_loader = DataLoader(test, **self.testval_dataloader_kwargs) if test is not None else None
 
     @staticmethod
     def reshape_data(imgs, labels, true_masks=None, filepaths=None):
