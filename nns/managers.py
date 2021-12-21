@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from gtorch_utils.nns.managers.exceptions import ModelMGRImageChannelsError
 from torch.utils.tensorboard import SummaryWriter
 
@@ -74,6 +73,8 @@ class ModelMGR(ModelMGRMixin):
                                 Default False
             mask_plotter <MaskPlotter, None>: Optional MaskPlotter instance.
                                 Default None
+            apply_threshold <bool>: Whether or not apply thresholding to the predicted mask.
+                                Default True
 
         Returns:
             loss<torch.Tensor>, metric<float>, imgs_counter<int>, extra_data<dict>
@@ -82,12 +83,14 @@ class ModelMGR(ModelMGRMixin):
         testing = kwargs.get('testing', False)
         plot_to_png = kwargs.get('plot_to_png', False)
         mask_plotter = kwargs.get('mask_plotter', None)
+        apply_threshold = kwargs.get('apply_threshold', True)
 
         assert isinstance(batch, dict), type(batch)
         assert isinstance(testing, bool), type(testing)
         assert isinstance(plot_to_png, bool), type(plot_to_png)
         if mask_plotter:
             assert isinstance(mask_plotter, MaskPlotter), type(mask_plotter)
+        assert isinstance(apply_threshold, bool), type(apply_threshold)
 
         loss = imgs_counter = metric = 0
         imgs, true_masks, masks_pred, labels, label_names = self.get_validation_data(batch)
@@ -102,15 +105,17 @@ class ModelMGR(ModelMGRMixin):
 
         # if self.logits:
         #     pred = F.sigmoid(pred) if self.sigmoid else F.softmax(pred, dim=1)
-        pred = F.sigmoid(pred) if self.module.n_classes == 1 else F.softmax(pred, dim=1)
+        pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
 
         if testing and plot_to_png:
             filenames = tuple(str(imgs_counter + i) for i in range(1, pred.shape[0]+1))
             imgs_counter += pred.shape[0]
             mask_plotter(imgs, true_masks, pred, filenames)
 
-        # FIXME try calculating the metric without the threshold
-        pred = (pred > self.mask_threshold).float()
+        if apply_threshold:
+            # FIXME try calculating the metric without the threshold
+            pred = (pred > self.mask_threshold).float()
+
         metric += self.metric(pred, true_masks).item()
 
         extra_data = dict(imgs=imgs, pred=pred, true_masks=true_masks, labels=labels, label_names=label_names)
@@ -246,7 +251,7 @@ class ModelMGR(ModelMGRMixin):
 
         # if self.logits:
         #     pred = F.sigmoid(pred) if self.sigmoid else F.softmax(pred, dim=1)
-        pred = F.sigmoid(pred) if self.module.n_classes == 1 else F.softmax(pred, dim=1)
+        pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
 
         # FIXME try calculating the metric without the threshold
         pred = (pred > self.mask_threshold).float()
@@ -278,7 +283,7 @@ class ModelMGR(ModelMGRMixin):
 
         # if self.logits:
         #     preds = F.sigmoid(preds) if self.sigmoid else F.softmax(preds, dim=0)
-        preds = F.sigmoid(preds) if self.module.n_classes == 1 else F.softmax(preds, dim=0)
+        preds = torch.sigmoid(preds) if self.module.n_classes == 1 else torch.softmax(preds, dim=0)
 
         # adding an extra class full of zeros to represent anything else than the
         # defined classes like background or any other not identified thing
