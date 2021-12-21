@@ -324,6 +324,53 @@ If true it track the loss values, else it tracks the metric values.
 
         return img
 
+    def get_validation_data(self, batch):
+        """
+        Returns the data to be used for the validation or test
+
+        Args:
+            batch <dict>: Dictionary contaning batch data
+
+        Returns:
+            imgs<torch.tensor>, true_masks<torch.tensor>, masks_pred<tuple of torch.Tensors>, labels<list>, label_names<list>
+        """
+        # Example #############################################################
+        # assert isinstance(batch, dict)
+        # assert len(batch) > 0, 'the provided batch is empty'
+
+        # imgs = batch['image']
+        # true_masks = batch['mask']
+        # labels = batch.get('label', ['']*self.testval_dataloader_kwargs['batch_size'])
+        # label_names = batch.get('label_name', ['']*self.testval_dataloader_kwargs['batch_size'])
+
+        # # commenting out main label validation because at level 1
+        # # while creating the crops with the desired size some of them
+        # # could not have data in the main label
+        # # for i in range(labels.shape[0]):
+        # #     assert true_masks[i][labels[i]].max() == 1, labels[i].item()
+
+        # if len(imgs.shape) == 5:
+        #     # TODO: see how to use and process label_names
+        #     imgs, labels, true_masks, _ = self.reshape_data(imgs, labels, true_masks)
+
+        # imgs = imgs.to(device=self.device, dtype=torch.float32)
+        # # changing this becaue of the error
+        # # RuntimeError: _thnn_conv_depthwise2d_forward not supported on CUDAType for Long
+        # # mask_type = torch.float32 if self.module.n_classes == 1 else torch.long
+        # # mask_type = torch.float32
+        # true_masks = true_masks.to(device=self.device, dtype=torch.float32)
+
+        # with torch.no_grad():
+        #     masks_pred = self.model(imgs)
+
+        # # NOTE: UNet_3Plus_DeepSup returns a tuple of tensor masks
+        # # so if we have a tensor then we just put it inside a tuple
+        # # to not break the workflow
+        # masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
+
+        # return imgs, true_masks, masks_pred, labels, label_names
+        raise NotImplementedError("get_validation_data not implemented.")
+
     def validation_step(self, **kwargs):
         """
         Logic to perform the validation step per batch
