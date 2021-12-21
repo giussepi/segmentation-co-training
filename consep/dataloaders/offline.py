@@ -36,22 +36,29 @@ class OfflineCoNSePDataset(DatasetTemplate):
         Initializes the object instance
 
         Kwargs:
-            images_masks_path <str>: path to the folder for containing images and masks
-            filename_reg      <str>: regular expression to get the index id from the crop filename.
-                                     Default r'(?P<filename>\d+).ann.tiff'
-            image_extension   <str>: image extension. Default '.ann.tiff'
-            mask_extension    <str>: mask extension. Default '.mask.png'
+            images_masks_path  <str>: path to the folder for containing images and masks
+            filename_reg       <str>: regular expression to get the index id from the crop filename.
+                                      Default r'(?P<filename>\d+).ann.tiff'
+            image_extension    <str>: image extension. Default '.ann.tiff'
+            mask_extension     <str>: mask extension. Default '.mask.png'
+            cot_mask_extension <str>: co-traning mask extension. Default '.cot.mask.png'
+            cotraining        <bool>: If True the co-training masks are be returned; otherwise, returns
+                                      ground truth masks. Default False
         """
         self.images_masks_path = kwargs.get('images_masks_path')
         self.filename_reg = kwargs.get('filename_reg', r'(?P<filename>\d+).ann.tiff')
         self.image_extension = kwargs.get('image_extension', '.ann.tiff')
         self.mask_extension = kwargs.get('mask_extension', '.mask.png')
+        self.cot_mask_extension = kwargs.get('cot_mask_extension', '.cot.mask.png')
+        self.cotraining = kwargs.get('cotraining', False)
 
         assert isinstance(self.images_masks_path, str), type(self.images_masks_path)
         assert os.path.isdir(self.images_masks_path), self.images_masks_path
         assert isinstance(self.filename_reg, str), type(self.filename_reg)
         assert isinstance(self.image_extension, str), type(self.image_extension)
         assert isinstance(self.mask_extension, str), type(self.mask_extension)
+        assert isinstance(self.cot_mask_extension, str), type(self.cot_mask_extension)
+        assert isinstance(self.cotraining, bool), type(self.cotraining)
 
         self.pattern = re.compile(self.filename_reg)
         self.image_list = [file_ for file_ in os.listdir(self.images_masks_path) if bool(self.pattern.fullmatch(file_))]
@@ -68,15 +75,33 @@ class OfflineCoNSePDataset(DatasetTemplate):
         Args:
             idx <int>: image index
         Returns:
-            image <np.ndarray>, target_mask <np.ndarray>
+            image <np.ndarray>, target_mask <np.ndarray>, '', '', co_training_mask_path <str>
         """
         assert isinstance(idx, int), type(idx)
 
         image = Image.open(os.path.join(self.images_masks_path, self.image_list[idx]))
-        mask = Image.open(os.path.join(
-            self.images_masks_path,
-            self.image_list[idx].replace(self.image_extension, self.mask_extension)
-        ))
+
+        if self.cotraining:
+            cot_mask_path = os.path.join(
+                self.images_masks_path,
+                self.image_list[idx].replace(self.image_extension, self.cot_mask_extension)
+            )
+
+            # the very first time the co-training files do not exits; thus,
+            # we use the ground truth masks
+            if os.path.isfile(cot_mask_path):
+                mask = Image.open(cot_mask_path)
+            else:
+                mask = Image.open(os.path.join(
+                    self.images_masks_path,
+                    self.image_list[idx].replace(self.image_extension, self.mask_extension)
+                ))
+        else:
+            cot_mask_path = ''
+            mask = Image.open(os.path.join(
+                self.images_masks_path,
+                self.image_list[idx].replace(self.image_extension, self.mask_extension)
+            ))
 
         assert image.size == mask.size, \
             f'Image and mask {idx} should be the same size, but are {image.size} and {mask.size}'
@@ -86,7 +111,7 @@ class OfflineCoNSePDataset(DatasetTemplate):
         target_mask = np.zeros((*mask.shape[:2], self.NUM_CLASSES), dtype=np.float32)
         target_mask[..., 0] = (mask == 255).astype(np.float32)  # nuclei class
 
-        return image, target_mask, '', '', ''
+        return image, target_mask, '', '', cot_mask_path
 
     @staticmethod
     def preprocess(img):
@@ -114,14 +139,16 @@ class OfflineCoNSePDataset(DatasetTemplate):
         Creates and returns train, validation and test subdatasets to be used with DataLoaders
 
         Kwargs:
-            train_path      <str>: path to the folder for containing training images and masks
-            val_path        <str>: path to the folder for containing validation images and masks
-            test_path       <str>: path to the folder for containing testing images and masks. Default ''
-            filename_reg    <str>: regular expression to get the index id from the crop filename.
-                                   Default r'(?P<filename>\d+).ann.tiff'
-            image_extension <str>: image extension. Default '.ann.tiff'
-            mask_extension  <str>: mask extension. Default '.mask.png'
-
+            train_path         <str>: path to the folder for containing training images and masks
+            val_path           <str>: path to the folder for containing validation images and masks
+            test_path          <str>: path to the folder for containing testing images and masks. Default ''
+            filename_reg       <str>: regular expression to get the index id from the crop filename.
+                                      Default r'(?P<filename>\d+).ann.tiff'
+            image_extension    <str>: image extension. Default '.ann.tiff'
+            mask_extension     <str>: mask extension. Default '.mask.png'
+            cot_mask_extension <str>: co-traning mask extension. Default '.cot.mask.png'
+            cotraining        <bool>: If True the co-training masks are be returned; otherwise, returns
+                                      ground truth masks. Default False
         Returns:
            train <OfflineCoNSePDataset>, validation <OfflineCoNSePDataset>, test <OfflineCoNSePDataset or None>
         """
