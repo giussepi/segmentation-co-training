@@ -22,6 +22,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
+from nns.callbacks.metrics import MetricEvaluator
+from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.checkpoints import CheckPointMixin
@@ -76,6 +78,7 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
             ],
             mask_threshold=0.5,
             metric=DC_RNPV(dice_threshold=0.25, always_conditioned=True),   # dice_coeff,
+            metric_mode=MetricEvaluatorMode.MAX,
             earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
             checkpoint_interval=1,
             train_eval_chkpt=True,
@@ -134,6 +137,9 @@ If true it track the loss values, else it tracks the metric values.
             mask_threshold <float>: mask threshold. Default 0.5
             metric <callable>: metric to be used to measure the quality of predicted masks.
                                Default dice_coeff
+            metric_mode <int>: Evaluation mode of the metric.
+                               See nns.callbacks.metrics.constants.MetricEvaluatorMode
+                               Default MetricEvaluatorMode.MAX
             earlystopping_kwargs (dict): Early stopping parameters. When metric = True, it is applied to the
                                          metric values; otherwise, it is applied to the loss values.
                                          To disable it just set patience = np.inf
@@ -148,7 +154,7 @@ If true it track the loss values, else it tracks the metric values.
             ini_checkpoint <str>: path to checkpoint to load. So the training can continue.
                                   It must be inside the the dir_checkpoints directory.
                                   Default ''
-            dir_checkpoint <str>: path to the directory where checkpoints will be sabed
+            dir_checkpoint <str>: path to the directory where checkpoints will be saved
             tensorboard <bool>: whether or not plot training data into tensorboard. Default True
             plot_to_disk <bool>: Whether or not plot data training data and save it as images.
                                  Default True
@@ -178,6 +184,7 @@ If true it track the loss values, else it tracks the metric values.
 
         self.mask_threshold = kwargs.get('mask_threshold', 0.5)
         self.metric = kwargs.get('metric', dice_coeff)
+        self.metric_mode = kwargs.get('metric_mode', MetricEvaluatorMode.MAX)
         self.earlystopping_kwargs = kwargs.get(
             'earlystopping_kwargs', dict(min_delta=1e-3, patience=8, metric=True))
         self.earlystopping_to_metric = self.earlystopping_kwargs.pop('metric')
@@ -200,6 +207,8 @@ If true it track the loss values, else it tracks the metric values.
         LrShedulerTrack.validate(self.lr_scheduler_track)
         assert isinstance(self.criterions, list), type(self.criterions)
         assert isinstance(self.mask_threshold, float), type(self.mask_threshold)
+        assert callable(self.metric), 'metric must be a callable'
+        MetricEvaluatorMode.validate(self.metric_mode)
         assert isinstance(self.earlystopping_kwargs, dict), type(self.earlystopping_kwargs)
         assert isinstance(self.checkpoint_interval, int), type(self.checkpoint_interval)
         assert isinstance(self.train_eval_chkpt, bool), type(self.train_eval_chkpt)
@@ -575,6 +584,7 @@ If true it track the loss values, else it tracks the metric values.
         global_step = 0
         step_divider = self.n_train // (self.intrain_val * self.train_dataloader_kwargs['batch_size'])
         optimizer = self.optimizer(self.model.parameters(), **self.optimizer_kwargs)
+        metric_evaluator = MetricEvaluator(self.metric_mode)
         earlystopping = EarlyStopping(**self.earlystopping_kwargs)
         early_stopped = False
         checkpoint = Checkpoint(self.checkpoint_interval) if self.checkpoint_interval > 0 else None
@@ -663,7 +673,7 @@ If true it track the loss values, else it tracks the metric values.
                             early_stopped = True
                             break
 
-                        if val_metric > best_metric:
+                        if metric_evaluator(val_metric, best_metric):
                             logger.info(
                                 f'Metric increased ({best_metric:.6f} --> {val_metric:.6f}).'
                                 ' Saving model ...'
