@@ -12,6 +12,7 @@ from logzero import logger
 from PIL import Image
 from tqdm import tqdm
 
+from nns.callbacks.plotters.training import TrainingPlotter
 from nns.managers import ModelMGR
 from nns.mixins.subdatasets import SubDatasetsMixin
 
@@ -39,9 +40,13 @@ class CoTraining(SubDatasetsMixin):
             warm_start            <bool>: If True new model instances will be initialized with the best
                                           models weights found previously. Default False
             dir_checkpoints        <str>: path to the directory where checkpoints will be saved
-            diff_threshold       <float>: Maximum absolute difference between values of predicted masks used
-                                          to perform the disagreement strategy. Default .8
+            thresholds     <list, tuple>: list containing [low, high] thresholds to select mask values
+                                          and perform the disagreement strategy.
+                                          E.g. Selecting the new mask values from model1 can be done by
+                                          (model1 > thresholds[1]) * (model2 < threshold[0]).
+                                          Default (.2, .8)
             cot_mask_extension     <str>: co-traning mask extension. Default '.cot.mask.png'
+            plots_saving_path      <str>: Path to the folder used to save the plots. Default 'plots'
             ###################################################################
             #                         SubDatasetsMixin                        #
             ###################################################################
@@ -58,8 +63,9 @@ class CoTraining(SubDatasetsMixin):
         self.metric = kwargs.get('metric', metrics.dice_coeff_metric)
         self.warm_start = kwargs.get('warm_start', False)
         self.dir_checkpoints = kwargs.get('dir_checkpoints', 'checkpoints')
-        self.diff_threshold = kwargs.get('diff_threshold', .6)
+        self.thresholds = kwargs.get('thresholds', (.2, .8))
         self.cot_mask_extension = kwargs.get('cot_mask_extension', '.cot.mask.png')
+        self.plots_saving_path = kwargs.get('plots_saving_path', 'plots')
         # TODO: todo add a min/max value to be achieved by the metric as an alternative stopping criteria
         assert isinstance(self.model_mgr_kwargs_list, (list, tuple)), type(self.model_mgr_kwargs_list)
         assert len(self.model_mgr_kwargs_list) == 2,  'len(self.model_mgr_kwargs_list) != 2'
@@ -75,7 +81,12 @@ class CoTraining(SubDatasetsMixin):
         assert isinstance(self.dir_checkpoints, str), type(self.dir_checkpoints)
         if not os.path.isdir(self.dir_checkpoints):
             os.makedirs(self.dir_checkpoints)
-        assert 0 < self.diff_threshold < 1, f'{self.diff_threshold} must be in range ]0, 1['
+        assert isinstance(self.thresholds, (list, tuple)), f'thresholds must be a list or tuple'
+        assert len(self.thresholds) == 2, f'{len(self.thresholds) != 2}'
+        assert 0 < self.thresholds[0] < 1, f'{self.thresholds[0]} is not in range ]0, 1['
+        assert 0 < self.thresholds[1] < 1, f'{self.thresholds[1]} is not in range ]0, 1['
+        assert self.thresholds[0] < self.thresholds[1], f'{self.thresholds[0]} must be lower than {self.thresholds[1]}'
+
         assert isinstance(self.cot_mask_extension, str), type(self.cot_mask_extension)
         assert self.cot_mask_extension != '', 'cot_mask_extension cannot be an empty string'
 
@@ -163,7 +174,7 @@ class CoTraining(SubDatasetsMixin):
 
             for idx, model_mgr in enumerate(self.model_mgr_list):
                 # we do not apply the model_mgr threshold because we are going to
-                # evaluate the difference of the scores against the self.diff_threshold
+                # evaluate the difference of the scores against the self.thresholds
                 loss, _, _, extra_data = model_mgr.validation_step(batch=batch, apply_threshold=False)
                 results.append(extra_data['pred'])
                 true_masks = extra_data['true_masks']
@@ -180,8 +191,12 @@ class CoTraining(SubDatasetsMixin):
                 (results[0].max(results[1]) > min(model_mask_thresholds)).float(),
                 true_masks
             ).item()
-            new_mask_values_from_model_1 = ((results[0] - results[1]) > self.diff_threshold).float()
-            new_mask_values_from_model_2 = ((results[1] - results[0]) > self.diff_threshold).float()
+            new_mask_values_from_model_1 = (
+                (results[0] > self.thresholds[1]) * (results[1] < self.thresholds[0])
+            ).float()
+            new_mask_values_from_model_2 = (
+                (results[1] > self.thresholds[1]) * (results[0] < self.thresholds[0])
+            ).float()
 
             # creating new masks using selected values from model 1 and model 2
             new_masks = true_masks.max(new_mask_values_from_model_1).max(new_mask_values_from_model_2)
@@ -231,7 +246,7 @@ class CoTraining(SubDatasetsMixin):
             true_masks = None
 
             for idx, model_mgr in enumerate(self.model_mgr_list):
-                # we are not going to use the self.diff_threshold for any operation
+                # we are not going to use the self.thresholds for any operation
                 # so we wan apply the model_mgr threshol  and directly use its returned metric
                 loss, metric, _, extra_data = model_mgr.validation_step(batch=batch, apply_threshold=True)
                 results.append(extra_data['pred'])
@@ -240,19 +255,6 @@ class CoTraining(SubDatasetsMixin):
                 models_losses[idx] += loss
 
             combined_preds_metric += self.metric(results[0].max(results[1]), true_masks).item()
-            # FIXME: maybe for validation I don't need to create the mask.....
-            #        so I only should be comparing the predictions....
-            #        after all we're using the fully-annotated GT
-            #        UNLESS THE VALIDATION DATASET IS ALSO NON-FULLY ANNOTATED
-            # new_mask_values_from_model_1 = (results[0] - results[1]) > self.diff_threshold
-            # new_mask_values_from_model_2 = (results[1] - results[0]) > self.diff_threshold
-            # creating new masks using selected values from model 1 and model 2
-            # new_masks = true_masks.max(new_mask_values_from_model_1).max(new_mask_values_from_model_2)
-            # new_masks_metric += self.metric(new_masks, true_masks).item()
-
-            # for new_mask, mask_path in zip(new_masks, batch['updated_mask_path']):
-            #     new_mask = Image.fromarray(new_mask.squeeze().detach().cpu().numpy() * 255).convert('L')
-            #     new_mask.save(mask_path)
 
         for idx in range(len(self.model_mgr_list)):
             models_metrics[idx] /= total_batches
@@ -349,3 +351,62 @@ class CoTraining(SubDatasetsMixin):
             )
 
             self.save(i, data_logger)
+
+    def plot_and_save(self, checkpoint, save=False, dpi='figure', show=True):
+        """
+        Plosts and saves (optionally) the co-training data_logger from the 'checkpoint'
+
+        Kwargs:
+            checkpoint <str>: path to the CoTraining checkpoint
+            save           <bool>: Whether or not save to disk. Default False
+            dpi <float, 'figure'>: The resolution in dots per inch.
+                                   If 'figure', use the figure's dpi value. For high quality images
+                                   set it to 300.
+                                   Default 'figure'
+            show           <bool>: Where or not display the image. Default True
+        """
+        assert os.path.isfile(checkpoint), f'{checkpoint} does not exist.'
+        assert isinstance(save, bool), type(save)
+        assert isinstance(dpi, (float, str)), type(dpi)
+        assert isinstance(show, bool), type(show)
+
+        data = torch.load(checkpoint)['data_logger']
+
+        # plotting metrics and losses
+        for idx, _ in enumerate(self.model_mgr_kwargs_list):
+            TrainingPlotter(
+                train_loss=torch.as_tensor(data['train_models_losses'])[:, idx].cpu().tolist(),
+                train_metric=torch.as_tensor(data['train_models_metrics'])[:, idx].cpu().tolist(),
+                val_loss=torch.as_tensor(data['val_models_losses'])[:, idx].cpu().tolist(),
+                val_metric=torch.as_tensor(data['val_models_metrics'])[:, idx].cpu().tolist()
+            )(
+                lm_title=f'Model {idx+1}: Metrics and Losses',
+                xlabel='Co-training iterations',
+                lm_ylabel='Loss and Metric',
+                lm_legend_kwargs=dict(shadow=True, fontsize=8, loc='best'),
+                lm_saving_path=os.path.join(self.plots_saving_path, f'model_{idx+1}: losses_metrics.png'),
+                save=save,
+                dpi=dpi,
+                show=show,
+            )
+
+        # plotting new masks metrics and combined preds metrics
+        TrainingPlotter(
+            train_loss=data['train_new_masks_metric'],
+            train_metric=data['train_combined_preds_metric'],
+            val_loss=data['val_new_masks_metric'],
+            val_metric=data['val_combined_preds_metric']
+        )(
+            lm_title='New masks and combined masks metrics',
+            xlabel='Co-training iterations',
+            lm_ylabel='Metric',
+            lm_legend_kwargs=dict(shadow=True, fontsize=8, loc='best'),
+            lm_saving_path=os.path.join(self.plots_saving_path, 'new_masks_combined_preds.png'),
+            train_loss_label='train new masks',
+            val_loss_label='val new masks',
+            train_metric_label='train combined preds',
+            val_metric_label='val combined preds',
+            save=save,
+            dpi=dpi,
+            show=show
+        )

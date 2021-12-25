@@ -128,7 +128,7 @@ def main():
         # logits=True, # TODO: review if it is still necessary
         # sigmoid=False, # TODO: review if it is still necessary
         cuda=True,
-        epochs=10,  # 20
+        epochs=15,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-3),
@@ -182,7 +182,7 @@ def main():
         # logits=True, # TODO: review if it is still necessary
         # sigmoid=False, # TODO: review if it is still necessary
         cuda=True,
-        epochs=10,  # 20
+        epochs=15,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-3),
@@ -225,11 +225,12 @@ def main():
 
     cot = CoTraining(
         model_mgr_kwargs_list=[model, model2],
-        iterations=10,
+        iterations=5,
         metric=metrics.dice_coeff_metric,
         warm_start=False,
         dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp1'),
-        diff_threshold=.5,
+        thresholds=(.4, .9),
+        plots_saving_path=settings.PLOT_DIRECTORY,
         dataset=OfflineCoNSePDataset,
         dataset_kwargs={
             'train_path': settings.CONSEP_TRAIN_PATH,
@@ -243,7 +244,12 @@ def main():
         testval_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
         },
-    )()
+    )
+
+    cot.plot_and_save(
+        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp1', 'chkpt_4.pth.tar'),
+        save=True, show=False, dpi=300.
+    )
 
 
 if __name__ == '__main__':
