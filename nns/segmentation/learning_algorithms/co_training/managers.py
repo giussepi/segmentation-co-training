@@ -37,8 +37,9 @@ class CoTraining(SubDatasetsMixin):
             iterations             <int>: Number of iterations to execute the co-training. Default 5
             metric            <callable>: Metric to measure the results. See gtorch_utils.segmentation.metrics
                                           Default metrics.dice_coeff_metric
-            warm_start            <bool>: If True new model instances will be initialized with the best
-                                          models weights found previously. Default False
+            warm_start      <dict, None>: Configuration of the warm start. Set it to a dict full of zeroes to
+                                          only load the weights (e.g. {'lamda': .0, 'sigma': .0}).
+                                          Set it to None to not perform warm start. Default None.
             dir_checkpoints        <str>: path to the directory where checkpoints will be saved
             thresholds     <list, tuple>: list containing [low, high] thresholds to select mask values
                                           and perform the disagreement strategy.
@@ -61,7 +62,7 @@ class CoTraining(SubDatasetsMixin):
         self.model_mgr_kwargs_list = kwargs.get('model_mgr_kwargs_list')
         self.iterations = kwargs.get('iterations', .8)
         self.metric = kwargs.get('metric', metrics.dice_coeff_metric)
-        self.warm_start = kwargs.get('warm_start', False)
+        self.warm_start = kwargs.get('warm_start', None)
         self.dir_checkpoints = kwargs.get('dir_checkpoints', 'checkpoints')
         self.thresholds = kwargs.get('thresholds', (.2, .8))
         self.cot_mask_extension = kwargs.get('cot_mask_extension', '.cot.mask.png')
@@ -77,7 +78,8 @@ class CoTraining(SubDatasetsMixin):
         assert isinstance(self.iterations, int), type(self.iterations)
         assert self.iterations > 0, self.iterations
         assert callable(self.metric), 'metric must be a callable'
-        assert isinstance(self.warm_start, bool), type(self.warm_start)
+        if self.warm_start is not None:
+            assert isinstance(self.warm_start, dict), type(self.warm_start)
         assert isinstance(self.dir_checkpoints, str), type(self.dir_checkpoints)
         if not os.path.isdir(self.dir_checkpoints):
             os.makedirs(self.dir_checkpoints)
@@ -97,10 +99,33 @@ class CoTraining(SubDatasetsMixin):
         self.process()
         self.test()
 
+    @staticmethod
+    def shrink_perturb(modelmgr, lamda=0.5, sigma=0.01):
+        """
+        Modifies the model weights (shink and/or perturb)
+
+        Kwargs:
+            modelmgr <ModelMGR>: ModelMGR instans with pre-loaded weights
+            lamda  <float>: Shrink factor in range [0, 1]. Default 0.5
+            sigma  <float>: Standard deviation for the Gaussian noise with mean zero to be added. Default 0.01
+
+        Source https://pureai.com/articles/2021/02/01/warm-start-ml.aspx
+        """
+        if lamda == sigma == .0:
+            return
+
+        for (name, param) in modelmgr.model.named_parameters():
+            if 'weight' in name:
+                if lamda:
+                    param.data *= lamda
+                if sigma:
+                    param.data += torch.normal(0.0, sigma, size=param.shape).to(modelmgr.device)
+
     def create_model_mgr_list(self):
         """
         Deletes old ModelMGR instances from self.model_mgr_list and realeases the GPU cache,
-        then creates new instances of ModelMGR and place them into self.model_mgr_list
+        then creates new instances of ModelMGR and place them into self.model_mgr_list.
+        If a warm_start configuration has been provided, it is applied.
         """
         # print(torch.cuda.memory_allocated(), torch.cuda.memory_reserved())
         self.model_mgr_list.clear()
@@ -110,13 +135,15 @@ class CoTraining(SubDatasetsMixin):
         for kwargs in self.model_mgr_kwargs_list:
             model_mgr = ModelMGR(**copy.deepcopy(kwargs))
 
-            if self.warm_start:
+            if self.warm_start is not None:
                 # workaround to avoid errors in the very first iteration where no best models
                 # weights exists yet
                 try:
                     model_mgr.load()
                 except AssertionError:
                     pass
+                else:
+                    self.shrink_perturb(model_mgr, **self.warm_start)
 
             self.model_mgr_list.append(model_mgr)
 
