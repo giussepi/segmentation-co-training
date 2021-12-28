@@ -43,11 +43,9 @@ class CoTraining(SubDatasetsMixin):
                                           only load the weights (e.g. {'lamda': .0, 'sigma': .0}).
                                           Set it to None to not perform warm start. Default None.
             dir_checkpoints        <str>: path to the directory where checkpoints will be saved
-            thresholds     <list, tuple>: list containing [low, high] thresholds to select mask values
-                                          and perform the disagreement strategy.
-                                          E.g. Selecting the new mask values from model1 can be done by
-                                          (model1 > thresholds[1]) * (model2 < threshold[0]).
-                                          Default (.2, .8)
+            thresholds            <dict>: Dictionary containing as key the strategy to apply, and as value
+                                          its threshold(s). E.g. dict(agreement=.9) or
+                                          dict(disagreement=(.5, .9)). Default dict(disagreement=(.2, .8))
             cot_mask_extension     <str>: co-traning mask extension. Default '.cot.mask.png'
             plots_saving_path      <str>: Path to the folder used to save the plots. Default 'plots'
             ###################################################################
@@ -62,11 +60,11 @@ class CoTraining(SubDatasetsMixin):
                 Default {'batch_size': 1, 'shuffle': False, 'num_workers': 8, 'pin_memory': True, 'drop_last': True}
         """
         self.model_mgr_kwargs_list = kwargs.get('model_mgr_kwargs_list')
-        self.iterations = kwargs.get('iterations', .8)
+        self.iterations = kwargs.get('iterations', 5)
         self.metric = kwargs.get('metric', metrics.dice_coeff_metric)
         self.warm_start = kwargs.get('warm_start', None)
         self.dir_checkpoints = kwargs.get('dir_checkpoints', 'checkpoints')
-        self.thresholds = kwargs.get('thresholds', (.2, .8))
+        self.thresholds = kwargs.get('thresholds', dict(disagreement=(.2, .8)))
         self.cot_mask_extension = kwargs.get('cot_mask_extension', '.cot.mask.png')
         self.plots_saving_path = kwargs.get('plots_saving_path', 'plots')
         # TODO: todo add a min/max value to be achieved by the metric as an alternative stopping criteria
@@ -74,7 +72,6 @@ class CoTraining(SubDatasetsMixin):
         assert len(self.model_mgr_kwargs_list) == 2,  'len(self.model_mgr_kwargs_list) != 2'
 
         for mgr in self.model_mgr_kwargs_list:
-            # assert isinstance(mgr, ModelMGR), type(mgr)
             assert isinstance(mgr, dict), type(mgr)
 
         assert isinstance(self.iterations, int), type(self.iterations)
@@ -85,12 +82,14 @@ class CoTraining(SubDatasetsMixin):
         assert isinstance(self.dir_checkpoints, str), type(self.dir_checkpoints)
         if not os.path.isdir(self.dir_checkpoints):
             os.makedirs(self.dir_checkpoints)
-        assert isinstance(self.thresholds, (list, tuple)), f'thresholds must be a list or tuple'
-        assert len(self.thresholds) == 2, f'{len(self.thresholds) != 2}'
-        assert 0 < self.thresholds[0] < 1, f'{self.thresholds[0]} is not in range ]0, 1['
-        assert 0 < self.thresholds[1] < 1, f'{self.thresholds[1]} is not in range ]0, 1['
-        assert self.thresholds[0] < self.thresholds[1], f'{self.thresholds[0]} must be lower than {self.thresholds[1]}'
-
+        assert isinstance(self.thresholds, (dict)), type(self.thresholds)
+        for v in self.thresholds.values():
+            v = v if isinstance(v, (list, tuple)) else [v]
+            for value in v:
+                assert 0 < value < 1, f'{v} is not in range ]0, 1['
+        if 'disagreement' in self.thresholds:
+            assert self.thresholds['disagreement'][0] < self.thresholds['disagreement'][1], \
+                f'{self.thresholds["disagreement"][0]} must be lower than {self.thresholds["disagreement"][1]}'
         assert isinstance(self.cot_mask_extension, str), type(self.cot_mask_extension)
         assert self.cot_mask_extension != '', 'cot_mask_extension cannot be an empty string'
 
@@ -113,6 +112,10 @@ class CoTraining(SubDatasetsMixin):
 
         Source https://pureai.com/articles/2021/02/01/warm-start-ml.aspx
         """
+        assert isinstance(modelmgr, ModelMGR), type(modelmgr)
+        assert isinstance(lamda, float), type(lamda)
+        assert isinstance(sigma, float), type(sigma)
+
         if lamda == sigma == .0:
             return
 
@@ -181,7 +184,59 @@ class CoTraining(SubDatasetsMixin):
             logger.info(f'TRAINING MODEL {idx}')
             mgr()
 
-    def disagreement(self):
+    def agreement(self, results):
+        """
+        Calculates new mask values from each model using disagreement strategy
+
+        Kwargs:
+            results <list>: List of mask predicted by the models
+
+        Returns:
+            new_mask_values_from_model_1 <torch.Tensor>, new_mask_values_from_model_2<torch.Tensor>
+        """
+        assert isinstance(results, list), type(results)
+
+        new_mask_values_from_model_1 = (results[0] > self.thresholds['agreement']).float()
+        new_mask_values_from_model_2 = (results[1] > self.thresholds['agreement']).float()
+
+        return new_mask_values_from_model_1, new_mask_values_from_model_2
+
+    def disagreement(self, results):
+        """
+        Calculates new mask values from each model using disagreement strategy
+
+        Kwargs:
+            results <list>: List of mask predicted by the models
+
+        Returns:
+            new_mask_values_from_model_1 <torch.Tensor>, new_mask_values_from_model_2<torch.Tensor>
+        """
+        assert isinstance(results, list), type(results)
+
+        new_mask_values_from_model_1 = (
+            (results[0] > self.thresholds['disagreement'][1]) *
+            (results[1] < self.thresholds['disagreement'][0])
+        ).float()
+        new_mask_values_from_model_2 = (
+            (results[1] > self.thresholds['disagreement'][1]) *
+            (results[0] < self.thresholds['disagreement'][0])
+        ).float()
+
+        return new_mask_values_from_model_1, new_mask_values_from_model_2
+
+    def get_new_mask_values(self, results):
+        """
+        Calculates and returns the new mask values using the stategy especified in self.threholds
+
+        Kwargs:
+            results <list>: List of mask predicted by the models
+
+        Returns:
+            new_mask_values_from_model_1 <torch.Tensor>, new_mask_values_from_model_2<torch.Tensor>
+        """
+        return getattr(self, list(self.thresholds.keys())[0])(results)
+
+    def strategy(self):
         """
         Performs the disagreement strategy to update/create the co-training ground truth masks
 
@@ -203,7 +258,7 @@ class CoTraining(SubDatasetsMixin):
 
             for idx, model_mgr in enumerate(self.model_mgr_list):
                 # we do not apply the model_mgr threshold because we are going to
-                # evaluate the difference of the scores against the self.thresholds
+                # evaluate the difference of the scores against the self.thresholds[<strategy>]
                 loss, _, _, extra_data = model_mgr.validation_step(batch=batch, apply_threshold=False)
                 results.append(extra_data['pred'])
                 true_masks = extra_data['true_masks']
@@ -220,12 +275,8 @@ class CoTraining(SubDatasetsMixin):
                 (results[0].max(results[1]) > min(model_mask_thresholds)).float(),
                 true_masks
             ).item()
-            new_mask_values_from_model_1 = (
-                (results[0] > self.thresholds[1]) * (results[1] < self.thresholds[0])
-            ).float()
-            new_mask_values_from_model_2 = (
-                (results[1] > self.thresholds[1]) * (results[0] < self.thresholds[0])
-            ).float()
+
+            new_mask_values_from_model_1, new_mask_values_from_model_2 = self.get_new_mask_values(results)
 
             # creating new masks using selected values from model 1 and model 2
             new_masks = true_masks.max(new_mask_values_from_model_1).max(new_mask_values_from_model_2)
@@ -351,7 +402,7 @@ class CoTraining(SubDatasetsMixin):
             self.train_models()
             self.load_best_models()
 
-            new_masks_metric, combined_preds_metric, models_metrics, models_losses = self.disagreement()
+            new_masks_metric, combined_preds_metric, models_metrics, models_losses = self.strategy()
             data_logger['train_new_masks_metric'].append(new_masks_metric)
             data_logger['train_combined_preds_metric'].append(combined_preds_metric)
             data_logger['train_models_metrics'].append(models_metrics)

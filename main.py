@@ -128,7 +128,7 @@ def main():
         # logits=True, # TODO: review if it is still necessary
         # sigmoid=False, # TODO: review if it is still necessary
         cuda=True,
-        epochs=15,  # 20
+        epochs=12,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-3),
@@ -161,7 +161,7 @@ def main():
         checkpoint_interval=1,
         train_eval_chkpt=False,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp1', 'model1'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp5', 'model1'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -182,7 +182,7 @@ def main():
         # logits=True, # TODO: review if it is still necessary
         # sigmoid=False, # TODO: review if it is still necessary
         cuda=True,
-        epochs=15,  # 20
+        epochs=12,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-3),
@@ -215,7 +215,7 @@ def main():
         checkpoint_interval=1,
         train_eval_chkpt=False,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp1', 'model2'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp5', 'model2'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -227,9 +227,9 @@ def main():
         model_mgr_kwargs_list=[model, model2],
         iterations=5,
         metric=metrics.dice_coeff_metric,
-        warm_start=False,
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp1'),
-        thresholds=(.4, .9),
+        warm_start=dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp5'),
+        thresholds=dict(agreement=.9),  # dict(disagreement=(.5, .9)),
         plots_saving_path=settings.PLOT_DIRECTORY,
         dataset=OfflineCoNSePDataset,
         dataset_kwargs={
@@ -244,12 +244,14 @@ def main():
         testval_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
         },
-    )
+    )()
 
-    cot.plot_and_save(
-        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp1', 'chkpt_4.pth.tar'),
-        save=True, show=False, dpi=300.
-    )
+    # cot.print_data_logger_summary(
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp5', 'chkpt_4.pth.tar'))
+    # cot.plot_and_save(
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp5', 'chkpt_4.pth.tar'),
+    #     save=True, show=False, dpi=300.
+    # )
 
 
 if __name__ == '__main__':
