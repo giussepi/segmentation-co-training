@@ -6,10 +6,12 @@ import copy
 import subprocess
 
 import torch
+import numpy as np
 from gutils.decorators import timing
 from gtorch_utils.segmentation import metrics
 from logzero import logger
 from PIL import Image
+from tabulate import tabulate
 from tqdm import tqdm
 
 from nns.callbacks.plotters.training import TrainingPlotter
@@ -402,10 +404,10 @@ class CoTraining(SubDatasetsMixin):
         # plotting metrics and losses
         for idx, _ in enumerate(self.model_mgr_kwargs_list):
             TrainingPlotter(
-                train_loss=torch.as_tensor(data['train_models_losses'])[:, idx].cpu().tolist(),
-                train_metric=torch.as_tensor(data['train_models_metrics'])[:, idx].cpu().tolist(),
-                val_loss=torch.as_tensor(data['val_models_losses'])[:, idx].cpu().tolist(),
-                val_metric=torch.as_tensor(data['val_models_metrics'])[:, idx].cpu().tolist()
+                train_loss=torch.as_tensor(data['train_models_losses'])[:, idx].detach().cpu().tolist(),
+                train_metric=torch.as_tensor(data['train_models_metrics'])[:, idx].detach().cpu().tolist(),
+                val_loss=torch.as_tensor(data['val_models_losses'])[:, idx].detach().cpu().tolist(),
+                val_metric=torch.as_tensor(data['val_models_metrics'])[:, idx].detach().cpu().tolist()
             )(
                 lm_title=f'Model {idx+1}: Metrics and Losses',
                 xlabel='Co-training iterations',
@@ -437,3 +439,59 @@ class CoTraining(SubDatasetsMixin):
             dpi=dpi,
             show=show
         )
+
+    def print_data_logger_summary(self, checkpoint, tablefmt='orgtbl'):
+        """
+        Prints a summary of the data_logger for the provided ini_checkpoint.
+        Always use it with the last checkpoint saved to include all the logs when generating
+        the summary table
+
+        Kwargs:
+            checkpoint <str>: path to the CoTraining checkpoint
+            tablefmt   <str>: format to be used. See https://pypi.org/project/tabulate/
+                              Default 'orgtbl'
+        """
+        assert os.path.isfile(checkpoint), f'{checkpoint} does not exist.'
+        assert isinstance(tablefmt, str), type(tablefmt)
+
+        data_logger = torch.load(checkpoint)['data_logger']
+
+        # plotting metrics and losses
+        for idx, _ in enumerate(self.model_mgr_kwargs_list):
+            data = [["key", "Validation", "corresponding training value"]]
+            data_logger['val_models_metrics'] = torch.as_tensor(
+                data_logger['val_models_metrics']).cpu().numpy()
+            data_logger['train_models_metrics'] = torch.as_tensor(
+                data_logger['train_models_metrics']).detach().cpu().numpy()
+            data_logger['val_models_losses'] = torch.as_tensor(
+                data_logger['val_models_losses']).detach().cpu().numpy()
+            data_logger['train_models_losses'] = torch.as_tensor(
+                data_logger['train_models_losses']).detach().cpu().numpy()
+
+            max_idx = np.argmax(data_logger['val_models_metrics'][:, idx])
+            data.append(["Best metric",
+                         f"{data_logger['val_models_metrics'][max_idx, idx]:.4f}",
+                         f"{data_logger['train_models_metrics'][max_idx, idx]:.4f}"])
+            min_idx = np.argmin(data_logger['val_models_losses'][:, idx])
+            data.append(["Min loss",
+                         f"{data_logger['val_models_losses'][min_idx, idx]:.4f}",
+                         f"{data_logger['train_models_losses'][min_idx, idx]:.4f}"])
+
+            print(f'MODEL {idx+1}:')
+            print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
+            print('\n')
+
+        # plotting new masks metrics and combined preds metrics
+        data = [["key", "Validation", "corresponding training value"]]
+        max_idx = np.argmax(data_logger['val_new_masks_metric'])
+        data.append(["New masks best metric",
+                     f"{data_logger['val_new_masks_metric'][max_idx]:.4f}",
+                     f"{data_logger['train_new_masks_metric'][max_idx]:.4f}"])
+        max_idx = np.argmax(data_logger['val_combined_preds_metric'])
+        data.append(["Combined preds best metric",
+                     f"{data_logger['val_combined_preds_metric'][max_idx]:.4f}",
+                     f"{data_logger['train_combined_preds_metric'][max_idx]:.4f}"])
+
+        print('New mask and combined predictions metrics')
+        print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
+        print('\n')
