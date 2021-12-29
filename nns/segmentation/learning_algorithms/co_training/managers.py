@@ -251,7 +251,10 @@ class CoTraining(SubDatasetsMixin):
         combined_preds_metric = new_masks_metric = 0
         total_batches = len(self.train_loader)
 
-        for batch in tqdm(self.train_loader, total=total_batches, desc='Disagreement round', unit='batch'):
+        for batch in tqdm(
+                self.train_loader, total=total_batches,
+                desc=f'{list(self.thresholds.keys())[0].capitalize()} round',
+                unit='batch'):
             results = []
             model_mask_thresholds = []
             true_masks = None
