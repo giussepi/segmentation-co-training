@@ -227,6 +227,10 @@ If true it track the loss values, else it tracks the metric values.
         assert isinstance(self.plot_to_disk, bool), type(self.plot_to_disk)
         assert isinstance(self.plot_dir, str), type(self.plot_dir)
 
+        # updating the earlystopping patience according to the number of 'intrain_val'
+        # to stop, if necessary, the whole process after 'patience' epochs
+        self.earlystopping_kwargs['patience'] *= self.intrain_val
+
         if self.plot_to_disk and self.plot_dir and not os.path.isdir(self.plot_dir):
             os.makedirs(self.plot_dir)
 
@@ -668,8 +672,11 @@ If true it track the loss values, else it tracks the metric values.
 
                         # TODO: find out if it's better to apply the early stopping to
                         # val_metric or val_loss
-                        if (self.earlystopping_to_metric and earlystopping(best_metric, val_metric)) or \
-                           earlystopping(val_loss.item(), val_loss_min):
+                        if self.earlystopping_to_metric:
+                            if earlystopping(best_metric, val_metric):
+                                early_stopped = True
+                                break
+                        elif earlystopping(val_loss.item(), val_loss_min):
                             early_stopped = True
                             break
 
