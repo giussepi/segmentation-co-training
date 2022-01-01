@@ -43,8 +43,8 @@ class CoTraining(SubDatasetsMixin):
                                           only load the weights (e.g. {'lamda': .0, 'sigma': .0}).
                                           Set it to None to not perform warm start. Default None.
             dir_checkpoints        <str>: path to the directory where checkpoints will be saved
-            thresholds            <dict>: Dictionary containing as key the strategy to apply, and as value
-                                          its threshold(s). E.g. dict(agreement=.9) or
+            thresholds            <dict>: Dictionary containing as keys the strategies to apply, and as values
+                                          their thresholds. E.g. dict(agreement=.9, disagreement=(.2, .8)) or
                                           dict(disagreement=(.5, .9)). Default dict(disagreement=(.2, .8))
             cot_mask_extension     <str>: co-traning mask extension. Default '.cot.mask.png'
             plots_saving_path      <str>: Path to the folder used to save the plots. Default 'plots'
@@ -234,7 +234,15 @@ class CoTraining(SubDatasetsMixin):
         Returns:
             new_mask_values_from_model_1 <torch.Tensor>, new_mask_values_from_model_2<torch.Tensor>
         """
-        return getattr(self, list(self.thresholds.keys())[0])(results)
+        new_mask_values_from_model_1 = torch.zeros_like(results[0]).to(results[0].device)
+        new_mask_values_from_model_2 = torch.zeros_like(results[1]).to(results[1].device)
+
+        for key in self.thresholds:
+            new_mask_values_1, new_mask_values_2 = getattr(self, key)(results)
+            new_mask_values_from_model_1 = new_mask_values_from_model_1.max(new_mask_values_1)
+            new_mask_values_from_model_2 = new_mask_values_from_model_2.max(new_mask_values_2)
+
+        return new_mask_values_from_model_1, new_mask_values_from_model_2
 
     def strategy(self):
         """
@@ -253,7 +261,7 @@ class CoTraining(SubDatasetsMixin):
 
         for batch in tqdm(
                 self.train_loader, total=total_batches,
-                desc=f'{list(self.thresholds.keys())[0].capitalize()} round',
+                desc=f'{", ".join(list(self.thresholds.keys())).capitalize()} round',
                 unit='batch'):
             results = []
             model_mask_thresholds = []
