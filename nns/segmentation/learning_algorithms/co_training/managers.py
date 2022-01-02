@@ -45,7 +45,7 @@ class CoTraining(SubDatasetsMixin):
             dir_checkpoints        <str>: path to the directory where checkpoints will be saved
             thresholds            <dict>: Dictionary containing as keys the strategies to apply, and as values
                                           their thresholds. E.g. dict(agreement=.9, disagreement=(.2, .8)) or
-                                          dict(disagreement=(.5, .9)). Default dict(disagreement=(.2, .8))
+                                          dict(selfcombined=.9). Default dict(disagreement=(.2, .8))
             cot_mask_extension     <str>: co-traning mask extension. Default '.cot.mask.png'
             plots_saving_path      <str>: Path to the folder used to save the plots. Default 'plots'
             ###################################################################
@@ -186,20 +186,20 @@ class CoTraining(SubDatasetsMixin):
 
     def agreement(self, results):
         """
-        Calculates new mask values from each model using disagreement strategy
+        Calculates new mask values from each model using agreement strategy
 
         Kwargs:
             results <list>: List of mask predicted by the models
 
         Returns:
-            new_mask_values_from_model_1 <torch.Tensor>, new_mask_values_from_model_2<torch.Tensor>
+            new_mask_values <torch.Tensor>
         """
         assert isinstance(results, list), type(results)
 
         new_mask_values_from_model_1 = (results[0] > self.thresholds['agreement']).float()
         new_mask_values_from_model_2 = (results[1] > self.thresholds['agreement']).float()
 
-        return new_mask_values_from_model_1, new_mask_values_from_model_2
+        return new_mask_values_from_model_1 * new_mask_values_from_model_2
 
     def disagreement(self, results):
         """
@@ -209,7 +209,7 @@ class CoTraining(SubDatasetsMixin):
             results <list>: List of mask predicted by the models
 
         Returns:
-            new_mask_values_from_model_1 <torch.Tensor>, new_mask_values_from_model_2<torch.Tensor>
+            new_mask_values <torch.Tensor>
         """
         assert isinstance(results, list), type(results)
 
@@ -222,27 +222,42 @@ class CoTraining(SubDatasetsMixin):
             (results[0] < self.thresholds['disagreement'][0])
         ).float()
 
-        return new_mask_values_from_model_1, new_mask_values_from_model_2
+        return new_mask_values_from_model_1.max(new_mask_values_from_model_2)
 
-    def get_new_mask_values(self, results):
+    def selfcombined(self, results):
         """
-        Calculates and returns the new mask values using the stategy especified in self.threholds
+        Calculates new mask values from each model using self-combined strategy
 
         Kwargs:
             results <list>: List of mask predicted by the models
 
         Returns:
-            new_mask_values_from_model_1 <torch.Tensor>, new_mask_values_from_model_2<torch.Tensor>
+            new_mask_values <torch.Tensor>
         """
-        new_mask_values_from_model_1 = torch.zeros_like(results[0]).to(results[0].device)
-        new_mask_values_from_model_2 = torch.zeros_like(results[1]).to(results[1].device)
+        assert isinstance(results, list), type(results)
+
+        new_mask_values_from_model_1 = (results[0] > self.thresholds['selfcombined']).float()
+        new_mask_values_from_model_2 = (results[1] > self.thresholds['selfcombined']).float()
+
+        return new_mask_values_from_model_1.max(new_mask_values_from_model_2)
+
+    def get_new_mask_values(self, results):
+        """
+        Calculates and returns the new masks values using the stategies especified in self.threholds
+
+        Kwargs:
+            results <list>: List of masks predicted by the models
+
+        Returns:
+            new_mask_values <torch.Tensor>
+        """
+        new_mask_values = torch.zeros_like(results[0]).to(results[0].device)
 
         for key in self.thresholds:
-            new_mask_values_1, new_mask_values_2 = getattr(self, key)(results)
-            new_mask_values_from_model_1 = new_mask_values_from_model_1.max(new_mask_values_1)
-            new_mask_values_from_model_2 = new_mask_values_from_model_2.max(new_mask_values_2)
+            strategy_new_mask_values = getattr(self, key)(results)
+            new_mask_values = new_mask_values.max(strategy_new_mask_values)
 
-        return new_mask_values_from_model_1, new_mask_values_from_model_2
+        return new_mask_values
 
     def strategy(self):
         """
@@ -287,15 +302,14 @@ class CoTraining(SubDatasetsMixin):
                 true_masks
             ).item()
 
-            new_mask_values_from_model_1, new_mask_values_from_model_2 = self.get_new_mask_values(results)
-
-            # creating new masks using selected values from model 1 and model 2
-            new_masks = true_masks.max(new_mask_values_from_model_1).max(new_mask_values_from_model_2)
+            # creating new masks contatenating true masks with the new mask values selected
+            # by the especified strategies
+            new_masks = true_masks.max(self.get_new_mask_values(results))
             # TODO: Stopping Criteria
             # new_masks_metric can be used as a stopping condition with a user-defined threshold
             # so if the metric between the old masks (true_masks) and the new ones does not
             # change more than the user-defined threshold we can stop whole process
-            new_masks_metric += self.metric(new_masks, true_masks).item()  # does not make sense, it is 1
+            new_masks_metric += self.metric(new_masks, true_masks).item()
 
             for new_mask, mask_path in zip(new_masks, batch['updated_mask_path']):
                 new_mask = Image.fromarray(new_mask.squeeze().detach().cpu().numpy() * 255).convert('L')
