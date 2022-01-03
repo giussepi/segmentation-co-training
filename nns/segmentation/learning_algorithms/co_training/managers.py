@@ -8,6 +8,7 @@ import subprocess
 import torch
 import numpy as np
 from gutils.decorators import timing
+from gtorch_utils.nns.managers.callbacks import EarlyStopping
 from gtorch_utils.segmentation import metrics
 from logzero import logger
 from PIL import Image
@@ -39,6 +40,8 @@ class CoTraining(SubDatasetsMixin):
             iterations             <int>: Number of iterations to execute the co-training. Default 5
             metric            <callable>: Metric to measure the results. See gtorch_utils.segmentation.metrics
                                           Default metrics.dice_coeff_metric
+            earlystopping_kwargs  <dict>: Early stopping configuration.
+                                          Default dict(min_delta=1e-2, patience=2)
             warm_start      <dict, None>: Configuration of the warm start. Set it to a dict full of zeroes to
                                           only load the weights (e.g. {'lamda': .0, 'sigma': .0}).
                                           Set it to None to not perform warm start. Default None.
@@ -62,12 +65,13 @@ class CoTraining(SubDatasetsMixin):
         self.model_mgr_kwargs_list = kwargs.get('model_mgr_kwargs_list')
         self.iterations = kwargs.get('iterations', 5)
         self.metric = kwargs.get('metric', metrics.dice_coeff_metric)
+        self.earlystopping_kwargs = kwargs.get('earlystopping_kwargs', dict(min_delta=1e-2, patience=2))
         self.warm_start = kwargs.get('warm_start', None)
         self.dir_checkpoints = kwargs.get('dir_checkpoints', 'checkpoints')
         self.thresholds = kwargs.get('thresholds', dict(disagreement=(.2, .8)))
         self.cot_mask_extension = kwargs.get('cot_mask_extension', '.cot.mask.png')
         self.plots_saving_path = kwargs.get('plots_saving_path', 'plots')
-        # TODO: todo add a min/max value to be achieved by the metric as an alternative stopping criteria
+
         assert isinstance(self.model_mgr_kwargs_list, (list, tuple)), type(self.model_mgr_kwargs_list)
         assert len(self.model_mgr_kwargs_list) == 2,  'len(self.model_mgr_kwargs_list) != 2'
 
@@ -77,6 +81,7 @@ class CoTraining(SubDatasetsMixin):
         assert isinstance(self.iterations, int), type(self.iterations)
         assert self.iterations > 0, self.iterations
         assert callable(self.metric), 'metric must be a callable'
+        assert isinstance(self.earlystopping_kwargs, dict), type(self.earlystopping_kwargs)
         if self.warm_start is not None:
             assert isinstance(self.warm_start, dict), type(self.warm_start)
         assert isinstance(self.dir_checkpoints, str), type(self.dir_checkpoints)
@@ -305,10 +310,6 @@ class CoTraining(SubDatasetsMixin):
             # creating new masks contatenating true masks with the new mask values selected
             # by the especified strategies
             new_masks = true_masks.max(self.get_new_mask_values(results))
-            # TODO: Stopping Criteria
-            # new_masks_metric can be used as a stopping condition with a user-defined threshold
-            # so if the metric between the old masks (true_masks) and the new ones does not
-            # change more than the user-defined threshold we can stop whole process
             new_masks_metric += self.metric(new_masks, true_masks).item()
 
             for new_mask, mask_path in zip(new_masks, batch['updated_mask_path']):
@@ -417,6 +418,8 @@ class CoTraining(SubDatasetsMixin):
             val_new_masks_metric=[], val_combined_preds_metric=[], val_models_metrics=[],
             val_models_losses=[],
         )
+        earlystopping = EarlyStopping(**self.earlystopping_kwargs)
+        previous_train_new_masks_metric = .0
 
         self.remove_cot_masks()
 
@@ -456,6 +459,12 @@ class CoTraining(SubDatasetsMixin):
             )
 
             self.save(i, data_logger)
+
+            if earlystopping(min(previous_train_new_masks_metric, data_logger['train_new_masks_metric'][i]),
+                             max(previous_train_new_masks_metric, data_logger['train_new_masks_metric'][i])):
+                break
+
+            previous_train_new_masks_metric = data_logger['train_new_masks_metric'][i]
 
     def plot_and_save(self, checkpoint, save=False, dpi='figure', show=True):
         """
