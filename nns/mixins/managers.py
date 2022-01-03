@@ -140,7 +140,7 @@ If true it track the loss values, else it tracks the metric values.
             metric_mode <int>: Evaluation mode of the metric.
                                See nns.callbacks.metrics.constants.MetricEvaluatorMode
                                Default MetricEvaluatorMode.MAX
-            earlystopping_kwargs (dict): Early stopping parameters. When metric = True, it is applied to the
+            earlystopping_kwargs <dict>: Early stopping parameters. When metric = True, it is applied to the
                                          metric values; otherwise, it is applied to the loss values.
                                          To disable it just set patience = np.inf
                                          See gtorch_utils.nns.managers.callbacks.EarlyStopping class definition
