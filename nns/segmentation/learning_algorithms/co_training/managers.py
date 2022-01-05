@@ -41,7 +41,7 @@ class CoTraining(SubDatasetsMixin):
             metric            <callable>: Metric to measure the results. See gtorch_utils.segmentation.metrics
                                           Default metrics.dice_coeff_metric
             earlystopping_kwargs  <dict>: Early stopping configuration.
-                                          Default dict(min_delta=1e-2, patience=2)
+                                          Default dict(min_delta=1e-3, patience=2)
             warm_start      <dict, None>: Configuration of the warm start. Set it to a dict full of zeroes to
                                           only load the weights (e.g. {'lamda': .0, 'sigma': .0}).
                                           Set it to None to not perform warm start. Default None.
@@ -65,7 +65,7 @@ class CoTraining(SubDatasetsMixin):
         self.model_mgr_kwargs_list = kwargs.get('model_mgr_kwargs_list')
         self.iterations = kwargs.get('iterations', 5)
         self.metric = kwargs.get('metric', metrics.dice_coeff_metric)
-        self.earlystopping_kwargs = kwargs.get('earlystopping_kwargs', dict(min_delta=1e-2, patience=2))
+        self.earlystopping_kwargs = kwargs.get('earlystopping_kwargs', dict(min_delta=1e-3, patience=2))
         self.warm_start = kwargs.get('warm_start', None)
         self.dir_checkpoints = kwargs.get('dir_checkpoints', 'checkpoints')
         self.thresholds = kwargs.get('thresholds', dict(disagreement=(.2, .8)))
@@ -266,7 +266,7 @@ class CoTraining(SubDatasetsMixin):
 
     def strategy(self):
         """
-        Performs the disagreement strategy to update/create the co-training ground truth masks
+        Performs the strategy to update/create the co-training ground truth masks
 
         Returns:
             new_masks_metric<float>, combined_preds_metric<float>,  models_metrics<list>, models_losses<list>
@@ -274,7 +274,7 @@ class CoTraining(SubDatasetsMixin):
         self.set_models_to_eval_mode()
 
         results = None
-        models_metrics = [0] * (len(self.model_mgr_kwargs_list))
+        models_metrics = [0] * len(self.model_mgr_kwargs_list)
         models_losses = copy.deepcopy(models_metrics)
         combined_preds_metric = new_masks_metric = 0
         total_batches = len(self.train_loader)
