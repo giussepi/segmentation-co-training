@@ -51,5 +51,8 @@ DEBUG = False
 if DEBUG:
     # Add any extra debugging behaviour here
     LOG_LEVEL = logging.DEBUG
-    NUM_GPUS = 1
+    # TODO: implement logic to use a determined number of gpus
+    #       so in debugging mode only one GPU is used
+    # NUM_GPUS = 1
+    # TOTAL_BATCH_SIZE = BATCH_SIZE * NUM_GPUS
     NUM_WORKERS = 0  # necessary to properly use the breakpoints
