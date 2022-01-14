@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """ nns/mixins/managers """
 
+import math
 import os
 import sys
 from unittest.mock import MagicMock
@@ -29,6 +30,7 @@ from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.checkpoints import CheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
 from nns.mixins.subdatasets import SubDatasetsMixin
+from nns.utils.sync_batchnorm import patch_replication_callback
 
 
 class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
@@ -42,6 +44,7 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
         model = MyModelMGR(
             model=UNet(n_channels=3, n_classes=10, bilinear=True),
             cuda=True,
+            patch_replication_callback=False,
             epochs=10,
             intrain_val=2,
             optimizer=torch.optim.Adam,
@@ -97,11 +100,17 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
         Kwargs:
             model (nn.Module, nn.DataParallel): Neuronal network instance. If going to use
                                multiple gpus, then just wrap it with nn.DataParallel and
-                               set cuda=True
+                               set cuda=True; by default all the GPUs will be used. If you only want
+                               to use one GPU  then do not wrap your model with nn.DataParallel
             logits (bool): Set it to True if the model returns logits. Default False
             sigmoid (bool): If True sigmoid will be applied to NN output, else softmax.
                             Only used when logits = True. Default True
             cuda (bool): whether or not use cuda
+            patch_replication_callback <bool>: Whether or not to apply patch_replication_callback. It must
+                               be used only if SynchronizedBatchNorm2d has been used. Furthermore, it will
+                               only be applied when when model is an instance of nn.DataParallel,
+                               cuda = patch_replication_callback = True and there
+                               is more than one GPU available. Default = False
             epochs (int): number of epochs
             intrain_val <int>: Times to interrupt the iteration over the training dataset
                                to collect statistics, perform validation and update
@@ -164,6 +173,7 @@ If true it track the loss values, else it tracks the metric values.
         self.logits = kwargs.get('logits', False)
         self.sigmoid = kwargs.get('sigmoid', True)
         self.cuda = kwargs.get('cuda', True)
+        self.patch_replication_callback = kwargs.get('patch_replication_callback', False)
         self.epochs = kwargs.get('epochs', 5)
         self.intrain_val = kwargs.get('intrain_val', 10)
         self.optimizer = kwargs.get('optimizer', torch.optim.RMSprop)
@@ -200,6 +210,7 @@ If true it track the loss values, else it tracks the metric values.
         assert isinstance(self.logits, bool), type(self.logits)
         assert isinstance(self.sigmoid, bool), type(self.sigmoid)
         assert isinstance(self.cuda, bool), type(self.cuda)
+        assert isinstance(self.patch_replication_callback, bool), type(self.patch_replication_callback)
         assert isinstance(self.epochs, int), type(self.epochs)
         assert isinstance(self.intrain_val, int), type(self.intrain_val)
         assert isinstance(self.optimizer_kwargs, dict), type(self.optimizer_kwargs)
@@ -237,6 +248,11 @@ If true it track the loss values, else it tracks the metric values.
         if self.cuda:
             if isinstance(self.model, nn.DataParallel):
                 self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+                # TODO: verify this is working good
+                if torch.cuda.is_available() and torch.cuda.device_count() > 1 and \
+                   self.patch_replication_callback:
+                    patch_replication_callback(self.model)
             else:
                 self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -691,9 +707,6 @@ If true it track the loss values, else it tracks the metric values.
                         if self.train_eval_chkpt and checkpoint and checkpoint(epoch):
                             batch_eval_counter += 1
                             self.save_checkpoint(float(f'{epoch}.{batch_eval_counter}'), optimizer, data_logger)
-
-                        # TODO: find out if it's better to apply the early stopping to
-                        # val_metric or val_loss. In train.py the val_metric was used...
                         if scheduler is not None:
                             # TODO: verify the replacemente function is working properly
                             LrShedulerTrack.step(self.lr_scheduler_track, scheduler, val_metric, val_loss)
@@ -709,7 +722,7 @@ If true it track the loss values, else it tracks the metric values.
             data_logger['epoch_train_metrics'].append(train_metric / train_batches)
 
             val_loss, val_metric, _ = self.validation(dataloader=self.val_loader)
-            data_logger['epoch_val_losses'].append(val_loss)
+            data_logger['epoch_val_losses'].append(val_loss.item())
             data_logger['epoch_val_metrics'].append(val_metric)
 
             logger.info(
