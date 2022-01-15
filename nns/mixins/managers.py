@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """ nns/mixins/managers """
 
-import math
 import os
 import sys
 from unittest.mock import MagicMock
@@ -23,6 +22,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
+from .settings import USE_AMP
 from nns.callbacks.metrics import MetricEvaluator
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.callbacks.plotters.masks import MaskPlotter
@@ -604,6 +604,7 @@ If true it track the loss values, else it tracks the metric values.
         global_step = 0
         step_divider = self.n_train // (self.intrain_val * self.train_dataloader_kwargs['batch_size'])
         optimizer = self.optimizer(self.model.parameters(), **self.optimizer_kwargs)
+        scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
         metric_evaluator = MetricEvaluator(self.metric_mode)
         earlystopping = EarlyStopping(**self.earlystopping_kwargs)
         early_stopped = False
@@ -651,10 +652,14 @@ If true it track the loss values, else it tracks the metric values.
                     pred, true_masks, imgs, loss, metric, labels, label_names = self.training_step(batch)
                     train_loss += loss.item()
                     train_metric += metric
+                    # FIXME: maybe optimizer.zero_grad should be after optimizer.step.....
                     optimizer.zero_grad()
-                    loss.backward(retain_graph=True)
+                    # loss.backward(retain_graph=True)
+                    scaler.scale(loss).backward(retain_graph=True)
                     nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
-                    optimizer.step()
+                    # optimizer.step()
+                    scaler.step(optimizer)
+                    scaler.update()
                     pbar.update(imgs.shape[0])
                     global_step += 1
 

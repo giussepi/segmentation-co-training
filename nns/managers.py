@@ -8,6 +8,7 @@ import torch
 from gtorch_utils.nns.managers.exceptions import ModelMGRImageChannelsError
 from torch.utils.tensorboard import SummaryWriter
 
+from settings import USE_AMP
 from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.managers import ModelMGRMixin
 
@@ -93,12 +94,14 @@ class ModelMGR(ModelMGRMixin):
         assert isinstance(apply_threshold, bool), type(apply_threshold)
 
         loss = imgs_counter = metric = 0
-        imgs, true_masks, masks_pred, labels, label_names = self.get_validation_data(batch)
 
-        if not testing:
-            loss += torch.sum(torch.stack([
-                self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
-            ]))
+        with torch.cuda.amp.autocast(enabled=USE_AMP):
+            imgs, true_masks, masks_pred, labels, label_names = self.get_validation_data(batch)
+
+            if not testing:
+                loss += torch.sum(torch.stack([
+                    self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
+                ]))
 
         # TODO: Try with masks from d5 and other decoders
         pred = masks_pred[0]  # using mask from decoder d1
@@ -229,21 +232,22 @@ class ModelMGR(ModelMGRMixin):
         # mask_type = torch.float32 if self.module.n_classes == 1 else torch.long
         # mask_type = torch.float32
         true_masks = true_masks.to(device=self.device, dtype=torch.float32)
-        masks_pred = self.model(imgs)
 
-        # NOTE: UNet_3Plus_DeepSup returns a tuple of tensor masks
-        # so if we have a tensor then we just put it inside a tuple
-        # to not break the workflow
-        masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
+        with torch.cuda.amp.autocast(enabled=USE_AMP):
+            masks_pred = self.model(imgs)
 
-        # NOTE: FOR CROSSENTROPYLOSS I SHOULD BE USING the LOGITS ....
-        # summing the losses from the outcome(s) and then backpropagating it
-        # __import__("pdb").set_trace()
-        # [torch.Size([8, 1, 270, 270]), torch.Size([8, 1, 270, 270]), torch.Size([8, 1, 268, 268]), torch.Size([8, 1, 264, 264]), torch.Size([8, 1, 256, 256])]
+            # NOTE: UNet_3Plus_DeepSup returns a tuple of tensor masks
+            # so if we have a tensor then we just put it inside a tuple
+            # to not break the workflow
+            masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
 
-        loss = torch.sum(torch.stack([
-            self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
-        ]))
+            # NOTE: FOR CROSSENTROPYLOSS I SHOULD BE USING the LOGITS ....
+            # summing the losses from the outcome(s) and then backpropagating it
+            # __import__("pdb").set_trace()
+            # [torch.Size([8, 1, 270, 270]), torch.Size([8, 1, 270, 270]), torch.Size([8, 1, 268, 268]), torch.Size([8, 1, 264, 264]), torch.Size([8, 1, 256, 256])]
+            loss = torch.sum(torch.stack([
+                self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
+            ]))
 
         # using mask from decoder d1
         # TODO: Try with masks from d5 and other decoders
@@ -273,7 +277,8 @@ class ModelMGR(ModelMGRMixin):
         assert isinstance(patch, np.ndarray), type(patch)
 
         with torch.no_grad():
-            preds = self.model(patch)
+            with torch.cuda.amp.autocast(enabled=USE_AMP):
+                preds = self.model(patch)
 
         # NOTE: UNet_3Plus_DeepSup returns a tuple of tensor masks
         # so we take the predictions from d1

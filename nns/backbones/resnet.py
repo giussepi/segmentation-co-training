@@ -11,7 +11,7 @@ import math
 import torch
 from torch import nn
 
-from .settings import BN_MOM, MODEL_URLS, DIR_CHECKPOINTS
+from .settings import BN_MOM, MODEL_URLS, DIR_CHECKPOINTS, USE_AMP
 
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
@@ -220,6 +220,7 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
+    @torch.cuda.amp.autocast(enabled=USE_AMP)
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)

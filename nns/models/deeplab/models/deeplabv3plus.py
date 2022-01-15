@@ -10,6 +10,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from nns.models.deeplab.operators import ASPP
+from nns.models.settings import USE_AMP
 from nns.backbones import resnet101
 
 
@@ -95,6 +96,7 @@ class Deeplabv3plus(nn.Module):
         if self.cfg['model_freezebn']:
             self.freeze_bn()
 
+    @torch.cuda.amp.autocast(enabled=USE_AMP)
     def forward(self, x, getf=False, interpolate=True):
         N, C, H, W = x.size()
         l1, l2, l3, l4 = self.backbone(x)

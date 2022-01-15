@@ -22,7 +22,7 @@ import math
 import torch
 from torch import nn
 
-from .settings import BN_MOM, MODEL_URLS, DIR_CHECKPOINTS
+from .settings import BN_MOM, MODEL_URLS, DIR_CHECKPOINTS, USE_AMP
 
 
 __all__ = ['Xception', 'xception']
@@ -191,6 +191,7 @@ class Xception(nn.Module):
                 m.bias.data.zero_()
         # -----------------------------
 
+    @torch.cuda.amp.autocast(enabled=USE_AMP)
     def forward(self, input):
         layers = []
         x = self.conv1(input)
