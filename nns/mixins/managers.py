@@ -652,7 +652,6 @@ If true it track the loss values, else it tracks the metric values.
                     pred, true_masks, imgs, loss, metric, labels, label_names = self.training_step(batch)
                     train_loss += loss.item()
                     train_metric += metric
-                    # FIXME: maybe optimizer.zero_grad should be after optimizer.step.....
                     optimizer.zero_grad()
                     # loss.backward(retain_graph=True)
                     scaler.scale(loss).backward(retain_graph=True)
