@@ -33,6 +33,7 @@ class CheckPointMixin:
         assert isinstance(data_logger, dict), type(data_logger)
         assert isinstance(best_chkpt, bool), type(best_chkpt)
 
+        # TODO: also save the scaler
         data = {
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
@@ -68,6 +69,7 @@ class CheckPointMixin:
         # sending model and optimizer to the right device
         self.model.to(self.device)
 
+        # TODO: also load the scaler
         for state in optimizer.state.values():
             for k, v in state.items():
                 if isinstance(v, torch.Tensor):
