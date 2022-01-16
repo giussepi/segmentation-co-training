@@ -706,6 +706,8 @@ If true it track the loss values, else it tracks the metric values.
                                 ' Saving model ...'
                             )
                             self.save()
+                            self.save_checkpoint(
+                                float(f'{epoch}.{batch_eval_counter}'), optimizer, data_logger, True)
                             best_metric = val_metric
 
                         if self.train_eval_chkpt and checkpoint and checkpoint(epoch):
