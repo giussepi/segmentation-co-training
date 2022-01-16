@@ -10,9 +10,8 @@ import logging
 
 BASE_PATH = os.getenv("HOME")
 PROJECT_PATH = os.path.join(BASE_PATH, '<path to your project>')
-# Automatic Mixed Precision
 # https://pytorch.org/tutorials/recipes/recipes/amp_recipe.html#all-together-automatic-mixed-precision
-USE_AMP = False
+USE_AMP = False  # Automatic Mixed Precision
 LOG_LEVEL = logging.INFO
 
 ###############################################################################
