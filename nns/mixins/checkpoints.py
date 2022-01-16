@@ -16,20 +16,22 @@ class CheckPointMixin:
             ...
     """
 
-    checkpoint_pattern = 'chkpt_{}.pth.tar'
+    checkpoint_pattern = '{}chkpt{}.pth.tar'
 
-    def save_checkpoint(self, epoch, optimizer, data_logger):
+    def save_checkpoint(self, epoch, optimizer, data_logger, best_chkpt=False):
         """
         Saves the model as a checkpoint for inference and/or resuming training
         Args:
             epoch                <int, float>: current epoch
             optimizer <self.optimizer>: optimizer instance
             data_logger         <dict>: dict with the tracked data (like lr, loss, metric, etc)
+            best_chkpt          <bool>: If True the prefix 'best_' will be appended to the filename
         """
-        assert isinstance(epoch, (int, float))
-        assert epoch >= 0
-        assert isinstance(optimizer, self.optimizer)
-        assert isinstance(data_logger, dict)
+        assert isinstance(epoch, (int, float)), type(epoch)
+        assert epoch >= 0, f'{epoch}'
+        assert isinstance(optimizer, self.optimizer), type(optimizer)
+        assert isinstance(data_logger, dict), type(data_logger)
+        assert isinstance(best_chkpt, bool), type(best_chkpt)
 
         data = {
             'epoch': epoch,
@@ -37,13 +39,12 @@ class CheckPointMixin:
             'optimizer_state_dict': optimizer.state_dict(),
             'data_logger': data_logger
         }
-        torch.save(
-            data,
-            os.path.join(
-                self.dir_checkpoints,
-                self.checkpoint_pattern.format(data['epoch'])
-            )
-        )
+        if best_chkpt:
+            filename = self.checkpoint_pattern.format('best_', '')
+        else:
+            filename = self.checkpoint_pattern.format('', f"_{data['epoch']}")
+
+        torch.save(data, os.path.join(self.dir_checkpoints, filename))
 
     def load_checkpoint(self, optimizer):
         """
