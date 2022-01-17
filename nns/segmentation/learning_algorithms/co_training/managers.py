@@ -186,7 +186,7 @@ class CoTraining(SubDatasetsMixin):
         #       strategy when comparing the predictions done on the original train dataset.
         #       This could be considered as a way consistency regularization
         for idx, mgr in enumerate(self.model_mgr_list, start=1):
-            logger.info(f'TRAINING MODEL {idx}: f{mgr.model.module.__class__.__name__}')
+            logger.info(f'TRAINING MODEL {idx}: {mgr.model.module.__class__.__name__}')
             mgr()
 
     def agreement(self, results):
