@@ -186,7 +186,7 @@ class CoTraining(SubDatasetsMixin):
         #       strategy when comparing the predictions done on the original train dataset.
         #       This could be considered as a way consistency regularization
         for idx, mgr in enumerate(self.model_mgr_list, start=1):
-            logger.info(f'TRAINING MODEL {idx}')
+            logger.info(f'TRAINING MODEL {idx}: f{mgr.model.module.__class__.__name__}')
             mgr()
 
     def agreement(self, results):
@@ -487,14 +487,14 @@ class CoTraining(SubDatasetsMixin):
         data = torch.load(checkpoint)['data_logger']
 
         # plotting metrics and losses
-        for idx, _ in enumerate(self.model_mgr_kwargs_list):
+        for idx, mmgr in enumerate(self.model_mgr_kwargs_list):
             TrainingPlotter(
                 train_loss=torch.as_tensor(data['train_models_losses'])[:, idx].detach().cpu().tolist(),
                 train_metric=torch.as_tensor(data['train_models_metrics'])[:, idx].detach().cpu().tolist(),
                 val_loss=torch.as_tensor(data['val_models_losses'])[:, idx].detach().cpu().tolist(),
                 val_metric=torch.as_tensor(data['val_models_metrics'])[:, idx].detach().cpu().tolist()
             )(
-                lm_title=f'Model {idx+1}: Metrics and Losses',
+                lm_title=f'Model {idx+1} ({mmgr["model"].module.__class__.__name__}): Metrics and Losses',
                 xlabel='Co-training iterations',
                 lm_ylabel='Loss and Metric',
                 lm_legend_kwargs=dict(shadow=True, fontsize=8, loc='best'),
@@ -542,7 +542,7 @@ class CoTraining(SubDatasetsMixin):
         data_logger = torch.load(checkpoint)['data_logger']
 
         # plotting metrics and losses
-        for idx, _ in enumerate(self.model_mgr_kwargs_list):
+        for idx, mmgr in enumerate(self.model_mgr_kwargs_list):
             data = [["key", "Validation", "corresponding training value"]]
             data_logger['val_models_metrics'] = torch.as_tensor(
                 data_logger['val_models_metrics']).cpu().numpy()
@@ -562,7 +562,7 @@ class CoTraining(SubDatasetsMixin):
                          f"{data_logger['val_models_losses'][min_idx, idx]:.4f}",
                          f"{data_logger['train_models_losses'][min_idx, idx]:.4f}"])
 
-            print(f'MODEL {idx+1}:')
+            print(f'MODEL {idx+1} ({mmgr["model"].module.__class__.__name__}):')
             print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
             print('\n')
 
