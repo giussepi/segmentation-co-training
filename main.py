@@ -228,7 +228,8 @@ def main():
     # model2()
 
     model3 = ModelMGR(
-        model=torch.nn.DataParallel(Deeplabv3plus(
+        model=Deeplabv3plus,
+        model_kwargs=dict(
             dict(model_aspp_outdim=256,
                  train_bn_mom=3e-4,
                  model_aspp_hasglobal=True,
@@ -239,8 +240,9 @@ def main():
                  ),
             batchnorm=get_batchnorm2d_class(settings.NUM_GPUS), backbone=xception, backbone_pretrained=True,
             dilated=True, multi_grid=False, deep_base=True
-        )),
+        ),
         cuda=True,
+        multigpus=True,
         patch_replication_callback=True,
         epochs=20,  # 20
         intrain_val=2,  # 2

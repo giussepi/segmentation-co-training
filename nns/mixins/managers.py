@@ -42,8 +42,10 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
            ...
 
         model = MyModelMGR(
-            model=UNet(n_channels=3, n_classes=10, bilinear=True),
+            model=UNet,
+            model_kwargs=dict(n_channels=3, n_classes=10, bilinear=True),
             cuda=True,
+            multigpus=True,
             patch_replication_callback=False,
             epochs=10,
             intrain_val=2,
@@ -98,19 +100,18 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
     def __init__(self, **kwargs):
         """
         Kwargs:
-            model (nn.Module, nn.DataParallel): Neuronal network instance. If going to use
-                               multiple gpus, then just wrap it with nn.DataParallel and
-                               set cuda=True; by default all the GPUs will be used. If you only want
-                               to use one GPU  then do not wrap your model with nn.DataParallel
+            model (nn.Module): Neuronal network class.
+            model_kwargs (dict): Dictionary holding the initial arguments for the model
             logits (bool): Set it to True if the model returns logits. Default False
             sigmoid (bool): If True sigmoid will be applied to NN output, else softmax.
                             Only used when logits = True. Default True
             cuda (bool): whether or not use cuda
+            multigpus <bool>: Set it to True to use several GPUS. It requires to set cuda to True.
+                              Default False
             patch_replication_callback <bool>: Whether or not to apply patch_replication_callback. It must
-                               be used only if SynchronizedBatchNorm2d has been used. Furthermore, it will
-                               only be applied when when model is an instance of nn.DataParallel,
-                               cuda = patch_replication_callback = True and there
-                               is more than one GPU available. Default = False
+                               be used only if SynchronizedBatchNorm2d has been used. Furthermore, it
+                               requires that cuda = multigpus = patch_replication_callback = True and there
+                               are multiple GPUs available. Default = False
             epochs (int): number of epochs
             intrain_val <int>: Times to interrupt the iteration over the training dataset
                                to collect statistics, perform validation and update
@@ -170,9 +171,11 @@ If true it track the loss values, else it tracks the metric values.
             plot_dir      <str>: Directory where the training plots will be saved. Default 'plots'
         """
         self.model = kwargs.get('model')
+        self.model_kwargs = kwargs.get('model_kwargs')
         self.logits = kwargs.get('logits', False)
         self.sigmoid = kwargs.get('sigmoid', True)
         self.cuda = kwargs.get('cuda', True)
+        self.multigpus = kwargs.get('multigpus', False)
         self.patch_replication_callback = kwargs.get('patch_replication_callback', False)
         self.epochs = kwargs.get('epochs', 5)
         self.intrain_val = kwargs.get('intrain_val', 10)
@@ -206,10 +209,12 @@ If true it track the loss values, else it tracks the metric values.
         self.plot_to_disk = kwargs.get('plot_to_disk', True)
         self.plot_dir = kwargs.get('plot_dir', 'plots')
 
-        assert isinstance(self.model, (nn.Module, nn.DataParallel)), type(self.model)
+        assert issubclass(self.model, nn.Module), type(self.model)
+        assert isinstance(self.model_kwargs), type(self.model_kwargs)
         assert isinstance(self.logits, bool), type(self.logits)
         assert isinstance(self.sigmoid, bool), type(self.sigmoid)
         assert isinstance(self.cuda, bool), type(self.cuda)
+        assert isinstance(self.multigpus, bool), type(self.multigpus)
         assert isinstance(self.patch_replication_callback, bool), type(self.patch_replication_callback)
         assert isinstance(self.epochs, int), type(self.epochs)
         assert isinstance(self.intrain_val, int), type(self.intrain_val)
@@ -245,7 +250,12 @@ If true it track the loss values, else it tracks the metric values.
         if self.plot_to_disk and self.plot_dir and not os.path.isdir(self.plot_dir):
             os.makedirs(self.plot_dir)
 
+        self.model = self.model(**self.model_kwargs)
+
         if self.cuda:
+            if self.multigpus:
+                self.model = nn.DataParallel(self.model)
+
             if isinstance(self.model, nn.DataParallel):
                 self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
