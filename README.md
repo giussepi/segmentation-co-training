@@ -162,9 +162,11 @@ from nns.mixins.constants import LrShedulerTrack
 logzero.loglevel(settings.LOG_LEVEL)
 
 ModelMGR(
-    model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
-    # model=UNet(n_channels=3, n_classes=1, bilinear=True),
+    model=UNet,
+	model_kwargs=dict(n_channels=3, n_classes=1, bilinear=True),
     cuda=True,
+	multigpus=True,
+	patch_replication_callback=False,
     epochs=20,
     intrain_val=2,
     optimizer=torch.optim.Adam,
@@ -183,7 +185,7 @@ ModelMGR(
         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
     },
     lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
-    # TODO: the mode can change based on the quantity monitored
+    # the mode can change based on the quantity monitored
     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
     lr_scheduler_kwargs={'mode': 'min', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
     lr_scheduler_track=LrShedulerTrack.LOSS,
@@ -193,6 +195,7 @@ ModelMGR(
     ],
     mask_threshold=0.5,
     metric=metrics.dice_coeff_metric,
+	metric_mode=MetricEvaluatorMode.MAX,
     earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
     checkpoint_interval=1,
     train_eval_chkpt=True,
