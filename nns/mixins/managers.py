@@ -210,7 +210,7 @@ If true it track the loss values, else it tracks the metric values.
         self.plot_dir = kwargs.get('plot_dir', 'plots')
 
         assert issubclass(self.model, nn.Module), type(self.model)
-        assert isinstance(self.model_kwargs), type(self.model_kwargs)
+        assert isinstance(self.model_kwargs, dict), type(self.model_kwargs)
         assert isinstance(self.logits, bool), type(self.logits)
         assert isinstance(self.sigmoid, bool), type(self.sigmoid)
         assert isinstance(self.cuda, bool), type(self.cuda)

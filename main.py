@@ -230,14 +230,13 @@ def main():
     model3 = ModelMGR(
         model=Deeplabv3plus,
         model_kwargs=dict(
-            dict(model_aspp_outdim=256,
-                 train_bn_mom=3e-4,
-                 model_aspp_hasglobal=True,
-                 model_shortcut_dim=48,
-                 model_num_classes=1,
-                 model_freezebn=False,
-                 model_channels=3
-                 ),
+            cfg=dict(model_aspp_outdim=256,
+                     train_bn_mom=3e-4,
+                     model_aspp_hasglobal=True,
+                     model_shortcut_dim=48,
+                     model_num_classes=1,
+                     model_freezebn=False,
+                     model_channels=3),
             batchnorm=get_batchnorm2d_class(settings.NUM_GPUS), backbone=xception, backbone_pretrained=True,
             dilated=True, multi_grid=False, deep_base=True
         ),
