@@ -5,5 +5,5 @@ checkpoints/
 plots/
 dataset*
 consep_dataset*
-settings.py
+/settings.py
 runs*
