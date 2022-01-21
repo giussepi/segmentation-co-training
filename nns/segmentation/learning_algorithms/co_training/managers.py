@@ -494,7 +494,7 @@ class CoTraining(SubDatasetsMixin):
                 val_loss=torch.as_tensor(data['val_models_losses'])[:, idx].detach().cpu().tolist(),
                 val_metric=torch.as_tensor(data['val_models_metrics'])[:, idx].detach().cpu().tolist()
             )(
-                lm_title=f'Model {idx+1} ({mmgr["model"].module.__class__.__name__}): Metrics and Losses',
+                lm_title=f'Model {idx+1} ({mmgr["model"].__name__}): Metrics and Losses',
                 xlabel='Co-training iterations',
                 lm_ylabel='Loss and Metric',
                 lm_legend_kwargs=dict(shadow=True, fontsize=8, loc='best'),
@@ -562,7 +562,7 @@ class CoTraining(SubDatasetsMixin):
                          f"{data_logger['val_models_losses'][min_idx, idx]:.4f}",
                          f"{data_logger['train_models_losses'][min_idx, idx]:.4f}"])
 
-            print(f'MODEL {idx+1} ({mmgr["model"].module.__class__.__name__}):')
+            print(f'MODEL {idx+1} ({mmgr["model"].__name__}):')
             print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
             print('\n')
 
