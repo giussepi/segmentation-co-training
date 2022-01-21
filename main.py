@@ -141,6 +141,7 @@ def main():
     #         'train_path': settings.CONSEP_TRAIN_PATH,
     #         'val_path': settings.CONSEP_VAL_PATH,
     #         'test_path': settings.CONSEP_TEST_PATH,
+    #         'cotraining': settings.COTRAINING,
     #     },
     #     train_dataloader_kwargs={
     #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
@@ -175,61 +176,63 @@ def main():
     # model1.print_data_logger_summary()
 
     # model2 = ModelMGR(
-    # model2 = dict(
-    #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
-    #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
-    #     model=torch.nn.DataParallel(UNet_3Plus(n_channels=3, n_classes=1,
-    #                                 is_deconv=False, init_type=UNet3InitMethod.KAIMING)),
-    #     # model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
-    #     # model=UNet(n_channels=3, n_classes=1, bilinear=True),
-    #     # logits=True, # TODO: review if it is still necessary
-    #     # sigmoid=False, # TODO: review if it is still necessary
-    #     cuda=True,
-    #     patch_replication_callback=False,
-    #     epochs=15,  # 20
-    #     intrain_val=2,  # 2
-    #     optimizer=torch.optim.Adam,
-    #     optimizer_kwargs=dict(lr=1e-3),
-    #     labels_data=BinaryCoNSeP,
-    #     dataset=OfflineCoNSePDataset,
-    #     dataset_kwargs={
-    #         'train_path': settings.CONSEP_TRAIN_PATH,
-    #         'val_path': settings.CONSEP_VAL_PATH,
-    #         'test_path': settings.CONSEP_TEST_PATH,
-    #     },
-    #     train_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
-    #     },
-    #     testval_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-    #     },
-    #     lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
-    #     # TODO: the mode can change based on the quantity monitored
-    #     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-    #     lr_scheduler_kwargs={'mode': 'min', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
-    #     lr_scheduler_track=LrShedulerTrack.LOSS,
-    #     criterions=[
-    #         torch.nn.BCEWithLogitsLoss()
-    #         # torch.nn.CrossEntropyLoss()
-    #     ],
-    #     mask_threshold=0.5,
-    #     metric=metrics.dice_coeff_metric,
-    #     metric_mode=MetricEvaluatorMode.MAX,
-    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
-    #     checkpoint_interval=0,
-    #     train_eval_chkpt=False,
-    #     ini_checkpoint='',
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp41', 'unet3_plus'),
-    #     tensorboard=False,
-    #     # TODO: there a bug that appeared once when plotting to disk after a long training
-    #     # anyway I can always plot from the checkpoints :)
-    #     plot_to_disk=False,
-    #     plot_dir=settings.PLOT_DIRECTORY
-    # )
+    model2 = dict(
+        # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
+        # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
+        model=UNet_3Plus,
+        model_kwargs=dict(n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING),
+        # model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
+        # model=UNet(n_channels=3, n_classes=1, bilinear=True),
+        # logits=True, # TODO: review if it is still necessary
+        # sigmoid=False, # TODO: review if it is still necessary
+        cuda=settings.CUDA,
+        multigpus=settings.MULTIGPUS,
+        patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+        epochs=15,  # 20
+        intrain_val=2,  # 2
+        optimizer=torch.optim.Adam,
+        optimizer_kwargs=dict(lr=1e-3),
+        labels_data=BinaryCoNSeP,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        },
+        lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+        # TODO: the mode can change based on the quantity monitored
+        # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        lr_scheduler_kwargs={'mode': 'min', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
+        lr_scheduler_track=LrShedulerTrack.LOSS,
+        criterions=[
+            torch.nn.BCEWithLogitsLoss()
+            # torch.nn.CrossEntropyLoss()
+        ],
+        mask_threshold=0.5,
+        metric=metrics.dice_coeff_metric,
+        metric_mode=MetricEvaluatorMode.MAX,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
+        checkpoint_interval=0,
+        train_eval_chkpt=False,
+        ini_checkpoint='',
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp42', 'unet3_plus'),
+        tensorboard=False,
+        # TODO: there a bug that appeared once when plotting to disk after a long training
+        # anyway I can always plot from the checkpoints :)
+        plot_to_disk=False,
+        plot_dir=settings.PLOT_DIRECTORY
+    )
     # # model2()
 
-    # model3 = dict(
-    model3 = ModelMGR(
+    # model3 = ModelMGR(
+    model3 = dict(
         model=Deeplabv3plus,
         model_kwargs=dict(
             cfg=dict(model_aspp_outdim=256,
@@ -242,9 +245,9 @@ def main():
             batchnorm=get_batchnorm2d_class(settings.NUM_GPUS), backbone=xception, backbone_pretrained=True,
             dilated=True, multi_grid=False, deep_base=True
         ),
-        cuda=True,
-        multigpus=True,
-        patch_replication_callback=True,
+        cuda=settings.CUDA,
+        multigpus=settings.MULTIGPUS,
+        patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
         epochs=20,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
@@ -255,6 +258,7 @@ def main():
             'train_path': settings.CONSEP_TRAIN_PATH,
             'val_path': settings.CONSEP_VAL_PATH,
             'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
         },
         train_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
@@ -285,42 +289,42 @@ def main():
         # anyway I can always plot from the checkpoints :)
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
-    )()
+    )
     # model3()
     # model3.print_data_logger_summary()
 
     # RuntimeError: [enforce fail at inline_container.cc:300] . unexpected pos 596530496 vs 596530392
 
-    # cot = CoTraining(
-    #     model_mgr_kwargs_list=[model2, model3],
-    #     iterations=5,
-    #     metric=metrics.dice_coeff_metric,
-    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
-    #     warm_start=dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp41'),
-    #     thresholds=dict(disagreement=(.15, .8)),  # dict(agreement=.65, disagreement=(.25, .7)),
-    #     plots_saving_path=settings.PLOT_DIRECTORY,
-    #     dataset=OfflineCoNSePDataset,
-    #     dataset_kwargs={
-    #         'train_path': settings.CONSEP_TRAIN_PATH,
-    #         'val_path': settings.CONSEP_VAL_PATH,
-    #         'test_path': settings.CONSEP_TEST_PATH,
-    #         'cotraining': True
-    #     },
-    #     train_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
-    #     },
-    #     testval_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-    #     },
-    # )
+    cot = CoTraining(
+        model_mgr_kwargs_list=[model2, model3],
+        iterations=5,
+        metric=metrics.dice_coeff_metric,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
+        warm_start=dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp42'),
+        thresholds=dict(disagreement=(.15, .8)),  # dict(agreement=.65, disagreement=(.25, .7)),
+        plots_saving_path=settings.PLOT_DIRECTORY,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        },
+    )
     # cot()
-    # cot.print_data_logger_summary(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp41', 'chkpt_4.pth.tar'))
-    # cot.plot_and_save(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp41', 'chkpt_4.pth.tar'),
-    #     save=True, show=False, dpi=300.
-    # )
+    cot.print_data_logger_summary(
+        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp42', 'chkpt_4.pth.tar'))
+    cot.plot_and_save(
+        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp42', 'chkpt_4.pth.tar'),
+        save=True, show=False, dpi=300.
+    )
 
 
 if __name__ == '__main__':
