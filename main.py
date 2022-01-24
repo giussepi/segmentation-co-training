@@ -180,15 +180,14 @@ def main():
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
         model=UNet_3Plus,
-        model_kwargs=dict(n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING),
-        # model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
-        # model=UNet(n_channels=3, n_classes=1, bilinear=True),
+        model_kwargs=dict(n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
+                          batchnorm_cls=get_batchnorm2d_class()),
         # logits=True, # TODO: review if it is still necessary
         # sigmoid=False, # TODO: review if it is still necessary
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=15,  # 20
+        epochs=20,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-3),
@@ -218,11 +217,11 @@ def main():
         mask_threshold=0.5,
         metric=metrics.dice_coeff_metric,
         metric_mode=MetricEvaluatorMode.MAX,
-        earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
         checkpoint_interval=0,
         train_eval_chkpt=False,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp42', 'unet3_plus'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'unet3_plus'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -242,7 +241,7 @@ def main():
                      model_num_classes=1,
                      model_freezebn=False,
                      model_channels=3),
-            batchnorm=get_batchnorm2d_class(settings.NUM_GPUS), backbone=xception, backbone_pretrained=True,
+            batchnorm=get_batchnorm2d_class(), backbone=xception, backbone_pretrained=True,
             dilated=True, multi_grid=False, deep_base=True
         ),
         cuda=settings.CUDA,
@@ -278,12 +277,12 @@ def main():
         mask_threshold=0.5,
         metric=metrics.dice_coeff_metric,
         metric_mode=MetricEvaluatorMode.MAX,
-        earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
         checkpoint_interval=0,
         train_eval_chkpt=False,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp42', 'deeplabv3plus_xception'),
+            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'deeplabv3plus_xception'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -301,8 +300,8 @@ def main():
         metric=metrics.dice_coeff_metric,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
         warm_start=dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp42'),
-        thresholds=dict(disagreement=(.15, .8)),  # dict(agreement=.65, disagreement=(.25, .7)),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43'),
+        thresholds=dict(disagreement=(.25, .8)),  # dict(agreement=.65, disagreement=(.25, .7)),
         plots_saving_path=settings.PLOT_DIRECTORY,
         dataset=OfflineCoNSePDataset,
         dataset_kwargs={
@@ -318,13 +317,15 @@ def main():
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
         },
     )
-    # cot()
-    cot.print_data_logger_summary(
-        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp42', 'chkpt_4.pth.tar'))
-    cot.plot_and_save(
-        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp42', 'chkpt_4.pth.tar'),
-        save=True, show=False, dpi=300.
-    )
+    cot()
+
+    # cot.print_data_logger_summary(
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'chkpt_2.pth.tar'))
+
+    # cot.plot_and_save(
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'chkpt_2.pth.tar'),
+    #     save=True, show=False, dpi=300.
+    # )
 
 
 if __name__ == '__main__':
