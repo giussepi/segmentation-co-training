@@ -259,7 +259,6 @@ If true it track the loss values, else it tracks the metric values.
             if isinstance(self.model, nn.DataParallel):
                 self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-                # TODO: verify this is working good
                 if torch.cuda.is_available() and torch.cuda.device_count() > 1 and \
                    self.patch_replication_callback:
                     patch_replication_callback(self.model)
