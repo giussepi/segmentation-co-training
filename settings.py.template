@@ -13,6 +13,10 @@ PROJECT_PATH = os.path.join(BASE_PATH, '<path to your project>')
 # https://pytorch.org/tutorials/recipes/recipes/amp_recipe.html#all-together-automatic-mixed-precision
 USE_AMP = False  # Automatic Mixed Precision
 LOG_LEVEL = logging.INFO
+CUDA = True
+MULTIGPUS = True
+PATCH_REPLICATION_CALLBACK = True
+COTRAINING = True
 
 ###############################################################################
 #                                     NNS                                     #
