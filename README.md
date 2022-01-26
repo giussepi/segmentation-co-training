@@ -406,7 +406,11 @@ Currently, this implementation only support two models for the binary case
 ### Cotraining tools
 
 #### ExpandPrediction
-Use this class to post-process the cotraining masks between iterations. This class intersects the cotraining results with the combined predicted masks, from both models using the `postprocessing_threshold`; and returns masks containing the hole predicted areas for each intersection. The intuition of this tool is the folowing: if we are working with the disagreement strategy, the disagreement new areas in the training mask can be tiny, making the learning process hard because a few pixels are not going to provide too much information. In this sense, the `ExpandPrediction` class will return the whole combined prediced areas (based on `postprocessing_threshold`) that are intersected by those disagreement pixels. Thus, the new cotraining masks will have new and wider areas/annotations which contains at least one disagreement pixel. Some examples are shown below: (in all cases the images from lef to right are Combined predictions mask, disagreement mask, expanded disagreement mask.
+Use this class to post-process the cotraining masks between iterations. This class intersects the cotraining results with the combined predicted masks, from both models using the `postprocessing_threshold`; and returns masks containing the hole predicted areas for each intersection. The intuition behind this tool is the folowing: if we are working with the disagreement strategy, the disagreement new areas in the training mask can be tiny, making the learning process hard because a few pixels are not going to provide too much information. In this sense, the `ExpandPrediction` class will return the whole combined prediced areas (based on `postprocessing_threshold`) that are intersected by those disagreement pixels. Thus, the new cotraining masks will have new and wider areas/annotations which contains at least one disagreement pixel.
+
+This class can be used along with the `CoTraining` class as shown in the second point of the Co-Training sections [link](https://github.com/giussepi/segmentation-co-training#run-co-training-algorithm) and separately (and example is shown in subsequent paragraphs). When used in the CoTraining class the combined predictions and disagreement/agreement/self-combined masks are merged with the current ground truth mask. This is part of the integration with the co-training training algorithm.
+
+Some examples are shown below: (in all cases the images from lef to right are Combined predictions mask, disagreement mask, expanded disagreement mask.
 
 1. Expanding a few disagreement pixels
 
@@ -449,7 +453,8 @@ Use this class to post-process the cotraining masks between iterations. This cla
     plt.show()
 
 	```
-2. No disagreement pixels. In this case the combined predictions and the disagreement predictions have been merged with the training ground truth mask. This is the default behaviour when used along with the `CoTraining` class.
+2. No disagreement pixels. In this case the combined predictions and the disagreement predictions have been merged with the training ground truth mask.
+
    <img src="imgs/ExpandPrediction/1_gt_preds.png" width="30%" title="Combined predictions"><img src="imgs/ExpandPrediction/2_gt_subpreds.png" width="30%" title="Disagreement mask"/><img src="imgs/ExpandPrediction/3_expanded_pred.png" width="30%" title="Expanded disagreement mask"/>
 
 3. Regions not coverd by the disagreemet mask are removed. We hope this will reduce the number of False Positives.
