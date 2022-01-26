@@ -24,6 +24,16 @@ The main rule is running everything from the `main.py`
 
 ### Running the TensorBoard
 
+1. Make `run_tests.sh` executable:
+
+	`chmod +x run_tests.sh`
+
+2. Execute it
+
+	`./run_tests.sh`
+
+### Running tests
+
 1. Make `run_tensorboard.sh` executable:
 
 	`chmod +x run_tensorboard.sh`
@@ -31,8 +41,6 @@ The main rule is running everything from the `main.py`
 2. Execute it
 
 	`./run_tensorboard.sh`
-
-3. Open your browser and go to [http://localhost:6006/](http://localhost:6006/)
 
 
 ### Debugging
@@ -226,6 +234,239 @@ The summary will be a table like this one
 | Max LR      |              |                         0.001  |
 | Min LR      |              |                         1e-07  |
 
+### Run Co-Training algorithm
+Currently, this implementation only support two models for the binary case
+
+1. Define two dictionaries, one per each model,  containined all the data to be used by the `ModelMGR`
+
+   ``` python
+    import os
+
+    import torch
+    from gtorch_utils.nns.models.segmentation import UNet_3Plus
+    from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
+    from gtorch_utils.segmentation import metrics
+
+    import settings
+    from consep.dataloaders import OfflineCoNSePDataset
+    from consep.datasets.constants import BinaryCoNSeP
+    from nns.backbones import xception
+    from nns.callbacks.metrics.constants import MetricEvaluatorMode
+    from nns.mixins.constants import LrShedulerTrack
+    from nns.models import Deeplabv3plus
+    from nns.segmentation.learning_algorithms import CoTraining
+    from nns.segmentation.utils.postprocessing import ExpandPrediction
+    from nns.utils.sync_batchnorm import get_batchnorm2d_class
+
+
+    model1 = dict(
+        model=UNet_3Plus,
+        model_kwargs=dict(n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
+                          batchnorm_cls=get_batchnorm2d_class()),
+        cuda=settings.CUDA,
+        multigpus=settings.MULTIGPUS,
+        patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+        epochs=20,  # 20
+        intrain_val=2,  # 2
+        optimizer=torch.optim.Adam,
+        optimizer_kwargs=dict(lr=1e-3),
+        labels_data=BinaryCoNSeP,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        },
+        lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
+        lr_scheduler_kwargs={'mode': 'min', 'patience': 2},
+        lr_scheduler_track=LrShedulerTrack.LOSS,
+        criterions=[
+            torch.nn.BCEWithLogitsLoss()
+        ],
+        mask_threshold=0.5,
+        metric=metrics.dice_coeff_metric,
+        metric_mode=MetricEvaluatorMode.MAX,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+        checkpoint_interval=0,
+        train_eval_chkpt=False,
+        ini_checkpoint='',
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'unet3_plus'),
+        tensorboard=False,
+        plot_to_disk=False,
+        plot_dir=settings.PLOT_DIRECTORY
+    )
+
+    model2 = dict(
+        model=Deeplabv3plus,
+        model_kwargs=dict(
+            cfg=dict(model_aspp_outdim=256,
+                     train_bn_mom=3e-4,
+                     model_aspp_hasglobal=True,
+                     model_shortcut_dim=48,
+                     model_num_classes=1,
+                     model_freezebn=False,
+                     model_channels=3),
+            batchnorm=get_batchnorm2d_class(), backbone=xception, backbone_pretrained=True,
+            dilated=True, multi_grid=False, deep_base=True
+        ),
+        cuda=settings.CUDA,
+        multigpus=settings.MULTIGPUS,
+        patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+        epochs=20,  # 20
+        intrain_val=2,  # 2
+        optimizer=torch.optim.Adam,
+        optimizer_kwargs=dict(lr=1e-3),
+        labels_data=BinaryCoNSeP,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        },
+        lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,
+        lr_scheduler_kwargs={'mode': 'min', 'patience': 2},
+        lr_scheduler_track=LrShedulerTrack.LOSS,
+        criterions=[
+            torch.nn.BCEWithLogitsLoss()
+        ],
+        mask_threshold=0.5,
+        metric=metrics.dice_coeff_metric,
+        metric_mode=MetricEvaluatorMode.MAX,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+        checkpoint_interval=0,
+        train_eval_chkpt=False,
+        ini_checkpoint='',
+        dir_checkpoints=os.path.join(
+            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'deeplabv3plus_xception'),
+        tensorboard=False,
+        plot_to_disk=False,
+        plot_dir=settings.PLOT_DIRECTORY
+    )
+   ```
+
+2. Define and execute your `CoTraining` instance
+
+   ``` python
+    cot = CoTraining(
+        model_mgr_kwargs_list=[model2, model3],
+        iterations=5,
+        metric=metrics.dice_coeff_metric,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
+        warm_start=dict(lamda=.0, sigma=.0),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43'),
+        thresholds=dict(disagreement=(.25, .8)),
+        plots_saving_path=settings.PLOT_DIRECTORY,
+        mask_postprocessing=[
+            ExpandPrediction(),
+        ],
+        postprocessing_threshold=.5,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        }
+    )
+    cot()
+   ```
+
+3. Print a summary of the data logger and a line chart of each model and their combined results
+
+   ``` python
+    cot.print_data_logger_summary(
+        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'chkpt_2.pth.tar'))
+
+    cot.plot_and_save(
+        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'chkpt_2.pth.tar'),
+        save=True, show=False, dpi=300.
+    )
+   ```
+
+### Cotraining tools
+
+#### ExpandPrediction
+Use this class to post-process the cotraining masks between iterations. This class intersects the cotraining results with the combined predicted masks, from both models using the `postprocessing_threshold`; and returns masks containing the hole predicted areas for each intersection. The intuition of this tool is the folowing: if we are working with the disagreement strategy, the disagreement new areas in the training mask can be tiny, making the learning process hard because a few pixels are not going to provide too much information. In this sense, the `ExpandPrediction` class will return the whole combined prediced areas (based on `postprocessing_threshold`) that are intersected by those disagreement pixels. Thus, the new cotraining masks will have new and wider areas/annotations which contains at least one disagreement pixel. Some examples are shown below: (in all cases the images from lef to right are Combined predictions mask, disagreement mask, expanded disagreement mask.
+
+1. Expanding a few disagreement pixels
+
+	<img src="imgs/ExpandPrediction/1.mask.png" width="30%" title="Combined predictions"><img src="imgs/ExpandPrediction/1.sub_mask.png" width="30%" title="Disagreement mask"/><img src="imgs/ExpandPrediction/1.sub_mask_expanded.png" width="30%" title="Expanded disagreement mask"/>
+
+	The code to test it:
+
+	``` python
+    import numpy as np
+    import torch
+
+    import matplotlib.pyplot as plt
+    from PIL import Image
+
+    from nns.segmentation.utils.postprocessing import ExpandPrediction
+
+
+    pred = Image.open('imgs/ExpandPrediction/1.mask.png')
+    subpred = Image.open('imgs/ExpandPrediction/1.sub_mask.png')
+
+    pred = np.array(pred.convert('L')) if pred.mode != 'L' else np.array(pred)
+    subpred = np.array(subpred.convert('L')) if subpred.mode != 'L' else np.array(subpred)
+
+    pred_mask = np.zeros((*pred.shape[:2], 1), dtype=np.float32)
+    pred_mask[..., 0] = (pred == 255).astype(np.float32)
+    pred_mask = pred_mask.transpose(2, 0, 1)
+
+    subpred_mask = np.zeros((*subpred.shape[:2], 1), dtype=np.float32)
+    subpred_mask[..., 0] = (subpred == 255).astype(np.float32)
+    subpred_mask = subpred_mask.transpose(2, 0, 1)
+
+
+    expanded_subpred = ExpandPrediction()(
+        torch.from_numpy(pred_mask.squeeze()),
+        torch.from_numpy(subpred_mask.squeeze())
+    )
+
+    plt.imshow(expanded_subpred.numpy(), cmap='gray')
+    # plt.savefig('expanded_subpred.png')
+    plt.show()
+
+	```
+2. No disagreement pixels. In this case the combined predictions and the disagreement predictions have been merged with the training ground truth mask. This is the default behaviour when used along with the `CoTraining` class.
+   <img src="imgs/ExpandPrediction/1_gt_preds.png" width="30%" title="Combined predictions"><img src="imgs/ExpandPrediction/2_gt_subpreds.png" width="30%" title="Disagreement mask"/><img src="imgs/ExpandPrediction/3_expanded_pred.png" width="30%" title="Expanded disagreement mask"/>
+
+3. Regions not coverd by the disagreemet mask are removed. We hope this will reduce the number of False Positives.
+
+   <img src="imgs/ExpandPrediction/4_gt_preds.png" width="30%" title="Combined predictions"><img src="imgs/ExpandPrediction/5_gt_subpreds.png" width="30%" title="Disagreement mask"/><img src="imgs/ExpandPrediction/6_expanded_subpreds.png" width="30%" title="Expanded disagreement mask"/>
+
+4. When there is nothing in the disagreement mask nothing the new mas will be empty too.
+
+   <img src="imgs/ExpandPrediction/7_gt_preds.png" width="30%" title="Combined predictions"><img src="imgs/ExpandPrediction/8_gt_subpreds.png" width="30%" title="Disagreement mask"/><img src="imgs/ExpandPrediction/9_exp_subpreds.png" width="30%" title="Expanded disagreement mask"/>
+
+5. The disagreement not just helps expanding the disagreement pixels, it also expands a bit the ground thruth areas.
+
+   <img src="imgs/ExpandPrediction/10_gt_cpred.png" width="30%" title="Combined predictions"><img src="imgs/ExpandPrediction/11_gt_subpreds.png" width="30%" title="Disagreement mask"/><img src="imgs/ExpandPrediction/12_exp_subpreds.png" width="30%" title="Expanded disagreement mask"/>
+
+6. Another examples of how it helps to reduce, theoretically, bad predictions (false positives)
+
+   <img src="imgs/ExpandPrediction/13_cpreds.png" width="30%" title="Combined predictions"><img src="imgs/ExpandPrediction/14_gt_subpreds.png" width="30%" title="Disagreement mask"/><img src="imgs/ExpandPrediction/15_exp_subpreds.png" width="30%" title="Expanded disagreement mask"/>
 
 ## LOGGING
 This application is using [logzero](https://logzero.readthedocs.io/en/latest/). Thus, some functionalities can print extra data. To enable this just open your `settings.py` and set `DEBUG = True`. By default, the log level is set to [logging.INFO](https://docs.python.org/2/library/logging.html#logging-levels).

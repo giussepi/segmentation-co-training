@@ -2,9 +2,9 @@
 """ main """
 
 import glob
-import logzero
 import os
 
+import logzero
 import numpy as np
 import torch
 from gtorch_utils.constants import DB
