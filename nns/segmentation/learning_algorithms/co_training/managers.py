@@ -5,8 +5,8 @@ import os
 import copy
 import subprocess
 
-import torch
 import numpy as np
+import torch
 from gutils.decorators import timing
 from gtorch_utils.nns.managers.callbacks import EarlyStopping
 from gtorch_utils.segmentation import metrics
@@ -51,6 +51,11 @@ class CoTraining(SubDatasetsMixin):
                                           dict(selfcombined=.9). Default dict(disagreement=(.2, .8))
             cot_mask_extension     <str>: co-traning mask extension. Default '.cot.mask.png'
             plots_saving_path      <str>: Path to the folder used to save the plots. Default 'plots'
+            mask_postprocessing   <list>: List of callables to be applied to the new cotraining mask before
+                                          being saved. Default []
+            postprocessing_threshold <float>: Threshold used to created the combined mask predictions used
+                                          during the mask postprocessing (See the get_combined_predictions
+                                          method). Default .5
             ###################################################################
             #                         SubDatasetsMixin                        #
             ###################################################################
@@ -71,6 +76,8 @@ class CoTraining(SubDatasetsMixin):
         self.thresholds = kwargs.get('thresholds', dict(disagreement=(.2, .8)))
         self.cot_mask_extension = kwargs.get('cot_mask_extension', '.cot.mask.png')
         self.plots_saving_path = kwargs.get('plots_saving_path', 'plots')
+        self.mask_postprocessing = kwargs.get('mask_postprocessing', [])
+        self.postprocessing_threshold = kwargs.get('postprocessing_threshold', .5)
 
         assert isinstance(self.model_mgr_kwargs_list, (list, tuple)), type(self.model_mgr_kwargs_list)
         assert len(self.model_mgr_kwargs_list) == 2,  'len(self.model_mgr_kwargs_list) != 2'
@@ -97,6 +104,13 @@ class CoTraining(SubDatasetsMixin):
                 f'{self.thresholds["disagreement"][0]} must be lower than {self.thresholds["disagreement"][1]}'
         assert isinstance(self.cot_mask_extension, str), type(self.cot_mask_extension)
         assert self.cot_mask_extension != '', 'cot_mask_extension cannot be an empty string'
+        assert isinstance(self.plots_saving_path, str), type(self.plots_saving_path)
+        assert isinstance(self.mask_postprocessing, list), type(self.mask_postprocessing)
+
+        for postprocessing in self.mask_postprocessing:
+            assert callable(postprocessing), f'{postprocessing} is not a callable'
+
+        assert isinstance(self.postprocessing_threshold, float), type(self.postprocessing_threshold)
 
         self.init_SubDatasetsMixin(**kwargs)
         self.model_mgr_list = []
@@ -264,6 +278,24 @@ class CoTraining(SubDatasetsMixin):
 
         return new_mask_values
 
+    def get_combined_predictions(self, results):
+        """
+        Calculates new mask values from each model using self-combined strategy with
+        a used-defined threshold. These masks are intended for mask postprocessing purposes
+
+        Kwargs:
+            results <list>: List of mask predicted by the models
+
+        Returns:
+            combined_preds <torch.Tensor>
+        """
+        assert isinstance(results, list), type(results)
+
+        new_mask_values_from_model_1 = (results[0] > self.postprocessing_threshold).float()
+        new_mask_values_from_model_2 = (results[1] > self.postprocessing_threshold).float()
+
+        return new_mask_values_from_model_1.max(new_mask_values_from_model_2)
+
     def strategy(self):
         """
         Performs the strategy to update/create the co-training ground truth masks
@@ -310,10 +342,20 @@ class CoTraining(SubDatasetsMixin):
             # creating new masks contatenating true masks with the new mask values selected
             # by the especified strategies
             new_masks = true_masks.max(self.get_new_mask_values(results))
+            # creating new combined pred masks (for mask post-processing)
+            combined_pred_masks = true_masks.max(self.get_combined_predictions(results))
             new_masks_metric += self.metric(new_masks, true_masks).item()
 
-            for new_mask, mask_path in zip(new_masks, batch['updated_mask_path']):
-                new_mask = Image.fromarray(new_mask.squeeze().detach().cpu().numpy() * 255).convert('L')
+            # postprocessing and saving the new masks
+            for new_mask, mask_path, c_pred in zip(new_masks, batch['updated_mask_path'], combined_pred_masks):
+                new_mask = new_mask.squeeze().detach().cpu()
+                c_pred = c_pred.squeeze().detach().cpu()
+
+                # applying all the mask postprocessing algorithms in an incremental way
+                for postprocessing in self.mask_postprocessing:
+                    new_mask = postprocessing(c_pred, new_mask)
+
+                new_mask = Image.fromarray(new_mask.numpy() * 255).convert('L')
                 new_mask.save(mask_path)
 
         for idx in range(len(self.model_mgr_list)):

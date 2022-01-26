@@ -26,6 +26,7 @@ from nns.managers import ModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus
 from nns.segmentation.learning_algorithms import CoTraining
+from nns.segmentation.utils.postprocessing import ExpandPrediction
 from nns.utils.sync_batchnorm import get_batchnorm2d_class
 
 
@@ -303,6 +304,10 @@ def main():
         dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43'),
         thresholds=dict(disagreement=(.25, .8)),  # dict(agreement=.65, disagreement=(.25, .7)),
         plots_saving_path=settings.PLOT_DIRECTORY,
+        mask_postprocessing=[
+            ExpandPrediction(),
+        ],
+        postprocessing_threshold=.5,
         dataset=OfflineCoNSePDataset,
         dataset_kwargs={
             'train_path': settings.CONSEP_TRAIN_PATH,
@@ -315,7 +320,7 @@ def main():
         },
         testval_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-        },
+        }
     )
     cot()
 
