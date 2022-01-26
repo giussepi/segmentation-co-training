@@ -410,11 +410,11 @@ Use this class to post-process the cotraining masks between iterations. This cla
 
 This class can be used along with the `CoTraining` class as shown in the second point of the Co-Training sections [link](https://github.com/giussepi/segmentation-co-training#run-co-training-algorithm) and separately (and example is shown in subsequent paragraphs). When used in the CoTraining class the combined predictions and disagreement/agreement/self-combined masks are merged with the current ground truth mask. This is part of the integration with the co-training training algorithm.
 
-Some examples are shown below: (in all cases the images from lef to right are Combined predictions mask, disagreement mask, expanded disagreement mask.
+Some examples are shown below: (In most of the cases the images from left to right are the combined predictions mask, disagreement mask and expanded disagreement mask.)
 
-1. Expanding a few disagreement pixels
+1. Expanding a few disagreement pixels. In this case, the image in the left is the ground thruth mask, the one in the middle is the disagreement mask, and the last one if the expanded disagreement mask.
 
-	<img src="imgs/ExpandPrediction/1.mask.png" width="30%" title="Combined predictions"><img src="imgs/ExpandPrediction/1.sub_mask.png" width="30%" title="Disagreement mask"/><img src="imgs/ExpandPrediction/1.sub_mask_expanded.png" width="30%" title="Expanded disagreement mask"/>
+	<img src="imgs/ExpandPrediction/1.mask.png" width="30%" title="Ground truth"><img src="imgs/ExpandPrediction/1.sub_mask.png" width="30%" title="Disagreement mask"/><img src="imgs/ExpandPrediction/1.sub_mask_expanded.png" width="30%" title="Expanded disagreement mask"/>
 
 	The code to test it:
 
