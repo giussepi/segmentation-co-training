@@ -301,6 +301,7 @@ def main():
         metric=metrics.dice_coeff_metric,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
         warm_start=dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
+        overall_best_models=False,
         dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43'),
         thresholds=dict(disagreement=(.25, .8)),  # dict(agreement=.65, disagreement=(.25, .7)),
         plots_saving_path=settings.PLOT_DIRECTORY,

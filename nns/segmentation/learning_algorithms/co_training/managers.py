@@ -45,6 +45,11 @@ class CoTraining(SubDatasetsMixin):
             warm_start      <dict, None>: Configuration of the warm start. Set it to a dict full of zeroes to
                                           only load the weights (e.g. {'lamda': .0, 'sigma': .0}).
                                           Set it to None to not perform warm start. Default None.
+            overall_best_models   <bool>: Set to True to always load the overall best models during the
+                                          cotraining operations (when using warm start and right after training
+                                          ; thus, the best overall models are used instead of the iteration best
+                                          models). If False, the best models in each iteration are employed.
+                                          Default False
             dir_checkpoints        <str>: path to the directory where checkpoints will be saved
             thresholds            <dict>: Dictionary containing as keys the strategies to apply, and as values
                                           their thresholds. E.g. dict(agreement=.9, disagreement=(.2, .8)) or
@@ -72,6 +77,7 @@ class CoTraining(SubDatasetsMixin):
         self.metric = kwargs.get('metric', metrics.dice_coeff_metric)
         self.earlystopping_kwargs = kwargs.get('earlystopping_kwargs', dict(min_delta=1e-3, patience=2))
         self.warm_start = kwargs.get('warm_start', None)
+        self.overall_best_models = kwargs.get('overall_best_models', False)
         self.dir_checkpoints = kwargs.get('dir_checkpoints', 'checkpoints')
         self.thresholds = kwargs.get('thresholds', dict(disagreement=(.2, .8)))
         self.cot_mask_extension = kwargs.get('cot_mask_extension', '.cot.mask.png')
@@ -91,6 +97,7 @@ class CoTraining(SubDatasetsMixin):
         assert isinstance(self.earlystopping_kwargs, dict), type(self.earlystopping_kwargs)
         if self.warm_start is not None:
             assert isinstance(self.warm_start, dict), type(self.warm_start)
+        assert isinstance(self.overall_best_models, bool), type(self.overall_best_models)
         assert isinstance(self.dir_checkpoints, str), type(self.dir_checkpoints)
         if not os.path.isdir(self.dir_checkpoints):
             os.makedirs(self.dir_checkpoints)
@@ -145,25 +152,30 @@ class CoTraining(SubDatasetsMixin):
                 if sigma:
                     param.data += torch.normal(0.0, sigma, size=param.shape).to(modelmgr.device)
 
-    def create_model_mgr_list(self):
+    def create_model_mgr_list(self, data_logger):
         """
         Deletes old ModelMGR instances from self.model_mgr_list and realeases the GPU cache,
         then creates new instances of ModelMGR and place them into self.model_mgr_list.
         If a warm_start configuration has been provided, it is applied.
+
+        Kwargs:
+            data_logger <dict>: dict containing the tracked data
         """
+        assert isinstance(data_logger, dict), type(data_logger)
+
         # print(torch.cuda.memory_allocated(), torch.cuda.memory_reserved())
         self.model_mgr_list.clear()
         torch.cuda.empty_cache()
         # print(torch.cuda.memory_allocated(), torch.cuda.memory_reserved())
 
-        for kwargs in self.model_mgr_kwargs_list:
+        for kwargs, best_model in zip(self.model_mgr_kwargs_list, self.get_current_best_models(data_logger)):
             model_mgr = ModelMGR(**copy.deepcopy(kwargs))
 
             if self.warm_start is not None:
                 # workaround to avoid errors in the very first iteration where no best models
                 # weights exists yet
                 try:
-                    model_mgr.load()
+                    model_mgr.load(best_model)
                 except AssertionError:
                     pass
                 else:
@@ -188,10 +200,17 @@ class CoTraining(SubDatasetsMixin):
         for model_mgr in self.model_mgr_list:
             model_mgr.model.train()
 
-    def load_best_models(self):
-        """ Load the best models only for inference """
-        for model_mgr in self.model_mgr_list:
-            model_mgr.load()
+    def load_best_models(self, data_logger):
+        """
+        Load the best models only for inference
+
+        Kwargs:
+            data_logger <dict>: dict containing the tracked data
+        """
+        assert isinstance(data_logger, dict), type(data_logger)
+
+        for model_mgr, best_model in zip(self.model_mgr_list, self.get_current_best_models(data_logger)):
+            model_mgr.load(best_model)
 
     def train_models(self):
         """ Trains the models """
@@ -428,9 +447,48 @@ class CoTraining(SubDatasetsMixin):
                 models_metrics, start=1)])
         )
 
+    def get_current_best_models(self, data_logger):
+        """
+        Finds and returns the overall best state dicts of the models. If it is the very first
+        iteration or self.overall_best_models is False, it returns a list of emtpy strings
+
+        Kwargs:
+            data_logger <dict>: dict containing the tracked data
+
+        Returns:
+            [state_dict<OrderedDict>, state_dict<OrderedDict>, ...] or ['', '', ...]
+        """
+        assert isinstance(data_logger, dict), type(data_logger)
+
+        val_models_metrics = np.array(data_logger['val_models_metrics'])
+
+        if not self.overall_best_models or not val_models_metrics.size:
+            return [''] * len(self.model_mgr_kwargs_list)
+
+        best_models = []
+
+        for model_idx, _ in enumerate(self.model_mgr_kwargs_list):
+            best_cot_iter = val_models_metrics[:, model_idx].argmax()
+
+            # Verifying if the current models are the best ones
+            # but first asking if the all the ModelMGR instances have been already created
+            if len(self.model_mgr_list) == len(self.model_mgr_kwargs_list):
+                best_chkpt_data = self.model_mgr_list[model_idx].get_best_checkpoint_data()
+                model_best_metric = max(best_chkpt_data['data_logger']['val_metric'])
+
+                if model_best_metric > val_models_metrics[:, model_idx][best_cot_iter]:
+                    best_models.append(best_chkpt_data.pop('model_state_dict'))
+                    continue
+
+            # getting best models from cotraining iterations checkpoints
+            data = torch.load(os.path.join(self.dir_checkpoints, self.checkpoint_pattern.format(best_cot_iter)))
+            best_models.append(data.pop(f'model{model_idx+1}'))
+
+        return best_models
+
     def save(self, iteration, data_logger):
         """
-        Saves data logger and best models in the current iteration
+        Saves data logger and models from the current iteration
 
         Kwargs:
             iteration    <int>: iteration number
@@ -468,9 +526,9 @@ class CoTraining(SubDatasetsMixin):
         for i in range(self.iterations):
             logger.info(f'CO-TRAINING: ITERATION {i+1}')
 
-            self.create_model_mgr_list()
+            self.create_model_mgr_list(data_logger)
             self.train_models()
-            self.load_best_models()
+            self.load_best_models(data_logger)
 
             new_masks_metric, combined_preds_metric, models_metrics, models_losses = self.strategy()
             data_logger['train_new_masks_metric'].append(new_masks_metric)
