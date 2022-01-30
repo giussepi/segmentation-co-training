@@ -145,7 +145,7 @@ class CoTraining(SubDatasetsMixin):
         if lamda == sigma == .0:
             return
 
-        for (name, param) in modelmgr.model.named_parameters():
+        for (name, param) in modelmgr.module.named_parameters():
             if 'weight' in name:
                 if lamda:
                     param.data *= lamda
@@ -193,12 +193,12 @@ class CoTraining(SubDatasetsMixin):
     def set_models_to_eval_mode(self):
         """ Sets the models to eval mode """
         for model_mgr in self.model_mgr_list:
-            model_mgr.model.eval()
+            model_mgr.module.eval()
 
     def set_models_to_train_mode(self):
         """ Sets the models to train mode """
         for model_mgr in self.model_mgr_list:
-            model_mgr.model.train()
+            model_mgr.module.train()
 
     def load_best_models(self, data_logger):
         """
@@ -219,7 +219,7 @@ class CoTraining(SubDatasetsMixin):
         #       strategy when comparing the predictions done on the original train dataset.
         #       This could be considered as a way consistency regularization
         for idx, mgr in enumerate(self.model_mgr_list, start=1):
-            logger.info(f'TRAINING MODEL {idx}: {mgr.model.module.__class__.__name__}')
+            logger.info(f'TRAINING MODEL {idx}: {mgr.module.__class__.__name__}')
             mgr()
 
     def agreement(self, results):
@@ -500,8 +500,8 @@ class CoTraining(SubDatasetsMixin):
         data = dict(
             iteration=iteration,
             data_logger=data_logger,
-            model1=self.model_mgr_list[0].model.state_dict(),
-            model2=self.model_mgr_list[1].model.state_dict()
+            model1=self.model_mgr_list[0].module.state_dict(),
+            model2=self.model_mgr_list[1].module.state_dict()
         )
 
         torch.save(
