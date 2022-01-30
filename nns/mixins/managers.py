@@ -115,8 +115,7 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
             epochs (int): number of epochs
             intrain_val <int>: Times to interrupt the iteration over the training dataset
                                to collect statistics, perform validation and update
-                               the learning rate. The equation is:
-                               global_step % (n_train // (intrain_val * batch_size)) == 0
+                               the learning rate. Default 10
             optimizer: optimizer class from torch.optim
             optimizer_kwargs: optimizer keyword arguments
             labels_data <object>: class containing all the details of the classes/labels. See
@@ -218,6 +217,7 @@ If true it track the loss values, else it tracks the metric values.
         assert isinstance(self.patch_replication_callback, bool), type(self.patch_replication_callback)
         assert isinstance(self.epochs, int), type(self.epochs)
         assert isinstance(self.intrain_val, int), type(self.intrain_val)
+        assert self.intrain_val >= 1, self.intrain_val
         assert isinstance(self.optimizer_kwargs, dict), type(self.optimizer_kwargs)
         assert isinstance(self.lr_scheduler_kwargs, dict), type(self.lr_scheduler_kwargs)
         LrShedulerTrack.validate(self.lr_scheduler_track)
