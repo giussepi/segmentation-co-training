@@ -363,7 +363,7 @@ If true it track the loss values, else it tracks the metric values.
             batch <dict>: Dictionary contaning batch data
 
         Returns:
-            imgs<torch.tensor>, true_masks<torch.tensor>, masks_pred<tuple of torch.Tensors>, labels<list>, label_names<list>
+            imgs<torch.Tensor>, true_masks<torch.Tensor>, masks_pred<tuple of torch.Tensors>, labels<list>, label_names<list>
         """
         # Example #############################################################
         # assert isinstance(batch, dict)
@@ -802,12 +802,12 @@ If true it track the loss values, else it tracks the metric values.
         Returns the prediction of the patch
 
         Args:
-            patch <np.ndarray>: patch cropped from the input image
+            patch <torch.Tensor>: patch cropped from the input image
         Returns:
-            preds_plus_bg <torch.tensor>
+            preds_plus_bg <torch.Tensor>
         """
         # Example #############################################################
-        # assert isinstance(patch, np.ndarray), type(patch)
+        # assert isinstance(patch, torch.Tensor), type(patch)
 
         # with torch.no_grad():
         #     preds = self.model(patch)
@@ -832,7 +832,7 @@ If true it track the loss values, else it tracks the metric values.
         raise NotImplementedError("predict_step not implemented.")
 
     @timing
-    def predict(self, **kwargs):
+    def predict(self, image_path, read_image=None, /, **kwargs):
         """
         Calculates the masks predictions of the image and saves the outcome as a PNG file
 
@@ -850,7 +850,7 @@ If true it track the loss values, else it tracks the metric values.
                                      furthermore, only the 50% of the overlapping is used to create
                                      final mask. This is necessary to remove inconsistent mask borders
                                      between patches. Default 240
-            level             <int>: image magnification level. Default 2
+            level             <int>: Image magnification level (when using OpenSlide). Default 2
             alpha           <float>: alpha channel value used when superimposing the mask. Default 0.9
             superimpose      <bool>: If True the superimposed mask is saved, else only the predicted mask.
                                      Default True
@@ -862,8 +862,6 @@ If true it track the loss values, else it tracks the metric values.
             remove_bg_kwargs <dict>: Dictionary of arguments to initialize RemoveBG. It is only used when
                                      postprocess_mask = True. Default {}
         """
-        image_path = kwargs.get('image_path')
-        read_image = kwargs.get('read_image', None)
         preprocess_image = kwargs.get('preprocess_image', self.basic_preprocess)
         patch_size = kwargs.get('patch_size', 640)
         patch_overlapping = kwargs.get('patch_overlapping', 240)
