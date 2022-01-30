@@ -3,7 +3,6 @@
 
 from unittest.mock import MagicMock
 
-import numpy as np
 import torch
 from gtorch_utils.nns.managers.exceptions import ModelMGRImageChannelsError
 from torch.utils.tensorboard import SummaryWriter
@@ -283,8 +282,7 @@ class ModelMGR(ModelMGRMixin):
 
         # adding an extra class full of zeros to represent anything else than the
         # defined classes like background or any other not identified thing
-        preds_plus_bg = torch.cat([
-            torch.zeros((1, *preds.shape[1:])), preds.cpu()], dim=0)
+        preds_plus_bg = torch.cat([torch.zeros((1, *preds.shape[1:])), preds.cpu()], dim=0)
         preds_plus_bg[preds_plus_bg <= self.mask_threshold] = 0
         # preds_plus_bg[preds_plus_bg <= 0] = 0
         preds_plus_bg = torch.argmax(preds_plus_bg, dim=0)
