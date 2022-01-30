@@ -24,7 +24,7 @@ class ModelMGR(ModelMGRMixin):
             batch <dict>: Dictionary contaning batch data
 
         Returns:
-            imgs<torch.tensor>, true_masks<torch.tensor>, masks_pred<tuple of torch.Tensors>, labels<list>, label_names<list>
+            imgs<torch.Tensor>, true_masks<torch.Tensor>, masks_pred<tuple of torch.Tensors>, labels<list>, label_names<list>
         """
         assert isinstance(batch, dict)
         assert len(batch) > 0, 'the provided batch is empty'
@@ -264,11 +264,11 @@ class ModelMGR(ModelMGRMixin):
         Returns the prediction of the patch
 
         Args:
-            patch <np.ndarray>: patch cropped from the input image
+            patch <torch.Tensor>: patch cropped from the input image
         Returns:
-            preds_plus_bg <torch.tensor>
+            preds_plus_bg <torch.Tensor>
         """
-        assert isinstance(patch, np.ndarray), type(patch)
+        assert isinstance(patch, torch.Tensor), type(patch)
 
         with torch.no_grad():
             with torch.cuda.amp.autocast(enabled=USE_AMP):
