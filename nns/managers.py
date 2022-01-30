@@ -105,9 +105,6 @@ class ModelMGR(ModelMGRMixin):
 
         # TODO: Try with masks from d5 and other decoders
         pred = masks_pred[0]  # using mask from decoder d1
-
-        # if self.logits:
-        #     pred = F.sigmoid(pred) if self.sigmoid else F.softmax(pred, dim=1)
         pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
 
         if testing and plot_to_png:
@@ -252,9 +249,6 @@ class ModelMGR(ModelMGRMixin):
         # using mask from decoder d1
         # TODO: Try with masks from d5 and other decoders
         pred = masks_pred[0]
-
-        # if self.logits:
-        #     pred = F.sigmoid(pred) if self.sigmoid else F.softmax(pred, dim=1)
         pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
 
         # FIXME try calculating the metric without the threshold
@@ -285,9 +279,6 @@ class ModelMGR(ModelMGRMixin):
         # TODO: Try with masks from d5 and other decoders
         preds = preds[0] if isinstance(preds, tuple) else preds
         preds = preds[0]  # using masks from the only batch returned
-
-        # if self.logits:
-        #     preds = F.sigmoid(preds) if self.sigmoid else F.softmax(preds, dim=0)
         preds = torch.sigmoid(preds) if self.module.n_classes == 1 else torch.softmax(preds, dim=0)
 
         # adding an extra class full of zeros to represent anything else than the

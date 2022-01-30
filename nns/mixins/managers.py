@@ -102,9 +102,6 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
         Kwargs:
             model (nn.Module): Neuronal network class.
             model_kwargs (dict): Dictionary holding the initial arguments for the model
-            logits (bool): Set it to True if the model returns logits. Default False
-            sigmoid (bool): If True sigmoid will be applied to NN output, else softmax.
-                            Only used when logits = True. Default True
             cuda (bool): whether or not use cuda
             multigpus <bool>: Set it to True to use several GPUS. It requires to set cuda to True.
                               Default False
@@ -171,8 +168,6 @@ If true it track the loss values, else it tracks the metric values.
         """
         self.model = kwargs.get('model')
         self.model_kwargs = kwargs.get('model_kwargs')
-        self.logits = kwargs.get('logits', False)
-        self.sigmoid = kwargs.get('sigmoid', True)
         self.cuda = kwargs.get('cuda', True)
         self.multigpus = kwargs.get('multigpus', False)
         self.patch_replication_callback = kwargs.get('patch_replication_callback', False)
@@ -210,8 +205,6 @@ If true it track the loss values, else it tracks the metric values.
 
         assert issubclass(self.model, nn.Module), type(self.model)
         assert isinstance(self.model_kwargs, dict), type(self.model_kwargs)
-        assert isinstance(self.logits, bool), type(self.logits)
-        assert isinstance(self.sigmoid, bool), type(self.sigmoid)
         assert isinstance(self.cuda, bool), type(self.cuda)
         assert isinstance(self.multigpus, bool), type(self.multigpus)
         assert isinstance(self.patch_replication_callback, bool), type(self.patch_replication_callback)
@@ -440,8 +433,7 @@ If true it track the loss values, else it tracks the metric values.
         #         self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
         #     ]))
 
-        # if self.logits:
-        #     pred = F.sigmoid(pred) if self.sigmoid else F.softmax(pred, dim=1)
+        # preds = torch.sigmoid(preds) if self.module.n_classes == 1 else torch.softmax(preds, dim=1)
 
         # if testing and plot_to_png:
         #     filenames = tuple(str(imgs_counter + i) for i in range(1, pred.shape[0]+1))
@@ -591,10 +583,7 @@ If true it track the loss values, else it tracks the metric values.
         # # TODO: Try with masks from d5 and other decoders
         # pred = masks_pred[0]
         # # TODO: Review the returned types and update the docstring
-        # __import__("pdb").set_trace()
-
-        # if self.logits:
-        #     pred = F.sigmoid(pred) if self.sigmoid else F.softmax(pred, dim=1)
+        # pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
 
         # # FIXME try calculating the metric without the threshold
         # pred = (pred > self.mask_threshold).float()
@@ -828,9 +817,7 @@ If true it track the loss values, else it tracks the metric values.
         # # TODO: Try with masks from d5 and other decoders
         # preds = preds[0] if isinstance(preds, tuple) else preds
         # preds = preds[0]  # using masks from the only batch returned
-
-        # if self.logits:
-        #     preds = F.sigmoid(preds) if self.sigmoid else F.softmax(preds, dim=0)
+        # preds = torch.sigmoid(preds) if self.module.n_classes == 1 else torch.softmax(preds, dim=0)
 
         # # adding an extra class full of zeros to represent anything else than the
         # # defined classes like background or any other not identified thing

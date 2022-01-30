@@ -129,8 +129,6 @@ def main():
     #                                            is_deconv=False, init_type=UNet3InitMethod.XAVIER)),
     #     # model=torch.nn.DataParallel(UNet(n_channels=3, n_classes=1, bilinear=True)),
     #     # model=UNet(n_channels=3, n_classes=1, bilinear=True),
-    #     # logits=True, # TODO: review if it is still necessary
-    #     # sigmoid=False, # TODO: review if it is still necessary
     #     cuda=True,
     #     epochs=12,  # 20
     #     intrain_val=2,  # 2
@@ -183,8 +181,6 @@ def main():
         model=UNet_3Plus,
         model_kwargs=dict(n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
                           batchnorm_cls=get_batchnorm2d_class()),
-        # logits=True, # TODO: review if it is still necessary
-        # sigmoid=False, # TODO: review if it is still necessary
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
