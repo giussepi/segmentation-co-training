@@ -38,8 +38,8 @@ class Dataset:
 class BinaryCoNSeP:
     """ Holds data associated with the CoNSeP binary labels """
 
-    OTHER = Detail('gold', 0, 'Other', '', (244, 220, 5))
-    NUCLEI = Detail('royalblue', 1, 'Nuclei', '', (80, 94, 225))
+    OTHER = Detail('black', 0, 'Other', '', (0, 0, 0))
+    NUCLEI = Detail('white', 1, 'Nuclei', '', (255, 255, 225))
     LABELS = (OTHER, NUCLEI)
     CMAPS = tuple(
         LinearSegmentedColormap.from_list(f'{label.name}_cmap', [(0, label.colour), (1, 'white')])
