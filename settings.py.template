@@ -4,6 +4,8 @@
 import os
 import logging
 
+import torch
+
 ###############################################################################
 #                                GENERAL CONFIG                               #
 ###############################################################################
@@ -28,7 +30,11 @@ PLOT_DIRECTORY = os.path.join(PROJECT_PATH, 'plots')
 ###############################################################################
 #                                    CONSEP                                    #
 ###############################################################################
-NUM_GPUS = 2  # NUM_GPUS >= 0
+if CUDA == MULTIGPUS == True and torch.cuda.is_available():
+    NUM_GPUS = torch.cuda.device_count()
+else:
+    NUM_GPUS = 1  # When working with only 1 GPU or CPU
+
 PATCH_SIZE = (540, 540)
 PATCH_STEP_SIZE = (164, 164)
 # crops are extracted from the patches
@@ -79,8 +85,7 @@ DEBUG = False
 if DEBUG:
     # Add any extra debugging behaviour here
     LOG_LEVEL = logging.DEBUG
-    # TODO: implement logic to use a determined number of gpus
-    #       so in debugging mode only one GPU is used
+    # MULTIGPUS = False
     # NUM_GPUS = 1
     # TOTAL_BATCH_SIZE = BATCH_SIZE * NUM_GPUS
     NUM_WORKERS = 0  # necessary to properly use the breakpoints
