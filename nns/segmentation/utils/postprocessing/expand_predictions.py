@@ -11,8 +11,8 @@ __all__ = ['ExpandPrediction']
 
 class ExpandPrediction:
     """
-    Selects all the annotations/regions from pred that are intersected by pixels from sub_pred
-    and returns them as a mask.
+    Selects all the annotations/regions from preds that are intersected by pixels from sub_preds
+    and returns them as masks.
 
     Usage:
         ExpandPrediction()(pred_mask, sub_pred_mask)
@@ -32,75 +32,79 @@ class ExpandPrediction:
         self.diagonal_pixels = diagonal_pixels
         self.debug = debug
 
-    def __call__(self, pred, sub_pred):
-        return self.process(pred, sub_pred)
+    def __call__(self, preds, sub_preds):
+        return self.process(preds, sub_preds)
 
-    def small_grow(self, pred, sub_pred):
+    def small_grow(self, preds, sub_preds):
         """
         Grows the sub_mask one pixel in all directions following the pred mask and resturns it
 
         Kwargs:
-            pred     <torch.Tensor>: Predicted mask with all the annotations returned by the model(s)
-            sub_pred <torch.Tensor>: Mask containing the disagreement or agreement pixels or any
-                                     other of filtered pixels that may or may not have some
-                                     intersections with the pred mask
+            preds     <torch.Tensor>: Predicted mask [..., H, W] with all the annotations returned
+                                      by the model(s)
+            sub_preds <torch.Tensor>: Masks [..., H, W] containing the disagreement or agreement
+                                      pixels or any other of filtered pixels that may or may not
+                                      have some intersections with the pred masks
 
         Returns:
-            grown_sub_pred <torch.Tensor>
+            grown_sub_pred <torch.Tensor> [..., H, W]
         """
-        assert isinstance(pred, torch.Tensor), type(pred)
-        assert isinstance(sub_pred, torch.Tensor), type(sub_pred)
+        assert isinstance(preds, torch.Tensor), type(preds)
+        assert len(preds.shape) >= 2
+        assert isinstance(sub_preds, torch.Tensor), type(sub_preds)
+        assert len(sub_preds.shape) >= 2
 
-        padded = pad(sub_pred, [1, 1, 1, 1])
+        padded = pad(sub_preds, [1, 1, 1, 1])
         padded *= 2
-        height, width = padded.shape
-        top_middle = padded[:height-2, 1:width-1]
-        middle_left = padded[1:height-1, :width-2]
-        middle_middle = sub_pred * 2
-        middle_right = padded[1:height-1, 2:]
-        bottom_middle = padded[2:, 1:width-1]
+        height, width = padded.shape[-2:]
+        top_middle = padded[..., :height-2, 1:width-1]
+        middle_left = padded[..., 1:height-1, :width-2]
+        middle_middle = sub_preds * 2
+        middle_right = padded[..., 1:height-1, 2:]
+        bottom_middle = padded[..., 2:, 1:width-1]
 
         if self.diagonal_pixels:
-            top_left = padded[:height-2, :width-2]
-            top_right = padded[:height-2, 2:]
-            bottom_left = padded[2:, :width-2]
-            bottom_right = padded[2:, 2:]
+            top_left = padded[..., :height-2, :width-2]
+            top_right = padded[..., :height-2, 2:]
+            bottom_left = padded[..., 2:, :width-2]
+            bottom_right = padded[..., 2:, 2:]
 
-            return ((pred*top_left + pred*top_middle + pred*top_right +
-                     pred*middle_left + pred*middle_middle + pred*middle_right +
-                     pred*bottom_left + pred*bottom_middle + pred*bottom_right) > 1).float()
+            return ((preds*top_left + preds*top_middle + preds*top_right +
+                     preds*middle_left + preds*middle_middle + preds*middle_right +
+                     preds*bottom_left + preds*bottom_middle + preds*bottom_right) > 1).float()
 
-        return ((pred*top_middle + pred*middle_left + pred*middle_middle + pred*middle_right
-                 + pred*bottom_middle) > 1).float()
+        return ((preds*top_middle + preds*middle_left + preds*middle_middle + preds*middle_right
+                 + preds*bottom_middle) > 1).float()
 
-    def process(self, pred, sub_pred):
+    def process(self, preds, sub_preds):
         """
-        Selects all the annotations from pred that are intersected by pixels from sub_pred
-        and returns them as a mask.
+        Selects all the annotations from preds that are intersected by pixels from sub_preds
+        and returns them as masks.
 
         Kwargs:
-            pred     <torch.Tensor>: Predicted mask with all the annotations returned by the model(s)
-            sub_pred <torch.Tensor>: Mask containing the disagreement or agreement pixels or any
-                                     other of filtered pixels that may or may not have some
-                                     intersections with the pred mask
+            preds     <torch.Tensor>: Predicted masks [..., H, W] with all the annotations returned
+                                      by the model(s)
+            sub_preds <torch.Tensor>: Masks [..., H, W] containing the disagreement or agreement
+                                      pixels or any other of filtered pixels that may or may not
+                                      have some intersections with the pred masks
 
         Returns:
             expanded_subpred <torch.Tensor>
         """
-        grown_mask = torch.empty(0)
-        new_grown_mask = sub_pred
+        grown_mask = torch.empty(0).to(preds.device)
+        new_grown_mask = sub_preds
 
         iteration = 0
 
         while not torch.equal(grown_mask, new_grown_mask):
             grown_mask = new_grown_mask
-            new_grown_mask = self.small_grow(pred, grown_mask)
+            new_grown_mask = self.small_grow(preds, grown_mask)
             iteration += 1
 
             if self.debug:
                 logger.info(f"Iteration {iteration}:  #####################################")
                 logger.info(f"Grown mask: \n {grown_mask}")
                 logger.info(f"New grown mask: \n {new_grown_mask}")
-                logger.info(f"Pred mask: \n {pred}")
+                logger.info(f"Pred mask: \n {preds}")
 
         return grown_mask
