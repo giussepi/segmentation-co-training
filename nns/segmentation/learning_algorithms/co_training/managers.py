@@ -361,20 +361,17 @@ class CoTraining(SubDatasetsMixin):
             # creating new masks contatenating true masks with the new mask values selected
             # by the especified strategies
             new_masks = true_masks.max(self.get_new_mask_values(results))
+            new_masks_metric += self.metric(new_masks, true_masks).item()
             # creating new combined pred masks (for mask post-processing)
             combined_pred_masks = true_masks.max(self.get_combined_predictions(results))
-            new_masks_metric += self.metric(new_masks, true_masks).item()
 
-            # postprocessing and saving the new masks
-            for new_mask, mask_path, c_pred in zip(new_masks, batch['updated_mask_path'], combined_pred_masks):
-                new_mask = new_mask.squeeze().detach().cpu()
-                c_pred = c_pred.squeeze().detach().cpu()
+            # applying all the mask postprocessing algorithms in an incremental way
+            for postprocessing in self.mask_postprocessing:
+                new_masks = postprocessing(combined_pred_masks, new_masks)
 
-                # applying all the mask postprocessing algorithms in an incremental way
-                for postprocessing in self.mask_postprocessing:
-                    new_mask = postprocessing(c_pred, new_mask)
-
-                new_mask = Image.fromarray(new_mask.numpy() * 255).convert('L')
+            # saving new masks
+            for new_mask, mask_path in zip(new_masks, batch['updated_mask_path']):
+                new_mask = Image.fromarray(new_mask.squeeze().detach().cpu().numpy() * 255).convert('L')
                 new_mask.save(mask_path)
 
         for idx in range(len(self.model_mgr_list)):
