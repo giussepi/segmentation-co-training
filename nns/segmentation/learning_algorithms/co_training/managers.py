@@ -358,16 +358,18 @@ class CoTraining(SubDatasetsMixin):
                 true_masks
             ).item()
 
-            # creating new masks contatenating true masks with the new mask values selected
-            # by the especified strategies
-            new_masks = true_masks.max(self.get_new_mask_values(results))
-            new_masks_metric += self.metric(new_masks, true_masks).item()
+            new_masks = self.get_new_mask_values(results)
             # creating new combined pred masks (for mask post-processing)
-            combined_pred_masks = true_masks.max(self.get_combined_predictions(results))
+            combined_pred_masks = self.get_combined_predictions(results)
 
             # applying all the mask postprocessing algorithms in an incremental way
             for postprocessing in self.mask_postprocessing:
                 new_masks = postprocessing(combined_pred_masks, new_masks)
+
+            # creating final new masks by contatenating true masks with the new mask values
+            # selected by the especified strategies and postprocessing approaches
+            new_masks = true_masks.max(new_masks)
+            new_masks_metric += self.metric(new_masks, true_masks).item()
 
             # saving new masks
             for new_mask, mask_path in zip(new_masks, batch['updated_mask_path']):
