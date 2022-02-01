@@ -597,7 +597,7 @@ class CoTraining(SubDatasetsMixin):
                 xlabel='Co-training iterations',
                 lm_ylabel='Loss and Metric',
                 lm_legend_kwargs=dict(shadow=True, fontsize=8, loc='best'),
-                lm_saving_path=os.path.join(self.plots_saving_path, f'model_{idx+1}: losses_metrics.png'),
+                lm_saving_path=os.path.join(self.plots_saving_path, f'model_{idx+1}_losses_metrics.png'),
                 save=save,
                 dpi=dpi,
                 show=show,
