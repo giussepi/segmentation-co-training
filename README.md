@@ -370,9 +370,10 @@ Currently, this implementation only support two models for the binary case
         dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43'),
         thresholds=dict(disagreement=(.25, .8)),
         plots_saving_path=settings.PLOT_DIRECTORY,
-        mask_postprocessing=[
-            ExpandPrediction(),
-        ],
+        strategy_postprocessing=dict(
+            disagreement=[ExpandPrediction(), ],
+        ),
+        general_postprocessing=[],
         postprocessing_threshold=.5,
         dataset=OfflineCoNSePDataset,
         dataset_kwargs={
@@ -444,14 +445,13 @@ Some examples are shown below: (In most of the cases the images from left to rig
 
 
     expanded_subpred = ExpandPrediction()(
-        torch.from_numpy(pred_mask.squeeze()),
-        torch.from_numpy(subpred_mask.squeeze())
+        torch.from_numpy(subpred_mask.squeeze()),
+        torch.from_numpy(pred_mask.squeeze())
     )
 
     plt.imshow(expanded_subpred.numpy(), cmap='gray')
     # plt.savefig('expanded_subpred.png')
     plt.show()
-
 	```
 2. No disagreement pixels. In this case the combined predictions and the disagreement predictions have been merged with the training ground truth mask.
 
