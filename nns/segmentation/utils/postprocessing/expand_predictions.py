@@ -15,7 +15,7 @@ class ExpandPrediction:
     and returns them as masks.
 
     Usage:
-        ExpandPrediction()(pred_mask, sub_pred_mask)
+        ExpandPrediction()(sub_pred_mask, pred_mask)
     """
 
     def __init__(self, diagonal_pixels=False, debug=False):
@@ -32,19 +32,19 @@ class ExpandPrediction:
         self.diagonal_pixels = diagonal_pixels
         self.debug = debug
 
-    def __call__(self, preds, sub_preds):
-        return self.process(preds, sub_preds)
+    def __call__(self, sub_preds, preds):
+        return self.process(sub_preds, preds)
 
-    def small_grow(self, preds, sub_preds):
+    def small_grow(self, sub_preds, preds):
         """
         Grows the sub_mask one pixel in all directions following the pred mask and resturns it
 
         Kwargs:
-            preds     <torch.Tensor>: Predicted mask [..., H, W] with all the annotations returned
-                                      by the model(s)
             sub_preds <torch.Tensor>: Masks [..., H, W] containing the disagreement or agreement
                                       pixels or any other of filtered pixels that may or may not
                                       have some intersections with the pred masks
+            preds     <torch.Tensor>: Predicted masks [..., H, W] with all the annotations returned
+                                      by the model(s)
 
         Returns:
             grown_sub_pred <torch.Tensor> [..., H, W]
@@ -76,17 +76,19 @@ class ExpandPrediction:
         return ((preds*top_middle + preds*middle_left + preds*middle_middle + preds*middle_right
                  + preds*bottom_middle) > 1).float()
 
-    def process(self, preds, sub_preds):
+    def process(self, sub_preds, preds, **kwargs):
         """
         Selects all the annotations from preds that are intersected by pixels from sub_preds
         and returns them as masks.
 
         Kwargs:
-            preds     <torch.Tensor>: Predicted masks [..., H, W] with all the annotations returned
-                                      by the model(s)
             sub_preds <torch.Tensor>: Masks [..., H, W] containing the disagreement or agreement
                                       pixels or any other of filtered pixels that may or may not
-                                      have some intersections with the pred masks
+                                      have some intersections with the pred masks. Just to clarify,
+                                      sub_preds most of the time should be a subset of preds or at
+                                      least it should have some intersection points with preds.
+            preds     <torch.Tensor>: Predicted masks [..., H, W] with all the annotations returned
+                                      by the model(s)
 
         Returns:
             expanded_subpred <torch.Tensor>
@@ -98,7 +100,7 @@ class ExpandPrediction:
 
         while not torch.equal(grown_mask, new_grown_mask):
             grown_mask = new_grown_mask
-            new_grown_mask = self.small_grow(preds, grown_mask)
+            new_grown_mask = self.small_grow(grown_mask, preds)
             iteration += 1
 
             if self.debug:

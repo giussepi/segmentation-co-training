@@ -69,7 +69,7 @@ class Test_ExpandPrediction(unittest.TestCase):
         ])
         self.assertTrue(torch.equal(
             expected_grown_mask,
-            ExpandPrediction().small_grow(self.predicted_mask, self.sub_prediction)
+            ExpandPrediction().small_grow(self.sub_prediction, self.predicted_mask)
         ))
 
     def test_small_grow_with_diagonal_pixels(self):
@@ -85,35 +85,36 @@ class Test_ExpandPrediction(unittest.TestCase):
         ])
         self.assertTrue(torch.equal(
             expected_grown_mask,
-            ExpandPrediction(diagonal_pixels=True).small_grow(self.predicted_mask, self.sub_prediction)
+            ExpandPrediction(diagonal_pixels=True).small_grow(self.sub_prediction, self.predicted_mask)
         ))
 
     def test_process(self):
         self.assertFalse(torch.equal(
             self.expected_mask_with_diagonal_pixels,
-            ExpandPrediction()(self.predicted_mask, self.sub_prediction)
+            ExpandPrediction()(self.sub_prediction, self.predicted_mask)
         ))
         self.assertFalse(torch.equal(
             self.predicted_mask,
-            ExpandPrediction()(self.predicted_mask, self.sub_prediction)
+            ExpandPrediction()(self.sub_prediction, self.predicted_mask)
         ))
+
         self.assertTrue(torch.equal(
             self.expected_mask_no_diagonal_pixels,
-            ExpandPrediction()(self.predicted_mask, self.sub_prediction)
+            ExpandPrediction()(self.sub_prediction, self.predicted_mask)
         ))
 
     def test_process_with_diagonal_pixels(self):
         self.assertFalse(torch.equal(
             self.expected_mask_no_diagonal_pixels,
-            ExpandPrediction(diagonal_pixels=True)(self.predicted_mask, self.sub_prediction)
+            ExpandPrediction(diagonal_pixels=True)(self.sub_prediction, self.predicted_mask)
         ))
         self.assertFalse(torch.equal(
             self.predicted_mask,
-            ExpandPrediction(diagonal_pixels=True)(self.predicted_mask, self.sub_prediction)
+            ExpandPrediction(diagonal_pixels=True)(self.sub_prediction, self.predicted_mask)
         ))
         self.assertTrue(torch.equal(
             self.expected_mask_with_diagonal_pixels,
-            ExpandPrediction(diagonal_pixels=True)(self.predicted_mask, self.sub_prediction)
+            ExpandPrediction(diagonal_pixels=True)(self.sub_prediction, self.predicted_mask)
         ))
 
 
