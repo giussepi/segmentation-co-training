@@ -12,6 +12,7 @@ from gtorch_utils.nns.models.segmentation import UNet, UNet_3Plus_DeepSup, UNet_
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from gtorch_utils.segmentation import metrics
 from gtorch_utils.segmentation.visualisation import plot_img_and_mask
+from PIL import Image
 from torch.utils.data import DataLoader
 
 import settings
@@ -218,14 +219,15 @@ def main():
         checkpoint_interval=0,
         train_eval_chkpt=False,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'unet3_plus'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50', 'unet3_plus'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    # # model2()
+    # model2()
+    # model2.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
 
     # model3 = ModelMGR(
     model3 = dict(
@@ -279,13 +281,14 @@ def main():
         train_eval_chkpt=False,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'deeplabv3plus_xception'),
+            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50', 'deeplabv3plus_xception'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
+    # model3.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
     # model3()
     # model3.print_data_logger_summary()
 
@@ -298,13 +301,14 @@ def main():
         earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
         warm_start=dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
         overall_best_models=False,
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43'),
-        thresholds=dict(disagreement=(.25, .8)),  # dict(agreement=.65, disagreement=(.25, .7)),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50'),
+        thresholds=dict(agreement=.75, disagreement=(.25, .75)),  # dict(disagreement=(.25, .8)),
         plots_saving_path=settings.PLOT_DIRECTORY,
-        mask_postprocessing=[
-            ExpandPrediction(),
-        ],
-        postprocessing_threshold=.5,
+        strategy_postprocessing=dict(
+            disagreement=[ExpandPrediction(), ],
+        ),
+        general_postprocessing=[],
+        postprocessing_threshold=.75,
         dataset=OfflineCoNSePDataset,
         dataset_kwargs={
             'train_path': settings.CONSEP_TRAIN_PATH,
@@ -322,10 +326,10 @@ def main():
     cot()
 
     # cot.print_data_logger_summary(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'chkpt_2.pth.tar'))
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50', 'chkpt_4.pth.tar'))
 
     # cot.plot_and_save(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp43', 'chkpt_2.pth.tar'),
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50', 'chkpt_4.pth.tar'),
     #     save=True, show=False, dpi=300.
     # )
 
