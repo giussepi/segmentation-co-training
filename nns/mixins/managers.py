@@ -133,7 +133,9 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
                                         must be maximized or minimized. If your metric is better when
                                         it is close to 1 then set it to max, otherwise to min. On the
                                         other hand, if you use the loss with the lr_scheduler then you
-                                        should set 'mode' to min.
+                                        should set 'mode' to min. If patience is provided, it will be
+                                        multiplied by intrain_val to reduce the learning rate after
+                                        'patience' epochs
             lr_scheduler_track <bool>: Defines if the lr_scheduler.step must be called with val_loss,
                                        val_metric o no arguments. See nns.mixins.constants.LrShedulerTrack
                                        Default LrShedulerTrack.NO_ARGS
@@ -148,6 +150,8 @@ If true it track the loss values, else it tracks the metric values.
                                Default MetricEvaluatorMode.MAX
             earlystopping_kwargs <dict>: Early stopping parameters. When metric = True, it is applied to the
                                          metric values; otherwise, it is applied to the loss values.
+                                         If patience is provided, it will be multiplied by intrain_val to
+                                         stop everything after 'patience' epochs.
                                          To disable it just set patience = np.inf
                                          See gtorch_utils.nns.managers.callbacks.EarlyStopping class definition
                                          Default dict(min_delta=1e-3, patience=8, metric=True)
@@ -239,6 +243,11 @@ If true it track the loss values, else it tracks the metric values.
         # updating the earlystopping patience according to the number of 'intrain_val'
         # to stop, if necessary, the whole process after 'patience' epochs
         self.earlystopping_kwargs['patience'] *= self.intrain_val
+
+        # updating the lr_scheduler patience according to the number of 'intrain_val'
+        # to reduce the learning rate after 'patience' epochs
+        if 'patience' in self.lr_scheduler_kwargs:
+            self.lr_scheduler_kwargs['patience'] *= self.intrain_val
 
         if self.plot_to_disk and self.plot_dir and not os.path.isdir(self.plot_dir):
             os.makedirs(self.plot_dir)
