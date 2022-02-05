@@ -185,10 +185,10 @@ def main():
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=20,  # 20
+        epochs=30,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
-        optimizer_kwargs=dict(lr=1e-3),
+        optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
         labels_data=BinaryCoNSeP,
         dataset=OfflineCoNSePDataset,
         dataset_kwargs={
@@ -206,7 +206,8 @@ def main():
         lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
         # TODO: the mode can change based on the quantity monitored
         # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        lr_scheduler_kwargs={'mode': 'min', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
+        # TODO: update this patience like earlystopping
+        lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
         lr_scheduler_track=LrShedulerTrack.LOSS,
         criterions=[
             torch.nn.BCEWithLogitsLoss()
@@ -246,10 +247,10 @@ def main():
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=20,  # 20
+        epochs=30,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
-        optimizer_kwargs=dict(lr=1e-3),
+        optimizer_kwargs=dict(lr=1e-4),  # 1e-3, try 1e-4, weight_decay=4e-5
         labels_data=BinaryCoNSeP,
         dataset=OfflineCoNSePDataset,
         dataset_kwargs={
@@ -267,7 +268,8 @@ def main():
         lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
         # TODO: the mode can change based on the quantity monitored
         # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        lr_scheduler_kwargs={'mode': 'min', 'patience': 2},  # {'step_size': 10, 'gamma': 0.1},
+        # TODO: update this patience like earlystopping
+        lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
         lr_scheduler_track=LrShedulerTrack.LOSS,
         criterions=[
             torch.nn.BCEWithLogitsLoss()
@@ -299,7 +301,7 @@ def main():
         iterations=5,
         metric=metrics.dice_coeff_metric,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
-        warm_start=dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
+        warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
         overall_best_models=False,
         dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50'),
         thresholds=dict(agreement=.75, disagreement=(.25, .75)),  # dict(disagreement=(.25, .8)),
