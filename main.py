@@ -299,6 +299,10 @@ def main():
     cot = CoTraining(
         model_mgr_kwargs_list=[model2, model3],
         iterations=5,
+        model_mgr_kwargs_tweaks=[
+            dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1}),
+            dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1})
+        ],
         metric=metrics.dice_coeff_metric,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
         warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),

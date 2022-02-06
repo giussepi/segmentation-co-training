@@ -38,6 +38,12 @@ class CoTraining(SubDatasetsMixin):
             model_mgr_kwargs_list <list, tuple>: list or tuple containing dictionaries to create instances of
                                           ModelMGR. Two dictionaries are required.
             iterations             <int>: Number of iterations to execute the co-training. Default 5
+            model_mgr_kwargs_tweaks <list, tuple>: list or tuple containing dictionaries with new values
+                                          to update model_mgr_kwargs_list after the first iteration. Default []
+                                          It should be used to modify/stabilize the training process when
+                                          using warm_start = True. Otherwise, the models could learn too fast
+                                          or too slow to make the most of the loaded pre-trained models.
+                                          Another option to avoid this issue is setting warm_start = False.
             metric            <callable>: Metric to measure the results. See gtorch_utils.segmentation.metrics
                                           Default metrics.dice_coeff_metric
             earlystopping_kwargs  <dict>: Early stopping configuration.
@@ -77,6 +83,7 @@ class CoTraining(SubDatasetsMixin):
         """
         self.model_mgr_kwargs_list = kwargs.get('model_mgr_kwargs_list')
         self.iterations = kwargs.get('iterations', 5)
+        self.model_mgr_kwargs_tweaks = kwargs.get('model_mgr_kwargs_tweaks', [])
         self.metric = kwargs.get('metric', metrics.dice_coeff_metric)
         self.earlystopping_kwargs = kwargs.get('earlystopping_kwargs', dict(min_delta=1e-3, patience=2))
         self.warm_start = kwargs.get('warm_start', None)
@@ -97,6 +104,9 @@ class CoTraining(SubDatasetsMixin):
 
         assert isinstance(self.iterations, int), type(self.iterations)
         assert self.iterations > 0, self.iterations
+        assert isinstance(self.model_mgr_kwargs_tweaks, (list, tuple)), type(self.model_mgr_kwargs_tweaks)
+        if self.model_mgr_kwargs_tweaks:
+            assert len(self.model_mgr_kwargs_tweaks) == len(self.model_mgr_kwargs_list)
         assert callable(self.metric), 'metric must be a callable'
         assert isinstance(self.earlystopping_kwargs, dict), type(self.earlystopping_kwargs)
         if self.warm_start is not None:
@@ -163,7 +173,21 @@ class CoTraining(SubDatasetsMixin):
                 if sigma:
                     param.data += torch.normal(0.0, sigma, size=param.shape).to(modelmgr.device)
 
-    def create_model_mgr_list(self, data_logger):
+    def update_model_mgr_kwargs_list(self, iteration):
+        """
+        Updates the values used to create the model managers after the first iteration (zero-based)
+        It should be used to modify/stabilize the training process when using warm_start = True.
+        Otherwise, the models could learn too fast or too slow to make the most of the loaded
+        pre-trained models. Another option is setting warm_start = False
+
+        Kwargs:
+            iteration <int>: zero-based current iteration
+        """
+        if iteration == 1:
+            for data, tweaks in zip(self.model_mgr_kwargs_list, self.model_mgr_kwargs_tweaks):
+                data.update(tweaks)
+
+    def create_model_mgr_list(self, data_logger, iteration):
         """
         Deletes old ModelMGR instances from self.model_mgr_list and realeases the GPU cache,
         then creates new instances of ModelMGR and place them into self.model_mgr_list.
@@ -171,6 +195,7 @@ class CoTraining(SubDatasetsMixin):
 
         Kwargs:
             data_logger <dict>: dict containing the tracked data
+            iteration <int>: zero-based current iteration
         """
         assert isinstance(data_logger, dict), type(data_logger)
 
@@ -178,6 +203,7 @@ class CoTraining(SubDatasetsMixin):
         self.model_mgr_list.clear()
         torch.cuda.empty_cache()
         # print(torch.cuda.memory_allocated(), torch.cuda.memory_reserved())
+        self.update_model_mgr_kwargs_list(iteration)
 
         for kwargs, best_model in zip(self.model_mgr_kwargs_list, self.get_current_best_models(data_logger)):
             model_mgr = ModelMGR(**copy.deepcopy(kwargs))
@@ -572,7 +598,7 @@ class CoTraining(SubDatasetsMixin):
         for i in range(self.iterations):
             logger.info(f'CO-TRAINING: ITERATION {i+1}')
 
-            self.create_model_mgr_list(data_logger)
+            self.create_model_mgr_list(data_logger, i)
             self.train_models()
             self.load_best_models(data_logger)
 
