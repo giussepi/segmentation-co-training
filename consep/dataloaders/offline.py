@@ -5,6 +5,7 @@ import os
 import re
 
 import numpy as np
+import torch
 from gtorch_utils.datasets.segmentation import DatasetTemplate
 from PIL import Image
 
@@ -42,8 +43,11 @@ class OfflineCoNSePDataset(DatasetTemplate):
             image_extension    <str>: image extension. Default '.ann.tiff'
             mask_extension     <str>: mask extension. Default '.mask.png'
             cot_mask_extension <str>: co-traning mask extension. Default '.cot.mask.png'
-            cotraining        <bool>: If True the co-training masks are be returned; otherwise, returns
+            cotraining        <bool>: If True the co-training masks are returned; otherwise, returns
                                       ground truth masks. Default False
+            original_masks    <bool>: If original_masks == cotraining_mask == True, then both the original
+                                      and cotraining masks are returned.
+                                      Default False
         """
         self.images_masks_path = kwargs.get('images_masks_path')
         self.filename_reg = kwargs.get('filename_reg', r'(?P<filename>\d+).ann.tiff')
@@ -51,6 +55,7 @@ class OfflineCoNSePDataset(DatasetTemplate):
         self.mask_extension = kwargs.get('mask_extension', '.mask.png')
         self.cot_mask_extension = kwargs.get('cot_mask_extension', '.cot.mask.png')
         self.cotraining = kwargs.get('cotraining', False)
+        self.original_masks = kwargs.get('original_masks', False)
 
         assert isinstance(self.images_masks_path, str), type(self.images_masks_path)
         assert os.path.isdir(self.images_masks_path), self.images_masks_path
@@ -59,6 +64,7 @@ class OfflineCoNSePDataset(DatasetTemplate):
         assert isinstance(self.mask_extension, str), type(self.mask_extension)
         assert isinstance(self.cot_mask_extension, str), type(self.cot_mask_extension)
         assert isinstance(self.cotraining, bool), type(self.cotraining)
+        assert isinstance(self.original_masks, bool), type(self.original_masks)
 
         self.pattern = re.compile(self.filename_reg)
         self.image_list = [file_ for file_ in os.listdir(self.images_masks_path) if bool(self.pattern.fullmatch(file_))]
@@ -66,20 +72,42 @@ class OfflineCoNSePDataset(DatasetTemplate):
     def __len__(self):
         return len(self.image_list)
 
+    def get_original_mask(self, idx):
+        """
+        Loads and returns the original mask of the image with index idx
+
+        Kwargs:
+            idx <int>: image index
+
+        Returns:
+            original_mask <np.ndarray>
+        """
+        assert isinstance(idx, int), type(idx)
+
+        mask = Image.open(os.path.join(
+            self.images_masks_path,
+            self.image_list[idx].replace(self.image_extension, self.mask_extension)
+        ))
+
+        return mask
+
     def get_image_and_mask_files(self, idx):
         """
         Loads the image and mask corresponding to the file at position idx in the image list.
         Besides, both are properly formatted to be used by the neuronal network before
         returning them.
 
-        Args:
+        Kwargs:
             idx <int>: image index
+
         Returns:
-            image <np.ndarray>, target_mask <np.ndarray>, '', '', co_training_mask_path <str>
+            image <np.ndarray>, target_mask <np.ndarray>, '', '', co_training_mask_path <str>,
+            original_target_mask <np.ndarray or empty string>
         """
         assert isinstance(idx, int), type(idx)
 
         image = Image.open(os.path.join(self.images_masks_path, self.image_list[idx]))
+        cot_mask_path = original_mask = original_target_mask = ''
 
         if self.cotraining:
             cot_mask_path = os.path.join(
@@ -92,16 +120,12 @@ class OfflineCoNSePDataset(DatasetTemplate):
             if os.path.isfile(cot_mask_path):
                 mask = Image.open(cot_mask_path)
             else:
-                mask = Image.open(os.path.join(
-                    self.images_masks_path,
-                    self.image_list[idx].replace(self.image_extension, self.mask_extension)
-                ))
+                mask = self.get_original_mask(idx)
+
+            if self.original_masks:
+                original_mask = self.get_original_mask(idx)
         else:
-            cot_mask_path = ''
-            mask = Image.open(os.path.join(
-                self.images_masks_path,
-                self.image_list[idx].replace(self.image_extension, self.mask_extension)
-            ))
+            mask = self.get_original_mask(idx)
 
         assert image.size == mask.size, \
             f'Image and mask {idx} should be the same size, but are {image.size} and {mask.size}'
@@ -111,7 +135,13 @@ class OfflineCoNSePDataset(DatasetTemplate):
         target_mask = np.zeros((*mask.shape[:2], self.NUM_CLASSES), dtype=np.float32)
         target_mask[..., 0] = (mask == 255).astype(np.float32)  # nuclei class
 
-        return image, target_mask, '', '', cot_mask_path
+        if isinstance(original_mask, Image.Image):
+            original_mask = np.array(original_mask.convert(
+                'L')) if original_mask.mode != 'L' else np.array(original_mask)
+            original_target_mask = np.zeros((*original_mask.shape[:2], self.NUM_CLASSES), dtype=np.float32)
+            original_target_mask[..., 0] = (original_mask == 255).astype(np.float32)  # nuclei class
+
+        return image, target_mask, '', '', cot_mask_path, original_target_mask
 
     @staticmethod
     def preprocess(img):
@@ -132,6 +162,38 @@ class OfflineCoNSePDataset(DatasetTemplate):
             img = img / 255
 
         return img
+
+    def __getitem__(self, idx):
+        """
+        Gets the image and mask for the index idx and returns them
+
+        Kwargs:
+            idx <int>: image index
+
+        Returns:
+            dict(
+                image=<Tensor>, mask=<Tensor>, label=<int> label_name=<str>, updated_mask_path <str>,
+                original_mask <Tensor or empty str>
+            )
+        """
+        assert isinstance(idx, int), type(idx)
+
+        image, mask, label, label_name, updated_mask_path, original_mask = self.get_image_and_mask_files(idx)
+        image = self.preprocess(image)
+        mask = self.preprocess(mask)
+
+        if isinstance(original_mask, np.ndarray):
+            original_mask = self.preprocess(original_mask)
+            original_mask = torch.from_numpy(original_mask).type(torch.FloatTensor)
+
+        return {
+            'image': torch.from_numpy(image).type(torch.FloatTensor),
+            'mask': torch.from_numpy(mask).type(torch.FloatTensor),
+            'label': label,
+            'label_name': label_name,
+            'updated_mask_path': updated_mask_path,
+            'original_mask': original_mask
+        }
 
     @classmethod
     def get_subdatasets(cls, **kwargs):
