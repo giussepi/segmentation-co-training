@@ -10,6 +10,7 @@ import torch
 from gtorch_utils.constants import DB
 from gtorch_utils.nns.models.segmentation import UNet, UNet_3Plus_DeepSup, UNet_3Plus, UNet_3Plus_DeepSup_CGM
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
+from gtorch_utils.segmentation import loss_functions
 from gtorch_utils.segmentation import metrics
 from gtorch_utils.segmentation.visualisation import plot_img_and_mask
 from PIL import Image
@@ -206,12 +207,13 @@ def main():
         lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
         # TODO: the mode can change based on the quantity monitored
         # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        # TODO: update this patience like earlystopping
         lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
         lr_scheduler_track=LrShedulerTrack.LOSS,
         criterions=[
-            torch.nn.BCEWithLogitsLoss()
+            # torch.nn.BCEWithLogitsLoss()
             # torch.nn.CrossEntropyLoss()
+            loss_functions.BceDiceLoss(with_logits=True),
+            loss_functions.SpecificityLoss(with_logits=True),
         ],
         mask_threshold=0.5,
         metric=metrics.dice_coeff_metric,
@@ -220,7 +222,7 @@ def main():
         checkpoint_interval=0,
         train_eval_chkpt=False,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50', 'unet3_plus'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp51', 'unet3_plus'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -268,12 +270,13 @@ def main():
         lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
         # TODO: the mode can change based on the quantity monitored
         # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        # TODO: update this patience like earlystopping
         lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
         lr_scheduler_track=LrShedulerTrack.LOSS,
         criterions=[
-            torch.nn.BCEWithLogitsLoss()
+            # torch.nn.BCEWithLogitsLoss()
             # torch.nn.CrossEntropyLoss()
+            loss_functions.BceDiceLoss(with_logits=True),
+            loss_functions.SpecificityLoss(with_logits=True),
         ],
         mask_threshold=0.5,
         metric=metrics.dice_coeff_metric,
@@ -283,7 +286,7 @@ def main():
         train_eval_chkpt=False,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50', 'deeplabv3plus_xception'),
+            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp51', 'deeplabv3plus_xception'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -299,15 +302,15 @@ def main():
     cot = CoTraining(
         model_mgr_kwargs_list=[model2, model3],
         iterations=5,
-        model_mgr_kwargs_tweaks=[
-            dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1}),
-            dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1})
-        ],
+        # model_mgr_kwargs_tweaks=[
+        #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1}),
+        #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1})
+        # ],
         metric=metrics.dice_coeff_metric,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
         warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
         overall_best_models=False,
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp51'),
         thresholds=dict(agreement=.75, disagreement=(.25, .75)),  # dict(disagreement=(.25, .8)),
         plots_saving_path=settings.PLOT_DIRECTORY,
         strategy_postprocessing=dict(
@@ -321,6 +324,7 @@ def main():
             'val_path': settings.CONSEP_VAL_PATH,
             'test_path': settings.CONSEP_TEST_PATH,
             'cotraining': settings.COTRAINING,
+            'original_masks': settings.ORIGINAL_MASKS,
         },
         train_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
@@ -332,10 +336,10 @@ def main():
     cot()
 
     # cot.print_data_logger_summary(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50', 'chkpt_4.pth.tar'))
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp51', 'chkpt_4.pth.tar'))
 
     # cot.plot_and_save(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp50', 'chkpt_4.pth.tar'),
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp51', 'chkpt_4.pth.tar'),
     #     save=True, show=False, dpi=300.
     # )
 
