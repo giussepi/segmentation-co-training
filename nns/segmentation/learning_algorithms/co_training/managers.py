@@ -439,9 +439,14 @@ class CoTraining(SubDatasetsMixin):
             new_masks = self.apply_mask_postprocessing(
                 self.general_postprocessing, new_masks, preds=combined_pred_masks)
 
-            # creating final new masks by contatenating true masks with the new mask values
+            # creating final new masks by contatenating true masks (co-training masks) or
+            # the original ground truth masks (if available) with the new mask values
             # selected by the especified strategies and postprocessing approaches
-            new_masks = true_masks.max(new_masks)
+            if isinstance(batch['original_mask'], torch.Tensor):
+                new_masks = batch['original_mask'].to(new_masks.device).max(new_masks)
+            else:
+                new_masks = true_masks.max(new_masks)
+
             new_masks_metric += self.metric(new_masks, true_masks).item()
 
             # saving new masks

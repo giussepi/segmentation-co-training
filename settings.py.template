@@ -19,6 +19,10 @@ CUDA = True
 MULTIGPUS = True
 PATCH_REPLICATION_CALLBACK = True
 COTRAINING = True
+# ORIGINAL_MASKS: if True the CoTraining will merge the original masks
+#                 (not the co-training masks) with the new predictions;
+#                 otherwise, the co-training masks will be used (normal workflow)
+ORIGINAL_MASKS = True
 
 ###############################################################################
 #                                     NNS                                     #
