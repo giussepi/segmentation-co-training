@@ -73,13 +73,19 @@ class CoTraining(SubDatasetsMixin):
             ###################################################################
             #                         SubDatasetsMixin                        #
             ###################################################################
-            dataset (DatasetTemplate): Custom dataset class descendant of gtorch_utils.datasets.segmentation.DatasetTemplate.
-                See https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#dataset-class
-            dataset_kwargs (dict): keyword arguments for the dataset. Default {}
+            dataset    <DatasetTemplate>: Custom dataset class descendant of
+                                          gtorch_utils.datasets.segmentation.DatasetTemplate.
+                                          See https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#dataset-class
+            dataset_kwargs        <dict>: keyword arguments for the dataset. Default {}
+                                          NOTE: if the dataset is enabled to return the original ground truth
+                                          masks ('original_mask') along with the  cotraining masks ('mask');
+                                          the former will be merged with the predictions (this helps to
+                                          reduce errors as the models improve). Otherwise, the cotraining
+                                          masks are used.
             train_dataloader_kwargs <dict>: Keyword arguments for the train DataLoader.
-                Default {'batch_size': 1, 'shuffle': True, 'num_workers': 8, 'pin_memory': True}
+                                          Default {'batch_size': 1, 'shuffle': True, 'num_workers': 8, 'pin_memory': True}
             testval_dataloader_kwargs <dict>: Keyword arguments for the test and validation DataLoaders.
-                Default {'batch_size': 1, 'shuffle': False, 'num_workers': 8, 'pin_memory': True, 'drop_last': True}
+                                          Default {'batch_size': 1, 'shuffle': False, 'num_workers': 8, 'pin_memory': True, 'drop_last': True}
         """
         self.model_mgr_kwargs_list = kwargs.get('model_mgr_kwargs_list')
         self.iterations = kwargs.get('iterations', 5)
