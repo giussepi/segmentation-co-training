@@ -157,7 +157,7 @@ import logzero
 
 import torch
 from gtorch_utils.nns.models.segmentation import UNet
-from gtorch_utils.segmentation import metrics
+from gtorch_utils.segmentation import torchmetrics
 
 import numpy as np
 import settings
@@ -165,6 +165,7 @@ from consep.dataloaders import OfflineCoNSePDataset
 from consep.datasets.constants import BinaryCoNSeP
 from nns.managers import ModelMGR
 from nns.mixins.constants import LrShedulerTrack
+from nns.utils.metrics import MetricItem
 
 
 logzero.loglevel(settings.LOG_LEVEL)
@@ -202,7 +203,11 @@ ModelMGR(
         # torch.nn.CrossEntropyLoss()
     ],
     mask_threshold=0.5,
-    metric=metrics.dice_coeff_metric,
+    metrics=[
+        MetricItem(torchmetrics.DiceCoefficient(), main=True),
+        MetricItem(torchmetrics.Specificity(), main=True),
+        MetricItem(torchmetrics.Recall())
+    ],
 	metric_mode=MetricEvaluatorMode.MAX,
     earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
     checkpoint_interval=1,

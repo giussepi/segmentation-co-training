@@ -58,7 +58,7 @@ class SubDatasetsMixin:
         self.val_loader = DataLoader(val, **self.testval_dataloader_kwargs) if val is not None else None
         self.test_loader = DataLoader(test, **self.testval_dataloader_kwargs) if test is not None else None
 
-    def init_SubDatasetsMixin(self, **kwargs):
+    def __init(self, **kwargs):
         """
         Validates the arguments and creates instance attributes containing the Dataloaders and lenghts
         of the subdatasets

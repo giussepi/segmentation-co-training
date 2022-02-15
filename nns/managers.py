@@ -12,6 +12,9 @@ from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.managers import ModelMGRMixin
 
 
+__all__ = ['ModelMGR']
+
+
 class ModelMGR(ModelMGRMixin):
     """  """
 
@@ -73,16 +76,18 @@ class ModelMGR(ModelMGRMixin):
                                 Default False
             mask_plotter <MaskPlotter, None>: Optional MaskPlotter instance.
                                 Default None
+            imgs_counter <int>: Counter of processed images. Default 0
             apply_threshold <bool>: Whether or not apply thresholding to the predicted mask.
                                 Default True
 
         Returns:
-            loss<torch.Tensor>, metric<float>, imgs_counter<int>, extra_data<dict>
+            loss<torch.Tensor>, extra_data<dict>
         """
         batch = kwargs.get('batch')
         testing = kwargs.get('testing', False)
         plot_to_png = kwargs.get('plot_to_png', False)
         mask_plotter = kwargs.get('mask_plotter', None)
+        imgs_counter = kwargs.get('imgs_counter', 0)
         apply_threshold = kwargs.get('apply_threshold', True)
 
         assert isinstance(batch, dict), type(batch)
@@ -90,15 +95,16 @@ class ModelMGR(ModelMGRMixin):
         assert isinstance(plot_to_png, bool), type(plot_to_png)
         if mask_plotter:
             assert isinstance(mask_plotter, MaskPlotter), type(mask_plotter)
+        assert isinstance(imgs_counter, int), type(imgs_counter)
         assert isinstance(apply_threshold, bool), type(apply_threshold)
 
-        loss = imgs_counter = metric = 0
+        loss = torch.tensor(0.)
 
         with torch.cuda.amp.autocast(enabled=USE_AMP):
             imgs, true_masks, masks_pred, labels, label_names = self.get_validation_data(batch)
 
             if not testing:
-                loss += torch.sum(torch.stack([
+                loss = torch.sum(torch.stack([
                     self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
                 ]))
 
@@ -107,19 +113,19 @@ class ModelMGR(ModelMGRMixin):
         pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
 
         if testing and plot_to_png:
+            # TODO: review if the logic of imgs_counter still works
             filenames = tuple(str(imgs_counter + i) for i in range(1, pred.shape[0]+1))
-            imgs_counter += pred.shape[0]
             mask_plotter(imgs, true_masks, pred, filenames)
 
         if apply_threshold:
             # FIXME try calculating the metric without the threshold
             pred = (pred > self.mask_threshold).float()
 
-        metric += self.metric(pred, true_masks).item()
+        self.valid_metrics.update(pred, true_masks)
 
         extra_data = dict(imgs=imgs, pred=pred, true_masks=true_masks, labels=labels, label_names=label_names)
 
-        return loss, metric, imgs_counter, extra_data
+        return loss, extra_data
 
     def validation_post(self, **kwargs):
         """
@@ -197,7 +203,7 @@ class ModelMGR(ModelMGRMixin):
             batch <dict>: Dictionary contaning batch data
 
         Returns:
-            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>, metric<float>, labels<list>, label_names<list>
+            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>, metrics<dict>, labels<list>, label_names<list>
         """
         assert isinstance(batch, dict), type(batch)
         # TODO: part of these lines can be re-used for get_validation_data with minors tweaks
@@ -237,10 +243,6 @@ class ModelMGR(ModelMGRMixin):
             # to not break the workflow
             masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
 
-            # NOTE: FOR CROSSENTROPYLOSS I SHOULD BE USING the LOGITS ....
-            # summing the losses from the outcome(s) and then backpropagating it
-            # __import__("pdb").set_trace()
-            # [torch.Size([8, 1, 270, 270]), torch.Size([8, 1, 270, 270]), torch.Size([8, 1, 268, 268]), torch.Size([8, 1, 264, 264]), torch.Size([8, 1, 256, 256])]
             loss = torch.sum(torch.stack([
                 self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
             ]))
@@ -252,11 +254,9 @@ class ModelMGR(ModelMGRMixin):
 
         # FIXME try calculating the metric without the threshold
         pred = (pred > self.mask_threshold).float()
-        # AttributeError: 'float' object has no attribute 'item'
-        metric = self.metric(pred, true_masks)
-        metric = metric if isinstance(metric, float) else self.metric(pred, true_masks).item()
+        metrics = self.train_metrics(pred, true_masks)
 
-        return pred, true_masks, imgs, loss, metric, labels, label_names
+        return pred, true_masks, imgs, loss, metrics, labels, label_names
 
     def predict_step(self, patch):
         """

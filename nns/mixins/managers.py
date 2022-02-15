@@ -10,7 +10,6 @@ import numpy as np
 import openslide as ops
 import torch
 from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping
-from gtorch_utils.segmentation.metrics import dice_coeff
 from gutils.decorators import timing
 from gutils.folders import clean_create_folder
 from gutils.images.processing import get_slices_coords
@@ -30,10 +29,13 @@ from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.checkpoints import CheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
 from nns.mixins.subdatasets import SubDatasetsMixin
+from nns.mixins.torchmetrics import TorchMetricsMixin
 from nns.utils.sync_batchnorm import patch_replication_callback
 
+__all__ = ['ModelMGRMixin']
 
-class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
+
+class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin, TorchMetricsMixin):
     """
     General segmentation model manager
 
@@ -82,7 +84,11 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
                 DC_RNPV_LOSS(dice_threshold=0.25, always_conditioned=True)
             ],
             mask_threshold=0.5,
-            metric=DC_RNPV(dice_threshold=0.25, always_conditioned=True),   # dice_coeff,
+            metrics=[
+                MetricItem(torchmetrics.DiceCoefficient(), main=True),
+                MetricItem(torchmetrics.Specificity(), main=True),
+                MetricItem(torchmetrics.Recall())
+            ],
             metric_mode=MetricEvaluatorMode.MAX,
             earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
             checkpoint_interval=1,
@@ -143,8 +149,8 @@ If true it track the loss values, else it tracks the metric values.
                                         Default True
             criterions <list>: List of one of more losses
             mask_threshold <float>: mask threshold. Default 0.5
-            metric <callable>: metric to be used to measure the quality of predicted masks.
-                               Default dice_coeff
+            metrics    <list>: List of MetricItems to be used by the manager
+                               Default [MetricItem(DiceCoefficient(), main=True),]
             metric_mode <int>: Evaluation mode of the metric.
                                See nns.callbacks.metrics.constants.MetricEvaluatorMode
                                Default MetricEvaluatorMode.MAX
@@ -194,7 +200,6 @@ If true it track the loss values, else it tracks the metric values.
                 self.criterions = [nn.BCEWithLogitsLoss()]
 
         self.mask_threshold = kwargs.get('mask_threshold', 0.5)
-        self.metric = kwargs.get('metric', dice_coeff)
         self.metric_mode = kwargs.get('metric_mode', MetricEvaluatorMode.MAX)
         self.earlystopping_kwargs = kwargs.get(
             'earlystopping_kwargs', dict(min_delta=1e-3, patience=8, metric=True))
@@ -220,7 +225,6 @@ If true it track the loss values, else it tracks the metric values.
         LrShedulerTrack.validate(self.lr_scheduler_track)
         assert isinstance(self.criterions, list), type(self.criterions)
         assert isinstance(self.mask_threshold, float), type(self.mask_threshold)
-        assert callable(self.metric), 'metric must be a callable'
         MetricEvaluatorMode.validate(self.metric_mode)
         assert isinstance(self.earlystopping_kwargs, dict), type(self.earlystopping_kwargs)
         assert isinstance(self.checkpoint_interval, int), type(self.checkpoint_interval)
@@ -273,7 +277,8 @@ If true it track the loss values, else it tracks the metric values.
             self.device = "cpu"
 
         self.model.to(self.device)
-        self.init_SubDatasetsMixin(**kwargs)
+        self._SubDatasetsMixin__init(**kwargs)
+        self._TorchMetricsMixin__init(**kwargs)
 
     @staticmethod
     def calculate_loss(criterion_list, pred_masks, true_masks):
@@ -416,44 +421,65 @@ If true it track the loss values, else it tracks the metric values.
         Logic to perform the validation step per batch
 
         Kwargs:
-            batch <>:
-            testing <bool>:
-            plot_to_png <bool>:
-            mask_plotter <>:
+            batch       <dict>: Dictionary contaning batch data
+            testing     <bool>: Whether it is performing testing or validation.
+                                Default False
+            plot_to_png <bool>: Whether or not save the predictions as PNG files. This option
+                                is useful to visually examine the predicted masks.
+                                Default False
+            mask_plotter <MaskPlotter, None>: Optional MaskPlotter instance.
+                                Default None
+            imgs_counter <int>: Counter of processed images. Default 0
+            apply_threshold <bool>: Whether or not apply thresholding to the predicted mask.
+                                Default True
 
         Returns:
-            loss, metric, imgs_counter
+            loss<torch.Tensor>,  extra_data<dict>
         """
         # Example #############################################################
         # batch = kwargs.get('batch')
-        # testing = kwargs.get('testing')
-        # plot_to_png = kwargs.get('plot_to_png')
-        # mask_plotter = kwargs.get('mask_plotter')
-        # loss = imgs_counter = metric = 0
+        # testing = kwargs.get('testing', False)
+        # plot_to_png = kwargs.get('plot_to_png', False)
+        # mask_plotter = kwargs.get('mask_plotter', None)
+        # imgs_counter = kwargs.get('imgs_counter', 0)
+        # apply_threshold = kwargs.get('apply_threshold', True)
 
-        # imgs, true_masks, masks_pred = self.get_validation_data(batch)
+        # assert isinstance(batch, dict), type(batch)
+        # assert isinstance(testing, bool), type(testing)
+        # assert isinstance(plot_to_png, bool), type(plot_to_png)
+        # if mask_plotter:
+        #     assert isinstance(mask_plotter, MaskPlotter), type(mask_plotter)
+        # assert isinstance(imgs_counter, int), type(imgs_counter)
+        # assert isinstance(apply_threshold, bool), type(apply_threshold)
 
-        # masks_pred has predictions from 5 decoders, so we chose to use masks from
-        # decoder d1
+        # loss = torch.tensor(0.)
+
+        # with torch.cuda.amp.autocast(enabled=USE_AMP):
+        #     imgs, true_masks, masks_pred, labels, label_names = self.get_validation_data(batch)
+
+        #     if not testing:
+        #         loss = torch.sum(torch.stack([
+        #             self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
+        #         ]))
+
+        # # TODO: Try with masks from d5 and other decoders
         # pred = masks_pred[0]  # using mask from decoder d1
-
-        # if not testing:
-        #     loss += torch.sum(torch.stack([
-        #         self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
-        #     ]))
-
-        # preds = torch.sigmoid(preds) if self.module.n_classes == 1 else torch.softmax(preds, dim=1)
+        # pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
 
         # if testing and plot_to_png:
+        #     # TODO: review if the logic of imgs_counter still works
         #     filenames = tuple(str(imgs_counter + i) for i in range(1, pred.shape[0]+1))
-        #     imgs_counter += pred.shape[0]
         #     mask_plotter(imgs, true_masks, pred, filenames)
 
-        # # FIXME try calculating the metric without the threshold
-        # pred = (pred > self.mask_threshold).float()
-        # metric += self.metric(pred, true_masks).item()
+        # if apply_threshold:
+        #     # FIXME try calculating the metric without the threshold
+        #     pred = (pred > self.mask_threshold).float()
 
-        # return loss, metric, imgs_counter
+        # self.valid_metrics.update(pred, true_masks)
+
+        # extra_data = dict(imgs=imgs, pred=pred, true_masks=true_masks, labels=labels, label_names=label_names)
+
+        # return loss, extra_data
 
         raise NotImplementedError("validation_step not implemented.")
 
@@ -479,7 +505,7 @@ If true it track the loss values, else it tracks the metric values.
                                           nns.callbacks.plotters.masks import MaskPlotter
                                           Default dict(alpha=.7, dir_per_file=False, superimposed=False, max_values=False, decoupled=False)
         Returns:
-            loss<torch.Tensor>, metric_score<float>, extra_data<dict>
+            loss<torch.Tensor>, metric_scores<dict>, extra_data<dict>
         """
         dataloader = kwargs.get('dataloader')
         testing = kwargs.get('testing', False)
@@ -510,29 +536,30 @@ If true it track the loss values, else it tracks the metric values.
             mask_plotter = None
 
         self.model.eval()
-        # FIXME: review this!!
         n_val = len(dataloader)  # the number of batchs
-        loss = 0
-        metric = 0
-        imgs_counter = 0
+        loss = imgs_counter = 0
         # the folowing variables will store extra data from the last validation batch
         extra_data = None
 
         for batch in tqdm(dataloader, total=n_val, desc='Testing round', unit='batch', leave=True, disable=not testing):
-            loss_, metric_, imgs_counter_, extra_data = self.validation_step(
-                batch=batch, testing=testing, loss=loss, plot_to_png=plot_to_png,
-                imgs_counter=imgs_counter, mask_plotter=mask_plotter, metric=metric
+            loss_, extra_data = self.validation_step(
+                batch=batch, testing=testing, plot_to_png=plot_to_png, imgs_counter=imgs_counter,
+                mask_plotter=mask_plotter
             )
             loss += loss_
-            metric += metric_
-            imgs_counter += imgs_counter_
+            imgs_counter += self.testval_dataloader_kwargs['batch_size']
+
+        # total metrics over all validation batches
+        metrics = self.valid_metrics.compute()
+        # reset metrics states after each epoch
+        self.valid_metrics.reset()
 
         if testing and plot_to_png and func_plot_palette is not None:
             func_plot_palette(os.path.join(saving_dir, 'label_palette.png'))
 
         self.model.train()
 
-        return loss / n_val,  metric / n_val, extra_data
+        return loss / n_val, metrics, extra_data
 
     def validation_post(self, **kwargs):
         """ Logic to be executed after the validation step """
@@ -543,12 +570,15 @@ If true it track the loss values, else it tracks the metric values.
         Logic to perform the training step per batch
 
         Args:
-            batch            <dict>: Dictionary contaning batch data
+            batch <dict>: Dictionary contaning batch data
 
         Returns:
-            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>, metric<float>, labels<list>, label_names<list>
+            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>, metrics<dict>, labels<list>, label_names<list>
         """
         # Example #############################################################
+        # assert isinstance(batch, dict), type(batch)
+        # # TODO: part of these lines can be re-used for get_validation_data with minors tweaks
+        # #       review if this is a good idea o not
         # imgs = batch['image']
         # true_masks = batch['mask']
         # labels = batch.get('label', ['']*self.train_dataloader_kwargs['batch_size'])
@@ -572,34 +602,32 @@ If true it track the loss values, else it tracks the metric values.
         # # changing this becaue of the error
         # # RuntimeError: _thnn_conv_depthwise2d_forward not supported on CUDAType
         # #               for Long
-        # # mask_type = torch.float32 if self.model.n_classes == 1 else torch.long
+        # # mask_type = torch.float32 if self.module.n_classes == 1 else torch.long
         # # mask_type = torch.float32
         # true_masks = true_masks.to(device=self.device, dtype=torch.float32)
-        # masks_pred = self.model(imgs)
 
-        # # NOTE: UNet_3Plus_DeepSup returns a tuple of tensor masks
-        # # so if we have a tensor then we just put it inside a tuple
-        # # to not break the workflow
-        # masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
+        # with torch.cuda.amp.autocast(enabled=USE_AMP):
+        #     masks_pred = self.model(imgs)
 
-        # # NOTE: FOR CROSSENTROPYLOSS I SHOULD BE USING the LOGITS ....
-        # # summing the losses from the outcome(s) and then backpropagating it
-        # loss = torch.sum(torch.stack([
-        #     self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
-        # ]))
+        #     # NOTE: UNet_3Plus_DeepSup returns a tuple of tensor masks
+        #     # so if we have a tensor then we just put it inside a tuple
+        #     # to not break the workflow
+        #     masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
+
+        #     loss = torch.sum(torch.stack([
+        #         self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
+        #     ]))
 
         # # using mask from decoder d1
         # # TODO: Try with masks from d5 and other decoders
         # pred = masks_pred[0]
-        # # TODO: Review the returned types and update the docstring
         # pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
 
         # # FIXME try calculating the metric without the threshold
         # pred = (pred > self.mask_threshold).float()
-        # metric = self.metric(pred, true_masks).item()
+        # metrics = self.train_metrics(pred, true_masks)
 
-        # return pred, true_masks, imgs, loss, metric, labels, label_names
-
+        # return pred, true_masks, imgs, loss, metrics, labels, label_names
         raise NotImplementedError("training_step not implemented.")
 
     def training(self):
@@ -631,7 +659,7 @@ If true it track the loss values, else it tracks the metric values.
             # TODO: once all the losses are settled, load them too!
             start_epoch, data_logger = self.load_checkpoint(optimizer)
             val_loss_min = min(data_logger['val_loss'])
-            best_metric = max(data_logger['val_metric'])
+            best_metric = self.get_best_combined_main_metrics(data_logger['val_metric'])
             # increasing to start at the next epoch
             start_epoch += 1
 
@@ -650,15 +678,13 @@ If true it track the loss values, else it tracks the metric values.
         for epoch in range(start_epoch, self.epochs):
             self.model.train()
             train_loss = 0
-            train_metric = 0
 
             with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img') as pbar:
                 batch_eval_counter = 0
 
                 for batch in self.train_loader:
-                    pred, true_masks, imgs, loss, metric, labels, label_names = self.training_step(batch)
+                    pred, true_masks, imgs, loss, metrics, labels, label_names = self.training_step(batch)
                     train_loss += loss.item()
-                    train_metric += metric
                     optimizer.zero_grad()
                     # loss.backward(retain_graph=True)
                     scaler.scale(loss).backward(retain_graph=True)
@@ -671,7 +697,7 @@ If true it track the loss values, else it tracks the metric values.
 
                     if global_step % step_divider == 0:
                         validation_step += 1
-                        val_loss, val_metric, val_extra_data = self.validation(dataloader=self.val_loader)
+                        val_loss, val_metrics, val_extra_data = self.validation(dataloader=self.val_loader)
                         val_loss_min = min(val_loss.item(), val_loss_min)
 
                         # maybe if there's no scheduler then the lr shouldn't be plotted
@@ -679,18 +705,23 @@ If true it track the loss values, else it tracks the metric values.
                         data_logger['lr'].append(optimizer.param_groups[0]['lr'])
                         writer.add_scalar('Loss/train', loss.item(), validation_step)
                         data_logger['train_loss'].append(loss.item())
-                        writer.add_scalar('Metric/train', metric, validation_step)
-                        data_logger['train_metric'].append(metric)
+
+                        for metric_, value_ in metrics.items():
+                            writer.add_scalar(f'{metric_}', value_.item(), validation_step)
+
+                        data_logger['train_metric'].append(self.prepare_to_save(metrics))
                         writer.add_scalar('Loss/val', val_loss.item(), validation_step)
                         data_logger['val_loss'].append(val_loss.item())
-                        writer.add_scalar('Metric/val', val_metric, validation_step)
-                        data_logger['val_metric'].append(val_metric)
-                        logger.info(
-                            f'Global batch: {global_step} \t Validation batch {validation_step} \t'
-                            f'Train loss: {loss.item():.6f} \t Train metric: {metric:.6f} \t'
-                            f'Val loss: {val_loss.item():.6f} \t Val metric: {val_metric:.6f}'
-                        )
 
+                        for metric_, value_ in val_metrics.items():
+                            writer.add_scalar(f'{metric_}', value_.item(), validation_step)
+
+                        data_logger['val_metric'].append(self.prepare_to_save(val_metrics))
+
+                        self.print_validation_summary(
+                            global_step=global_step, validation_step=validation_step, loss=loss,
+                            metrics=metrics, val_loss=val_loss, val_metrics=val_metrics
+                        )
                         self.validation_post(
                             pred=pred, true_masks=true_masks, labels=labels, imgs=imgs,
                             label_names=label_names, writer=writer, validation_step=validation_step,
@@ -699,6 +730,8 @@ If true it track the loss values, else it tracks the metric values.
 
                         # TODO: find out if it's better to apply the early stopping to
                         # val_metric or val_loss
+                        val_metric = self.get_mean_main_metrics(val_metrics)
+
                         if self.earlystopping_to_metric:
                             if earlystopping(best_metric, val_metric):
                                 early_stopped = True
@@ -709,19 +742,22 @@ If true it track the loss values, else it tracks the metric values.
 
                         if metric_evaluator(val_metric, best_metric):
                             logger.info(
-                                f'Metric increased ({best_metric:.6f} --> {val_metric:.6f}).'
-                                ' Saving model ...'
+                                f'{self.main_metrics_str} increased'
+                                f'({best_metric:.6f} --> {val_metric:.6f}). '
+                                'Saving model ...'
                             )
                             self.save()
                             self.save_checkpoint(
-                                float(f'{epoch}.{batch_eval_counter}'), optimizer, data_logger, True)
+                                float(f'{epoch}.{batch_eval_counter}'), optimizer, data_logger,
+                                best_chkpt=True
+                            )
                             best_metric = val_metric
 
                         if self.train_eval_chkpt and checkpoint and checkpoint(epoch):
                             batch_eval_counter += 1
                             self.save_checkpoint(float(f'{epoch}.{batch_eval_counter}'), optimizer, data_logger)
                         if scheduler is not None:
-                            # TODO: verify the replacemente function is working properly
+                            # TODO: verify the replacement function is working properly
                             LrShedulerTrack.step(self.lr_scheduler_track, scheduler, val_metric, val_loss)
 
             if early_stopped:
@@ -732,27 +768,25 @@ If true it track the loss values, else it tracks the metric values.
 
             train_batches = len(self.train_loader)
             data_logger['epoch_train_losses'].append(train_loss / train_batches)
-            data_logger['epoch_train_metrics'].append(train_metric / train_batches)
+            # total metrics over all training batches
+            data_logger['epoch_train_metrics'].append(self.prepare_to_save(self.train_metrics.compute()))
+            # reset metrics states after each epoch
+            self.train_metrics.reset()
 
             val_loss, val_metric, _ = self.validation(dataloader=self.val_loader)
             data_logger['epoch_val_losses'].append(val_loss.item())
-            data_logger['epoch_val_metrics'].append(val_metric)
+            data_logger['epoch_val_metrics'].append(self.prepare_to_save(val_metric))
 
-            logger.info(
-                f'Epoch {epoch+1} train loss: {data_logger["epoch_train_losses"][epoch]:.6f} '
-                f'\tval loss: {val_loss:.6f}'
-            )
-            logger.info(
-                f'Epoch {epoch+1} train metric: {data_logger["epoch_train_metrics"][epoch]:.6f} '
-                f'\tval metric: {val_metric:.6f}'
-            )
+            self.print_epoch_summary(epoch, data_logger)
 
             if checkpoint and checkpoint(epoch):
                 self.save_checkpoint(epoch, optimizer, data_logger)
 
+        train_metrics = [f'{self.train_prefix}{metric}' for metric in self.train_metrics]
+        val_metrics = [f'{self.valid_prefix}{metric}' for metric in self.valid_metrics]
+
         writer.add_custom_scalars({
-            'Metric': {'Metric/Train&Val': ['Multiline', ['Metric/train', 'Metric/val']]
-                       },
+            'Metric': {'Metric/Train&Val': ['Multiline', train_metrics+val_metrics]},
             'Loss': {'Loss/Train&Val': ['Multiline', ['Loss/train', 'Loss/val']]},
             'LearningRate': {'Train': ['Multiline', ['learning_rate']]}
         })
