@@ -18,7 +18,7 @@ class TorchMetricsMixin:
     Usage:
        MyModelMGR(TorchMetricsMixin):
            def __init__(self, **kwargs):
-               self.init_TorchMetricsMixin(**kwargs)
+               self._TorchMetricsMixin__init(**kwargs)
                ...
     """
 
