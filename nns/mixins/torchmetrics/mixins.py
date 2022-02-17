@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
-""" nns/mixins/torchmetrics """
+""" nns/mixins/torchmetrics/mixins """
 
-from typing import List
+from typing import List, Union, Optional
 
 import torch
 from gtorch_utils.segmentation.torchmetrics import DiceCoefficient
 from logzero import logger
 from torchmetrics import MetricCollection
 
+from nns.mixins.torchmetrics.exceptions import PrepareToSaveError
 from nns.utils.metrics import MetricItem
+
+
+__all__ = ['TorchMetricsMixin']
 
 
 class TorchMetricsMixin:
@@ -109,7 +113,109 @@ class TorchMetricsMixin:
                 for k in set(metrics1) | set(metrics2)}
 
     @staticmethod
-    def print_validation_summary(**kwargs):
+    def metrics_to_str(metrics1: dict, metrics2: Optional[dict] = None) -> str:
+        """
+        Returns a ready-to-print human-readable representation of the provided metrics.
+        Works with one or two metrics dictionaries. If two metric dicts are provided
+        the they will be nicely formatted as training vs validation metrics
+
+        Kwargs:
+            metrics1 <dict>: Dictionary obtained by calling MyMetricCollection(preds, target) or
+                             MyMetricCollection.compute()
+            metrics2 <dict>: [OPTIONAL] Dictionary obtained by calling MyMetricCollection(preds, target)
+                             or MyMetricCollection.compute()
+
+        Returns:
+            metrics_stx <str>
+        """
+        assert isinstance(metrics1, dict), type(metrics1)
+
+        text = ''
+
+        if metrics2 is not None:
+            assert isinstance(metrics2, dict), type(metrics2)
+
+            for (train_k, train_v), (val_k, val_v) in zip(metrics1.items(), metrics2.items()):
+                text += f'{train_k}: {train_v:.6f} \t\t {val_k}: {val_v:.6f}\n'
+        else:
+            for key, value in metrics1.items():
+                text += f'{key}: {value:.6f}\n'
+
+        return text
+
+    @staticmethod
+    def _prepare_to_save_dict(metrics: dict) -> dict:
+        """
+        Return a copy of the dictionary without Tensors
+
+        Kwargs:
+            metrics <dict>: Dictionary obtained by calling MyMetricCollection(preds, target) or
+                            MyMetricCollection.compute()
+
+        Returns:
+            ready_to_save_metrics <dict>
+        """
+        assert isinstance(metrics, dict), type(metrics)
+
+        try:
+            return {k: v.item() for k, v in metrics.items()}
+        except AttributeError:
+            return metrics
+
+    def _prepare_to_save_list_dict(self, metrics_list: List[dict]) -> List[dict]:
+        """
+        Returns a copy of the list of dictionaries without Tensors
+
+        Kwargs:
+            metrics_list <list>: List of dictionaries obtained by calling
+                                 MyMetricCollection(preds, target) or MyMetricCollection.compute()
+
+        Returns:
+            cleaned_metrics_list <List[dict]>
+        """
+        assert isinstance(metrics_list, list), type(metrics_list)
+
+        return [self._prepare_to_save_dict(metrics) for metrics in metrics_list]
+
+    @staticmethod
+    def _prepare_to_save_list(mylist: List[torch.Tensor]) -> List[float]:
+        """
+        Returns a copy of the List[torch.Tensor] but containing only float values
+
+        Returns:
+            cleaned_list <List[float]>
+        """
+        assert isinstance(mylist, list), type(mylist)
+
+        try:
+            return [element.item() for element in mylist]
+        except AttributeError:
+            return mylist
+
+    def prepare_to_save(
+            self, data: Union[dict, List[dict], List[torch.Tensor]]) -> Union[dict, List[dict], List[float]]:
+        """
+        Functor method to get rid of tensors from the provided dada
+
+        Kwargs:
+            data <dict | List[dict] | List[torch.Tensor]>: data to be cleaned of tensors
+
+        Returns:
+            cleaned_data <dict | List[dict] | List[float]>
+        """
+        if isinstance(data, dict):
+            return self._prepare_to_save_dict(data)
+
+        if isinstance(data, list):
+            if isinstance(data[0], dict):
+                return self._prepare_to_save_list_dict(data)
+
+            if isinstance(data[0], torch.Tensor):
+                return self._prepare_to_save_list(data)
+
+        raise PrepareToSaveError()
+
+    def print_validation_summary(self, **kwargs):
         """
         Print an summary (this method must be called after performing a validation)
 
@@ -138,13 +244,10 @@ class TorchMetricsMixin:
         text = f'Global batch: {global_step} \t\t Validation batch {validation_step}\n' + \
             f'Train loss: {loss.item():.6f} \t\t Val loss: {val_loss.item():.6f}\n'
 
-        for (train_k, train_v), (val_k, val_v) in zip(metrics.items(), val_metrics.items()):
-            text += f'{train_k}: {train_v.item():.6f} \t\t {val_k}: {val_v.item():.6f}\n'
+        logger.info(
+            text + self.metrics_to_str(self.prepare_to_save(metrics), self.prepare_to_save(val_metrics)))
 
-        logger.info(text)
-
-    @staticmethod
-    def print_epoch_summary(epoch: int, data_logger: dict):
+    def print_epoch_summary(self, epoch: int, data_logger: dict):
         """
         Prints and epoch summary
 
@@ -159,27 +262,10 @@ class TorchMetricsMixin:
             f'train loss: {data_logger["epoch_train_losses"][epoch]:.6f} \t\t' + \
             f'val loss: {data_logger["epoch_val_losses"][epoch]:.6f}\n'
 
-        for (train_k, train_v), (val_k, val_v) in zip(data_logger['epoch_train_metrics'][epoch].items(),
-                                                      data_logger['epoch_val_metrics'][epoch].items()):
-            text += f'{train_k}: {train_v:.6f} \t\t {val_k}: {val_v:.6f}\n'
-
-        logger.info(text)
-
-    @staticmethod
-    def prepare_to_save(metrics: dict) -> dict:
-        """
-        Return a copy of the dictionary without Tensors
-
-        Kwargs:
-            metrics <dict>: Dictionary obtained by calling MyMetricCollection(preds, target) or
-                            MyMetricCollection.compute()
-
-        Returns:
-            ready_to_save_metrics <dict>
-        """
-        assert isinstance(metrics, dict), type(metrics)
-
-        return {k: v.item() for k, v in metrics.items()}
+        logger.info(
+            text + self.metrics_to_str(self.prepare_to_save(data_logger['epoch_train_metrics'][epoch]),
+                                       self.prepare_to_save(data_logger['epoch_val_metrics'][epoch]))
+        )
 
     def get_best_combined_main_metrics(self, metrics_list: List[dict]) -> float:
         """
@@ -191,4 +277,6 @@ class TorchMetricsMixin:
         Returns:
             best_combined_main_metrics <float>
         """
+        assert isinstance(metrics_list, list), type(metrics_list)
+
         return max([self.get_mean_main_metrics(metrics) for metrics in metrics_list]).item()
