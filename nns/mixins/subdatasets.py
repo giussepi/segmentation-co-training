@@ -13,7 +13,7 @@ class SubDatasetsMixin:
         class SomeClass(SubDatasetsMixin):
             def __init__(self, **kwargs):
                 # some lines of code
-                self.init_SubDatasetsMixin(**kwargs)
+                self._SubDatasetsMixin__init(**kwargs)
     """
 
     def __init_and_validate(self, **kwargs):
