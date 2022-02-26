@@ -30,12 +30,12 @@ class TrainingPlotter:
         Initializes the object instance
 
         Kwargs:
-            train_loss   <list>: list containing the training loss logs
-            train_metric <list>: list containing the training metric logs
-            val_loss     <list>: list containing the validation loss logs
-            val_metric   <list>: list containing the validation metric logs
-            lr           <list>: list containing the training learning rate logs
-            clip_interval <list, tuple>: Range [min, max] used to clamp all elements
+            train_loss   <Optional[list]>: list containing the training loss logs
+            train_metric <Optional[list]>: list containing the training metric logs
+            val_loss     <Optional[list]>: list containing the validation loss logs
+            val_metric   <Optional[list]>: list containing the validation metric logs
+            lr           <Optional[list]>: list containing the training learning rate logs
+            clip_interval <Optional[Union[list, tuple]]>: Range [min, max] used to clamp all elements
         """
         self.train_loss = kwargs.get('train_loss', [])
         self.train_metric = kwargs.get('train_metric', [])
@@ -92,6 +92,7 @@ class TrainingPlotter:
             val_loss_label  <str>: Label for the val_loss line
             train_metric_label <str>: Label for the train_metric line
             val_metric_label <str>: Label for the val_metric line
+            xticks_labels <Union[list, np.ndarray>]: The labels for xticks locations. Default None
         """
         title = kwargs.get('title', '')
         xlabel = kwargs.get('xlabel', 'Epochs')
@@ -107,6 +108,7 @@ class TrainingPlotter:
         val_loss_label = kwargs.get('val_loss_label', 'val loss')
         train_metric_label = kwargs.get('train_metric_label', 'train metric')
         val_metric_label = kwargs.get('val_metric_label', 'val metric')
+        xticks_labels = kwargs.get('xticks_labels', None)
 
         assert isinstance(title, str), type(title)
         assert isinstance(xlabel, str), type(xlabel)
@@ -121,25 +123,43 @@ class TrainingPlotter:
         assert isinstance(val_loss_label, str), type(val_loss_label)
         assert isinstance(train_metric_label, str), type(train_metric_label)
         assert isinstance(val_metric_label, str), type(val_metric_label)
+        if xticks_labels is not None:
+            assert isinstance(xticks_labels, (list, np.ndarray)), type(xticks_labels)
 
         dirname = os.path.dirname(saving_path)
 
         if dirname and not os.path.isdir(dirname):
             os.makedirs(dirname)
 
-        x_data = np.arange(0, len(self.train_loss))
+        x_data = np.arange(0, len(self.train_loss)) if self.train_loss.size else \
+            np.arange(0, len(self.train_metric))
 
         # plt.clf()
         plt.style.use("ggplot")
         plt.figure()
-        line1, = plt.plot(x_data, self.train_loss, label=train_loss_label, **plot_kwargs)
-        line2, = plt.plot(x_data, self.val_loss, label=val_loss_label, **plot_kwargs)
-        line3, = plt.plot(x_data, self.train_metric, label=train_metric_label, **plot_kwargs)
-        line4,  = plt.plot(x_data, self.val_metric, label=val_metric_label, **plot_kwargs)
+        legend_handles = []
+
+        if self.train_loss.size:
+            line1, = plt.plot(x_data, self.train_loss, label=train_loss_label, **plot_kwargs)
+            legend_handles.append(line1)
+
+        if self.val_loss.size:
+            line2, = plt.plot(x_data, self.val_loss, label=val_loss_label, **plot_kwargs)
+            legend_handles.append(line2)
+
+        if self.train_metric.size:
+            line3, = plt.plot(x_data, self.train_metric, label=train_metric_label, **plot_kwargs)
+            legend_handles.append(line3)
+
+        if self.val_metric.size:
+            line4,  = plt.plot(x_data, self.val_metric, label=val_metric_label, **plot_kwargs)
+            legend_handles.append(line4)
+
         plt.title(title)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
-        plt.legend(handles=[line1, line2, line3, line4], **legend_kwargs)
+        plt.legend(handles=legend_handles, **legend_kwargs)
+        plt.xticks(x_data, xticks_labels)
 
         if save:
             plt.savefig(saving_path, dpi=dpi)
@@ -244,7 +264,7 @@ class TrainingPlotter:
         lm_saving_path = kwargs.get('lm_saving_path', 'losses_metrics.png')
         lr_saving_path = kwargs.get('lr_saving_path', 'learning_rate.png')
 
-        if len(self.train_loss) and len(self.train_metric) and len(self.val_loss) and \
+        if len(self.train_loss) or len(self.train_metric) or len(self.val_loss) or \
            len(self.val_metric):
             self.plot_losses_and_metrics(
                 title=lm_title,
