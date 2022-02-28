@@ -21,7 +21,7 @@ from nns.mixins.torchmetrics import TorchMetricsMixin
 from nns.segmentation.learning_algorithms.co_training.mixins import CotrainingPlotterMixin
 
 
-class CoTraining(SubDatasetsMixin, TorchMetricsMixin, CotrainingPlotterMixin):
+class CoTraining(SubDatasetsMixin, CotrainingPlotterMixin, TorchMetricsMixin):
     """
 
     Usage:
