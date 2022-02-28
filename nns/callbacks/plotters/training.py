@@ -12,9 +12,6 @@ class TrainingPlotter:
     Holds methods to plot and save training loss, metric and learning rate
 
     Usage:
-        _, data_logger = <ModelMGR_instance>.load_checkpoint(
-            <ModelMGR_instance>.optimizer(model.model.parameters(), **<ModelMGR_instance>.optimizer_kwargs))
-
         TrainingPlotter(
             train_loss=data_logger['train_loss'],
             train_metric=data_logger['train_metric'],
@@ -50,18 +47,18 @@ class TrainingPlotter:
         assert isinstance(self.val_metric, list), type(self.val_metric)
         assert isinstance(self.lr, list), type(self.lr)
 
+        self.train_loss = np.array(self.train_loss)
+        self.train_metric = np.array(self.train_metric)
+        self.val_loss = np.array(self.val_loss)
+        self.val_metric = np.array(self.val_metric)
+        self.lr = np.array(self.lr)
+
         if self.clip_interval is not None:
             assert isinstance(self.clip_interval, (list, tuple)), type(self.clip_interval)
             self.train_loss = self.train_loss.clip(*self.clip_interval)
             self.train_metric = self.train_metric.clip(*self.clip_interval)
             self.val_loss = self.val_loss.clip(*self.clip_interval)
             self.val_metric = self.val_metric.clip(*self.clip_interval)
-
-        self.train_loss = np.array(self.train_loss)
-        self.train_metric = np.array(self.train_metric)
-        self.val_loss = np.array(self.val_loss)
-        self.val_metric = np.array(self.val_metric)
-        self.lr = np.array(self.lr)
 
     def __call__(self, **kwargs):
         """ functor call """
@@ -177,6 +174,7 @@ class TrainingPlotter:
             title           <str>: plot title. Default 'Learning Rate'
             xlabel          <str>: Label for X axis. Default 'Epochs'
             ylabel          <str>: Label for Y axis. Default 'Learning Rate'
+            xticks_labels <Union[list, np.ndarray>]: The labels for xticks locations. Default None
             plot_kwargs    <dict>: Dictionary contaning data for the plot method.
                                    Default {'linewidth': 1.5}
             save           <bool>: Whether or not save to disk. Default False
@@ -194,6 +192,7 @@ class TrainingPlotter:
         title = kwargs.get('title', 'Learning Rate')
         xlabel = kwargs.get('xlabel', 'Epochs')
         ylabel = kwargs.get('ylabel', '')
+        xticks_labels = kwargs.get('xticks_labels', None)
         plot_kwargs = kwargs.get('plot_kwargs', {'linewidth': 1.5})
         save = kwargs.get('save', False)
         dpi = kwargs.get('dpi', 'figure')
@@ -203,11 +202,12 @@ class TrainingPlotter:
         assert isinstance(title, str), type(title)
         assert isinstance(xlabel, str), type(xlabel)
         assert isinstance(ylabel, str), type(ylabel)
+        if xticks_labels is not None:
+            assert isinstance(xticks_labels, (list, np.ndarray)), type(xticks_labels)
         assert isinstance(plot_kwargs, dict), type(plot_kwargs)
         assert isinstance(save, bool), type(save)
         assert isinstance(dpi, float) or dpi == 'figure'
         assert isinstance(show, bool), type(show)
-
         assert isinstance(saving_path, str), type(saving_path)
 
         dirname = os.path.dirname(saving_path)
@@ -224,6 +224,7 @@ class TrainingPlotter:
         plt.title(title)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
+        plt.xticks(x_data, xticks_labels)
 
         if save:
             plt.savefig(saving_path, dpi=dpi)
@@ -244,6 +245,10 @@ class TrainingPlotter:
                                      Default 'Loss & Metric'
             lr_ylabel         <str>: Label for Y axis from learning rate plot.
                                      Default 'Learning Rate'
+            lm_xticks_labels <Union[list, np.ndarray>]: The labels for xticks locations of loss and metrics
+                                     plots. Default None
+            lr_xticks_labels <Union[list, np.ndarray>]: The labels for xticks locations of learning rate
+                                     plot. Default None
             lm_legend_kwargs <dict>: Dictionary contaning data for the legend method from loss
                                      and metrics plot.
                                      Default dict(shadow=True, fontsize=8, bbox_to_anchor=(1.1, 1.15), loc='upper right'))
@@ -257,6 +262,8 @@ class TrainingPlotter:
         lr_title = kwargs.pop('lr_title', 'Learning Rate')
         lm_ylabel = kwargs.pop('lm_ylabel', 'Loss & Metric')
         lr_ylabel = kwargs.pop('lr_ylabel', '')
+        lm_xticks_labels = kwargs.pop('lm_xticks_labels', None)
+        lr_xticks_labels = kwargs.pop('lr_xticks_labels', None)
 
         lm_legend_kwargs = kwargs.get(
             'lm_legend_kwargs', dict(shadow=True, fontsize=8, bbox_to_anchor=(1.1, 1.15), loc='upper right'))
@@ -271,6 +278,7 @@ class TrainingPlotter:
                 ylabel=lm_ylabel,
                 legend_kwargs=lm_legend_kwargs,
                 saving_path=lm_saving_path,
+                xticks_labels=lm_xticks_labels,
                 **kwargs
             )
 
@@ -279,5 +287,6 @@ class TrainingPlotter:
                 title=lr_title,
                 ylabel=lr_ylabel,
                 saving_path=lr_saving_path,
+                xticks_labels=lr_xticks_labels,
                 **kwargs
             )
