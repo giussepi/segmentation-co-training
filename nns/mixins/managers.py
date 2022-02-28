@@ -29,13 +29,13 @@ from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.checkpoints import CheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
 from nns.mixins.subdatasets import SubDatasetsMixin
-from nns.mixins.torchmetrics import TorchMetricsMixin
 from nns.utils.sync_batchnorm import patch_replication_callback
+
 
 __all__ = ['ModelMGRMixin']
 
 
-class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin, TorchMetricsMixin):
+class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
     """
     General segmentation model manager
 
