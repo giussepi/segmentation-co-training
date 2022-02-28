@@ -129,8 +129,6 @@ class DataLoggerMixin(TorchMetricsMixin):
 
         _, data_logger = self.load_checkpoint(self.optimizer(self.model.parameters(), **self.optimizer_kwargs))
 
-        # FIXME: only 8 vals/loss are shown, there should be 10!!!
-
         data = [["key", "Validation", "corresponding training value", "valid num"]]
         data_logger_val_metric = self.get_separate_metrics(data_logger['val_metric'], np_array=True)
         data_logger_train_metric = self.get_separate_metrics(data_logger['train_metric'], np_array=True)
