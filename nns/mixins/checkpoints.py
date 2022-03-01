@@ -25,6 +25,16 @@ class CheckPointMixin:
         """
         Saves the model as a checkpoint for inference and/or resuming training
 
+        When best_chkpt = True, intrain_x_counter refers to the intrain_val_counter
+        (see ModelMGRMixin.training method).
+
+        When best_chkpt = False, intrain_x_counter refers to intrain_chkpt_counter
+        (see ModelMGRMixin.training method). If epoch is an integer, we are not
+        performing intrain validation (instead, we are saving data from the epoch
+        evaluation); thus, intrain_x_counter is set to 0. On the other
+        hand, when epoch is a float, we assign its integer part to epoch_ and its
+        decimal part to intrain_x_counter.
+
         Kwargs:
             epoch                <int, float>: current epoch
             optimizer <self.optimizer>: optimizer instance
@@ -37,23 +47,38 @@ class CheckPointMixin:
         assert isinstance(data_logger, dict), type(data_logger)
         assert isinstance(best_chkpt, bool), type(best_chkpt)
 
+        if isinstance(epoch, float):
+            epoch_, intrain_x_counter = map(int, str(epoch).split('.'))
+        else:
+            epoch_ = epoch
+            intrain_x_counter = 0
+
         # TODO: also save the scaler
         data = {
-            'epoch': epoch,
+            'epoch': epoch_,
+            'intrain_x_counter': intrain_x_counter,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'data_logger': data_logger
         }
+
         if best_chkpt:
             filename = self.best_checkpoint_name
         else:
-            filename = self.checkpoint_pattern.format(f"_{data['epoch']}")
+            filename = self.checkpoint_pattern.format(f"_{epoch}")
 
         torch.save(data, os.path.join(self.dir_checkpoints, filename))
 
     def load_checkpoint(self, optimizer):
         """
         Loads the checkpoint for inference and/or resuming training
+
+        NOTE: The intrain_x_counter data is not considered when loading a checkpoint, because
+        dataset elements can be shuffled making it impossible to continue the training
+        in the exact position where the checkpoint was saved. Thus, we only consider the
+        epoch number to load the data and continue with the training process. In this regard,
+        when planning to continue the training process, it is recommended to set
+        ini_checkpoint to any epoch checkpoint e.g. chkpt_<int>.pth.tar
 
         Kwargs:
             optimizer (self.optimizer): optimizer instance

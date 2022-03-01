@@ -4,6 +4,7 @@
 import os
 import copy
 import subprocess
+from typing import Tuple, List, Union, OrderedDict
 
 import numpy as np
 import torch
@@ -12,15 +13,15 @@ from gtorch_utils.nns.managers.callbacks import EarlyStopping
 from gtorch_utils.segmentation import metrics
 from logzero import logger
 from PIL import Image
-from tabulate import tabulate
 from tqdm import tqdm
 
-from nns.callbacks.plotters.training import TrainingPlotter
 from nns.managers import ModelMGR
 from nns.mixins.subdatasets import SubDatasetsMixin
+from nns.mixins.torchmetrics import TorchMetricsMixin
+from nns.segmentation.learning_algorithms.co_training.mixins import CotrainingPlotterMixin
 
 
-class CoTraining(SubDatasetsMixin):
+class CoTraining(SubDatasetsMixin, CotrainingPlotterMixin, TorchMetricsMixin):
     """
 
     Usage:
@@ -44,8 +45,8 @@ class CoTraining(SubDatasetsMixin):
                                           using warm_start = True. Otherwise, the models could learn too fast
                                           or too slow to make the most of the loaded pre-trained models.
                                           Another option to avoid this issue is setting warm_start = False.
-            metric            <callable>: Metric to measure the results. See gtorch_utils.segmentation.metrics
-                                          Default metrics.dice_coeff_metric
+            metrics               <list>: List of MetricItems to be used during co-training
+                                          Default [MetricItem(DiceCoefficient(), main=True),]
             earlystopping_kwargs  <dict>: Early stopping configuration.
                                           Default dict(min_delta=1e-3, patience=2)
             warm_start      <dict, None>: Configuration of the warm start. Set it to a dict full of zeroes to
@@ -146,7 +147,19 @@ class CoTraining(SubDatasetsMixin):
 
         assert isinstance(self.postprocessing_threshold, float), type(self.postprocessing_threshold)
 
-        self.init_SubDatasetsMixin(**kwargs)
+        self._SubDatasetsMixin__init(**kwargs)
+        self._TorchMetricsMixin__init(**kwargs)
+
+        # Initializing training dataset metrics ###############################
+        self.train_combined_preds_metrics = self.train_metrics.clone(prefix='train_combined_preds_metrics_')
+        self.train_models_metrics = [self.train_metrics.clone(prefix=f"train_{data['model'].__name__}_")
+                                     for data in self.model_mgr_kwargs_list]
+        self.train_new_masks_metrics = self.train_metrics.clone(prefix='train_new_masks_metrics_')
+
+        # Initializing validation dataset metrics #############################
+        self.valid_combined_preds_metrics = self.valid_metrics.clone(prefix='valid_combined_preds_metrics_')
+        self.valid_models_metrics = [self.valid_metrics.clone(prefix=f"valid_{data['model'].__name__}_")
+                                     for data in self.model_mgr_kwargs_list]
         self.model_mgr_list = []
 
     def __call__(self):
@@ -394,19 +407,19 @@ class CoTraining(SubDatasetsMixin):
 
         return new_mask_values_from_model_1.max(new_mask_values_from_model_2)
 
-    def strategy(self):
+    def strategy(self) -> Tuple[dict, dict, List[dict], List[torch.Tensor]]:
         """
         Performs the strategy to update/create the co-training ground truth masks
 
         Returns:
-            new_masks_metric<float>, combined_preds_metric<float>,  models_metrics<list>, models_losses<list>
+            new_masks_metrics<dict>, combined_preds_metrics<dict>, models_metrics<List[dict]>,
+            models_losses<List[torch.Tensor]>
         """
         self.set_models_to_eval_mode()
 
         results = None
         models_metrics = [0] * len(self.model_mgr_kwargs_list)
         models_losses = copy.deepcopy(models_metrics)
-        combined_preds_metric = new_masks_metric = 0
         total_batches = len(self.train_loader)
 
         for batch in tqdm(
@@ -420,22 +433,23 @@ class CoTraining(SubDatasetsMixin):
             for idx, model_mgr in enumerate(self.model_mgr_list):
                 # we do not apply the model_mgr threshold because we are going to
                 # evaluate the difference of the scores against the self.thresholds[<strategy>]
-                loss, _, _, extra_data = model_mgr.validation_step(batch=batch, apply_threshold=False)
+                loss, extra_data = model_mgr.validation_step(batch=batch, apply_threshold=False)
                 results.append(extra_data['pred'])
                 true_masks = extra_data['true_masks']
 
                 # properly calculating the model metric using its corresponding mask_threshold
-                models_metrics[idx] += self.metric(
+                self.train_models_metrics[idx].update(
                     (extra_data['pred'] > model_mgr.mask_threshold).float(),
                     true_masks
-                ).item()
+                )
+
                 model_mask_thresholds.append(model_mgr.mask_threshold)
                 models_losses[idx] += loss
 
-            combined_preds_metric += self.metric(
+            self.train_combined_preds_metrics.update(
                 (results[0].max(results[1]) > min(model_mask_thresholds)).float(),
                 true_masks
-            ).item()
+            )
 
             # creating new combined pred masks (for mask post-processing)
             combined_pred_masks = self.get_combined_predictions(results)
@@ -453,7 +467,7 @@ class CoTraining(SubDatasetsMixin):
             else:
                 new_masks = true_masks.max(new_masks)
 
-            new_masks_metric += self.metric(new_masks, true_masks).item()
+            self.train_new_masks_metrics.update(new_masks, true_masks)
 
             # saving new masks
             for new_mask, mask_path in zip(new_masks, batch['updated_mask_path']):
@@ -461,21 +475,27 @@ class CoTraining(SubDatasetsMixin):
                 new_mask.save(mask_path)
 
         for idx in range(len(self.model_mgr_list)):
-            models_metrics[idx] /= total_batches
+            models_metrics[idx] = self.train_models_metrics[idx].compute()
+            self.train_models_metrics[idx].reset()
             models_losses[idx] /= total_batches
 
         self.set_models_to_train_mode()
+        # total metrics over all training batches
+        combined_preds_metrics = self.train_combined_preds_metrics.compute()
+        new_masks_metrics = self.train_new_masks_metrics.compute()
+        # reset metrics states after each epoch
+        self.train_combined_preds_metrics.reset()
+        self.train_new_masks_metrics.reset()
 
-        return new_masks_metric / total_batches, combined_preds_metric / total_batches, models_metrics, \
-            models_losses
+        return new_masks_metrics, combined_preds_metrics, models_metrics, models_losses
 
-    def validation(self, testing=False):
+    def validation(self, testing: bool = False) -> Tuple[float, dict, list, list]:
         """
         Kwargs:
             testing <bool>: If True uses the test_loader; otherwise, it uses val_loader
 
         Returns:
-            new_masks_metric<float>, combined_preds_metric<float>,  models_metrics<list>, models_losses<list>
+            new_masks_metrics<float>, combined_preds_metrics<dict>, models_metrics<list>, models_losses<list>
         """
         assert isinstance(testing, bool), type(testing)
 
@@ -484,7 +504,7 @@ class CoTraining(SubDatasetsMixin):
         results = None
         models_metrics = [0] * (len(self.model_mgr_list))
         models_losses = copy.deepcopy(models_metrics)
-        combined_preds_metric = new_masks_metric = 0
+        new_masks_metrics = 0  # we're not calculating new_masks_metrics for validation/testing
 
         if testing:
             dataloader, desc, total_batches = self.test_loader, 'Testing', len(self.test_loader)
@@ -497,23 +517,31 @@ class CoTraining(SubDatasetsMixin):
 
             for idx, model_mgr in enumerate(self.model_mgr_list):
                 # we are not going to use the self.thresholds for any operation
-                # so we wan apply the model_mgr threshol  and directly use its returned metric
-                loss, metric, _, extra_data = model_mgr.validation_step(batch=batch, apply_threshold=True)
+                # so we can apply the model_mgr threshold
+                loss, extra_data = model_mgr.validation_step(batch=batch, apply_threshold=True)
                 results.append(extra_data['pred'])
                 true_masks = extra_data['true_masks']
-                models_metrics[idx] += metric
+                self.valid_models_metrics[idx].update(
+                    (extra_data['pred'] > model_mgr.mask_threshold).float(),
+                    true_masks
+                )
                 models_losses[idx] += loss
 
-            combined_preds_metric += self.metric(results[0].max(results[1]), true_masks).item()
+            self.valid_combined_preds_metrics.update(results[0].max(results[1]), true_masks)
 
         for idx in range(len(self.model_mgr_list)):
-            models_metrics[idx] /= total_batches
+            models_metrics[idx] = self.valid_models_metrics[idx].compute()
+            self.valid_models_metrics[idx].reset()
             models_losses[idx] /= total_batches
 
         self.set_models_to_train_mode()
 
-        return new_masks_metric / total_batches, combined_preds_metric / total_batches, models_metrics, \
-            models_losses
+        # total metrics over all training batches
+        combined_preds_metrics = self.valid_combined_preds_metrics.compute()
+        # reset metrics states after each epoch
+        self.valid_combined_preds_metrics.reset()
+
+        return new_masks_metrics, combined_preds_metrics, models_metrics, models_losses
 
     @timing
     def test(self):
@@ -530,7 +558,7 @@ class CoTraining(SubDatasetsMixin):
                 models_metrics, start=1)])
         )
 
-    def get_current_best_models(self, data_logger):
+    def get_current_best_models(self, data_logger: dict) -> Union[List[OrderedDict], List[str]]:
         """
         Finds and returns the overall best state dicts of the models. If it is the very first
         iteration or self.overall_best_models is False, it returns a list of emtpy strings
@@ -543,8 +571,8 @@ class CoTraining(SubDatasetsMixin):
         """
         assert isinstance(data_logger, dict), type(data_logger)
 
-        val_models_metrics = np.array(data_logger['val_models_metrics'])
-
+        val_models_metrics = np.array([list(map(self.get_mean_main_metrics, metrics))
+                                       for metrics in data_logger['val_models_metrics']])
         if not self.overall_best_models or not val_models_metrics.size:
             return [''] * len(self.model_mgr_kwargs_list)
 
@@ -557,7 +585,8 @@ class CoTraining(SubDatasetsMixin):
             # but first asking if the all the ModelMGR instances have been already created
             if len(self.model_mgr_list) == len(self.model_mgr_kwargs_list):
                 best_chkpt_data = self.model_mgr_list[model_idx].get_best_checkpoint_data()
-                model_best_metric = max(best_chkpt_data['data_logger']['val_metric'])
+                model_best_metric = self.get_best_combined_main_metrics(
+                    best_chkpt_data['data_logger']['val_metric'])
 
                 if model_best_metric > val_models_metrics[:, model_idx][best_cot_iter]:
                     best_models.append(best_chkpt_data.pop('model_state_dict'))
@@ -569,7 +598,7 @@ class CoTraining(SubDatasetsMixin):
 
         return best_models
 
-    def save(self, iteration, data_logger):
+    def save(self, iteration: int, data_logger: dict):
         """
         Saves data logger and models from the current iteration
 
@@ -583,8 +612,8 @@ class CoTraining(SubDatasetsMixin):
         data = dict(
             iteration=iteration,
             data_logger=data_logger,
-            model1=self.model_mgr_list[0].module.state_dict(),
-            model2=self.model_mgr_list[1].module.state_dict()
+            model1=self.model_mgr_list[0].model.state_dict(),
+            model2=self.model_mgr_list[1].model.state_dict()
         )
 
         torch.save(
@@ -602,7 +631,7 @@ class CoTraining(SubDatasetsMixin):
             val_models_losses=[],
         )
         earlystopping = EarlyStopping(**self.earlystopping_kwargs)
-        previous_train_new_masks_metric = .0
+        previous_train_new_masks_metric = new_train_new_masks_metric = .0
 
         self.remove_cot_masks()
 
@@ -614,152 +643,24 @@ class CoTraining(SubDatasetsMixin):
             self.load_best_models(data_logger)
 
             new_masks_metric, combined_preds_metric, models_metrics, models_losses = self.strategy()
-            data_logger['train_new_masks_metric'].append(new_masks_metric)
-            data_logger['train_combined_preds_metric'].append(combined_preds_metric)
-            data_logger['train_models_metrics'].append(models_metrics)
-            data_logger['train_models_losses'].append(models_losses)
+            data_logger['train_new_masks_metric'].append(self.prepare_to_save(new_masks_metric))
+            data_logger['train_combined_preds_metric'].append(self.prepare_to_save(combined_preds_metric))
+            data_logger['train_models_metrics'].append(self.prepare_to_save(models_metrics))
+            data_logger['train_models_losses'].append(self.prepare_to_save(models_losses))
 
             new_masks_metric, combined_preds_metric, models_metrics, models_losses = self.validation()
             data_logger['val_new_masks_metric'].append(new_masks_metric)
-            data_logger['val_combined_preds_metric'].append(combined_preds_metric)
-            data_logger['val_models_metrics'].append(models_metrics)
-            data_logger['val_models_losses'].append(models_losses)
+            data_logger['val_combined_preds_metric'].append(self.prepare_to_save(combined_preds_metric))
+            data_logger['val_models_metrics'].append(self.prepare_to_save(models_metrics))
+            data_logger['val_models_losses'].append(self.prepare_to_save(models_losses))
 
-            logger.info(
-                f'Co-training iteration {i+1}:\n'
-                f'train_new_masks_metric: {data_logger["train_new_masks_metric"][i]:.6f} \t'
-                f'train_combined_preds_metric: {data_logger["train_combined_preds_metric"][i]:.6f} \t'
-                f'train_models_metrics: ' + f', '.join([f'model {idx}: {val:.6f}' for idx, val in enumerate(
-                    data_logger["train_models_metrics"][i], start=1)]) + '\t'
-                f'train_models_losses: ' + f', '.join([f'model {idx}: {val:.6f}' for idx, val in enumerate(
-                    data_logger["train_models_losses"][i], start=1)]) +
-                f'\n val_new_masks_metric: {data_logger["val_new_masks_metric"][i]:.6f} \t'
-                f'val_combined_preds_metric: {data_logger["val_combined_preds_metric"][i]:.6f} \t'
-                f'val_models_metrics: ' + f', '.join([f'model {idx}: {val:.6f}' for idx, val in enumerate(
-                    data_logger["val_models_metrics"][i], start=1)]) + '\t'
-                f'val_models_losses: ' + f', '.join([f'model {idx}: {val:.6f}' for idx, val in enumerate(
-                    data_logger["val_models_losses"][i], start=1)])
-            )
-
+            self.print_epoch_summary(data_logger, i)
             self.save(i, data_logger)
 
-            if earlystopping(min(previous_train_new_masks_metric, data_logger['train_new_masks_metric'][i]),
-                             max(previous_train_new_masks_metric, data_logger['train_new_masks_metric'][i])):
+            new_train_new_masks_metric = self.get_mean_main_metrics(data_logger['train_new_masks_metric'][i])
+
+            if earlystopping(min(previous_train_new_masks_metric, new_train_new_masks_metric),
+                             max(previous_train_new_masks_metric, new_train_new_masks_metric)):
                 break
 
-            previous_train_new_masks_metric = data_logger['train_new_masks_metric'][i]
-
-    def plot_and_save(self, checkpoint, save=False, dpi='figure', show=True):
-        """
-        Plosts and saves (optionally) the co-training data_logger from the 'checkpoint'
-
-        Kwargs:
-            checkpoint <str>: path to the CoTraining checkpoint
-            save           <bool>: Whether or not save to disk. Default False
-            dpi <float, 'figure'>: The resolution in dots per inch.
-                                   If 'figure', use the figure's dpi value. For high quality images
-                                   set it to 300.
-                                   Default 'figure'
-            show           <bool>: Where or not display the image. Default True
-        """
-        assert os.path.isfile(checkpoint), f'{checkpoint} does not exist.'
-        assert isinstance(save, bool), type(save)
-        assert isinstance(dpi, (float, str)), type(dpi)
-        assert isinstance(show, bool), type(show)
-
-        data = torch.load(checkpoint)['data_logger']
-
-        # plotting metrics and losses
-        for idx, mmgr in enumerate(self.model_mgr_kwargs_list):
-            TrainingPlotter(
-                train_loss=torch.as_tensor(data['train_models_losses'])[:, idx].detach().cpu().tolist(),
-                train_metric=torch.as_tensor(data['train_models_metrics'])[:, idx].detach().cpu().tolist(),
-                val_loss=torch.as_tensor(data['val_models_losses'])[:, idx].detach().cpu().tolist(),
-                val_metric=torch.as_tensor(data['val_models_metrics'])[:, idx].detach().cpu().tolist()
-            )(
-                lm_title=f'Model {idx+1} ({mmgr["model"].__name__}): Metrics and Losses',
-                xlabel='Co-training iterations',
-                lm_ylabel='Loss and Metric',
-                lm_legend_kwargs=dict(shadow=True, fontsize=8, loc='best'),
-                lm_saving_path=os.path.join(self.plots_saving_path, f'model_{idx+1}_losses_metrics.png'),
-                save=save,
-                dpi=dpi,
-                show=show,
-            )
-
-        # plotting new masks metrics and combined preds metrics
-        TrainingPlotter(
-            train_loss=data['train_new_masks_metric'],
-            train_metric=data['train_combined_preds_metric'],
-            val_loss=data['val_new_masks_metric'],
-            val_metric=data['val_combined_preds_metric']
-        )(
-            lm_title='New masks and combined masks metrics',
-            xlabel='Co-training iterations',
-            lm_ylabel='Metric',
-            lm_legend_kwargs=dict(shadow=True, fontsize=8, loc='best'),
-            lm_saving_path=os.path.join(self.plots_saving_path, 'new_masks_combined_preds.png'),
-            train_loss_label='train new masks',
-            val_loss_label='val new masks',
-            train_metric_label='train combined preds',
-            val_metric_label='val combined preds',
-            save=save,
-            dpi=dpi,
-            show=show
-        )
-
-    def print_data_logger_summary(self, checkpoint, tablefmt='orgtbl'):
-        """
-        Prints a summary of the data_logger for the provided ini_checkpoint.
-        Always use it with the last checkpoint saved to include all the logs when generating
-        the summary table
-
-        Kwargs:
-            checkpoint <str>: path to the CoTraining checkpoint
-            tablefmt   <str>: format to be used. See https://pypi.org/project/tabulate/
-                              Default 'orgtbl'
-        """
-        assert os.path.isfile(checkpoint), f'{checkpoint} does not exist.'
-        assert isinstance(tablefmt, str), type(tablefmt)
-
-        data_logger = torch.load(checkpoint)['data_logger']
-
-        # plotting metrics and losses
-        for idx, mmgr in enumerate(self.model_mgr_kwargs_list):
-            data = [["key", "Validation", "corresponding training value"]]
-            data_logger['val_models_metrics'] = torch.as_tensor(
-                data_logger['val_models_metrics']).cpu().numpy()
-            data_logger['train_models_metrics'] = torch.as_tensor(
-                data_logger['train_models_metrics']).detach().cpu().numpy()
-            data_logger['val_models_losses'] = torch.as_tensor(
-                data_logger['val_models_losses']).detach().cpu().numpy()
-            data_logger['train_models_losses'] = torch.as_tensor(
-                data_logger['train_models_losses']).detach().cpu().numpy()
-
-            max_idx = np.argmax(data_logger['val_models_metrics'][:, idx])
-            data.append(["Best metric",
-                         f"{data_logger['val_models_metrics'][max_idx, idx]:.4f}",
-                         f"{data_logger['train_models_metrics'][max_idx, idx]:.4f}"])
-            min_idx = np.argmin(data_logger['val_models_losses'][:, idx])
-            data.append(["Min loss",
-                         f"{data_logger['val_models_losses'][min_idx, idx]:.4f}",
-                         f"{data_logger['train_models_losses'][min_idx, idx]:.4f}"])
-
-            print(f'MODEL {idx+1} ({mmgr["model"].__name__}):')
-            print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
-            print('\n')
-
-        # plotting new masks metrics and combined preds metrics
-        data = [["key", "Validation", "corresponding training value"]]
-        max_idx = np.argmax(data_logger['val_new_masks_metric'])
-        data.append(["New masks best metric",
-                     f"{data_logger['val_new_masks_metric'][max_idx]:.4f}",
-                     f"{data_logger['train_new_masks_metric'][max_idx]:.4f}"])
-        max_idx = np.argmax(data_logger['val_combined_preds_metric'])
-        data.append(["Combined preds best metric",
-                     f"{data_logger['val_combined_preds_metric'][max_idx]:.4f}",
-                     f"{data_logger['train_combined_preds_metric'][max_idx]:.4f}"])
-
-        print('New mask and combined predictions metrics')
-        print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
-        print('\n')
+            previous_train_new_masks_metric = new_train_new_masks_metric

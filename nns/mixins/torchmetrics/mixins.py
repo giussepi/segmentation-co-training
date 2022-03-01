@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 """ nns/mixins/torchmetrics/mixins """
 
-from typing import List, Union, Optional
+from collections import defaultdict
+from typing import List, Union, Optional, Dict
 
+import numpy as np
 import torch
 from gtorch_utils.segmentation.torchmetrics import DiceCoefficient
 from logzero import logger
 from torchmetrics import MetricCollection
 
-from nns.mixins.torchmetrics.exceptions import PrepareToSaveError
+from nns.mixins.torchmetrics.exceptions import PrepareToSaveError, SeparateMetricsError
 from nns.utils.metrics import MetricItem
 
 
@@ -82,17 +84,24 @@ class TorchMetricsMixin:
         assert isinstance(metrics, dict), type(metrics)
         assert len(metrics) > 0, 'metrics cannot be an empty dictionary'
 
+        metrics = self.prepare_to_save(metrics)
         combined_metric = 0.
 
-        prefix = [*metrics.keys()][0].split('_')[0] + '_'
+        # the metric name is supposed to be always at the end and it must not contain
+        # the underscore character "_". The metric name also must be separated from the
+        # prefix by an underscore.
+        key_chunks = [*metrics.keys()][0].split('_')
+        prefix = key_chunks[:-1]
 
-        if prefix not in [self.train_prefix, self.valid_prefix]:
+        if prefix == key_chunks:
             prefix = ''
+        else:
+            prefix = '_'.join(prefix) + '_'
 
         for metric in self.main_metrics:
             combined_metric += metrics[prefix + metric]
 
-        return combined_metric.item() / len(self.main_metrics)
+        return combined_metric / len(self.main_metrics)
 
     @staticmethod
     def sum_metrics(metrics1: dict, metrics2: dict, /) -> dict:
@@ -267,6 +276,22 @@ class TorchMetricsMixin:
                                        self.prepare_to_save(data_logger['epoch_val_metrics'][epoch]))
         )
 
+    def get_combined_main_metrics(self, metrics_list: List[dict]) -> List[float]:
+        """
+        Calculates and returns the combined main metrics
+
+        Kwargs:
+            metrics_list <list>: List of metrics <dict>
+
+        Returns:
+            combined_main_metrics <float>
+        """
+        assert isinstance(metrics_list, list), type(metrics_list)
+
+        metrics_list = self.prepare_to_save(metrics_list)
+
+        return [self.get_mean_main_metrics(metrics) for metrics in metrics_list]
+
     def get_best_combined_main_metrics(self, metrics_list: List[dict]) -> float:
         """
         Calculates and returns the best combined main metrics
@@ -277,6 +302,102 @@ class TorchMetricsMixin:
         Returns:
             best_combined_main_metrics <float>
         """
+        return max(self.get_combined_main_metrics(metrics_list))
+
+    @staticmethod
+    def get_separate_metrics_for_models(metrics_list_per_iteration: List[List[dict]], /, *,
+                                        model_idx: Optional[int] = -1,
+                                        np_array: Optional[bool] = False
+                                        ) -> Dict[str, Union[list, np.ndarray]]:
+        """
+        Separates the metrics values per model using a dictionary with metrics names as keys and
+        list or NumPy arrays of floats as values
+
+        Kwargs:
+            metrics_list_per_iteration <List[List[dict]]>: List of lists containing the metrics per iteration. E.g.
+                                 [[metrics_model1_iter1, metrics_model2_iter1],
+                                  [metrics_model1_iter2, metrics_model2_iter2], ...]
+            model_idx     <int>: If its value is bigger than -1, only the model with that
+                                 index/position will be processed
+            np_array     <bool>: Whether or not return np.ndarrays instead of lists
+
+        Returns:
+            metrics <Dict[str, Union[list, np.ndarray]]>
+        """
+        assert isinstance(metrics_list_per_iteration, list), type(metrics_list_per_iteration)
+        assert isinstance(model_idx, int), type(model_idx)
+        assert isinstance(np_array, bool), type(np_array)
+
+        metrics_dict = defaultdict(list)
+        tmp_list = None
+
+        for metrics_list in metrics_list_per_iteration:
+            tmp_list = [metrics_list[model_idx]] if model_idx > -1 else metrics_list
+
+            for model_metrics in tmp_list:
+                for key, value in model_metrics.items():
+                    metrics_dict[key].append(value)
+
+        if np_array:
+            metrics_dict = {metric: np.array(values) for metric, values in metrics_dict.items()}
+
+        return metrics_dict
+
+    @staticmethod
+    def get_separate_metrics_for_model(metrics_list: List[dict], /, *,
+                                       np_array: Optional[bool] = False
+                                       ) -> Dict[str, Union[list, np.ndarray]]:
+        """
+        Separates the metrics values using a dictionary with metrics names as keys and
+        list or NumPy arrays of floats as values
+
+        Kwargs:
+            metrics_list <List[dict]>: List of lists containing the metrics per iteration. E.g.
+                                       [metrics_iter1, metrics_iter2, ...]
+            np_array           <bool>: Whether or not return np.ndarrays instead of lists
+
+        Returns:
+            metrics <Dict[str, Union[list, np.ndarray]]>
+        """
+        assert isinstance(metrics_list, list), type(metrics_list)
+        assert isinstance(np_array, bool), type(np_array)
+
+        metrics_dict = defaultdict(list)
+
+        for metrics in metrics_list:
+            for key, value in metrics.items():
+                metrics_dict[key].append(value)
+
+        if np_array:
+            metrics_dict = {metric: np.array(values) for metric, values in metrics_dict.items()}
+
+        return metrics_dict
+
+    def get_separate_metrics(self, metrics_list: Union[List[List[dict]], List[dict]], /, *,
+                             model_idx: Optional[int] = -1,
+                             np_array: Optional[bool] = False
+                             ) -> Dict[str, Union[list, np.ndarray]]:
+        """
+        Functor method to separate metrics values from the provided metrics_list
+
+        Args:
+            metrics_list: Union[List[List[dict]], List[dict]]: List of lists containing the metrics per iteration or
+                                            List of metrics.
+
+        Kwargs:
+            model_idx     <int>: If its value is bigger than -1, only the model with that
+                                 index/position will be processed
+            np_array     <bool>: Whether or not return np.ndarrays instead of lists
+
+        Returns:
+            metrics <Dict[str, Union[list, np.ndarray]]>
+        """
         assert isinstance(metrics_list, list), type(metrics_list)
 
-        return max([self.get_mean_main_metrics(metrics) for metrics in metrics_list]).item()
+        if isinstance(metrics_list[0], list):
+            return self.get_separate_metrics_for_models(metrics_list, model_idx=model_idx, np_array=np_array)
+
+        if isinstance(metrics_list[0], dict):
+            return self.get_separate_metrics_for_model(metrics_list, np_array=np_array)
+
+        raise SeparateMetricsError()

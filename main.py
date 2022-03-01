@@ -174,11 +174,10 @@ def main():
     #     plot_to_disk=False,
     #     plot_dir=settings.PLOT_DIRECTORY
     # )
-
     # model1.print_data_logger_summary()
 
-    # model2 = dict(
-    model2 = ModelMGR(
+    # model2 = ModelMGR(
+    model2 = dict(
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
         model=UNet_3Plus,
@@ -187,7 +186,7 @@ def main():
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=1,  # 20
+        epochs=30,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
@@ -219,134 +218,149 @@ def main():
         mask_threshold=0.5,
         metrics=[
             MetricItem(torchmetrics.DiceCoefficient(), main=True),
-            MetricItem(torchmetrics.Specificity(), main=True),
-            MetricItem(torchmetrics.Recall())
+            MetricItem(torchmetrics.Specificity()),
+            MetricItem(torchmetrics.Recall()),
+            MetricItem(torchmetrics.Accuracy()),
+            MetricItem(torchmetrics.BalancedAccuracy()),
         ],
         metric_mode=MetricEvaluatorMode.MAX,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
-        checkpoint_interval=1,
-        train_eval_chkpt=True,
+        checkpoint_interval=0,
+        train_eval_chkpt=False,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp54', 'unet3_plus'),
-        tensorboard=True,
+        tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    model2()
+    # model2()
     # model2.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
 
     # model3 = ModelMGR(
-    # model3 = dict(
-    #     model=Deeplabv3plus,
-    #     model_kwargs=dict(
-    #         cfg=dict(model_aspp_outdim=256,
-    #                  train_bn_mom=3e-4,
-    #                  model_aspp_hasglobal=True,
-    #                  model_shortcut_dim=48,
-    #                  model_num_classes=1,
-    #                  model_freezebn=False,
-    #                  model_channels=3),
-    #         batchnorm=get_batchnorm2d_class(), backbone=xception, backbone_pretrained=True,
-    #         dilated=True, multi_grid=False, deep_base=True
-    #     ),
-    #     cuda=settings.CUDA,
-    #     multigpus=settings.MULTIGPUS,
-    #     patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-    #     epochs=30,  # 20
-    #     intrain_val=2,  # 2
-    #     optimizer=torch.optim.Adam,
-    #     optimizer_kwargs=dict(lr=1e-4),  # 1e-3, try 1e-4, weight_decay=4e-5
-    #     labels_data=BinaryCoNSeP,
-    #     dataset=OfflineCoNSePDataset,
-    #     dataset_kwargs={
-    #         'train_path': settings.CONSEP_TRAIN_PATH,
-    #         'val_path': settings.CONSEP_VAL_PATH,
-    #         'test_path': settings.CONSEP_TEST_PATH,
-    #         'cotraining': settings.COTRAINING,
-    #     },
-    #     train_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
-    #     },
-    #     testval_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-    #     },
-    #     lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
-    #     # TODO: the mode can change based on the quantity monitored
-    #     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-    #     lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
-    #     lr_scheduler_track=LrShedulerTrack.LOSS,
-    #     criterions=[
-    #         # torch.nn.BCEWithLogitsLoss()
-    #         # torch.nn.CrossEntropyLoss()
-    #         loss_functions.BceDiceLoss(with_logits=True),
-    #         loss_functions.SpecificityLoss(with_logits=True),
-    #     ],
-    #     mask_threshold=0.5,
-    #     metric=metrics.dice_coeff_metric,
-    #     metric_mode=MetricEvaluatorMode.MAX,
-    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
-    #     checkpoint_interval=0,
-    #     train_eval_chkpt=False,
-    #     ini_checkpoint='',
-    #     dir_checkpoints=os.path.join(
-    #         settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp54', 'deeplabv3plus_xception'),
-    #     tensorboard=False,
-    #     # TODO: there a bug that appeared once when plotting to disk after a long training
-    #     # anyway I can always plot from the checkpoints :)
-    #     plot_to_disk=False,
-    #     plot_dir=settings.PLOT_DIRECTORY
-    # )
+    model3 = dict(
+        model=Deeplabv3plus,
+        model_kwargs=dict(
+            cfg=dict(model_aspp_outdim=256,
+                     train_bn_mom=3e-4,
+                     model_aspp_hasglobal=True,
+                     model_shortcut_dim=48,
+                     model_num_classes=1,
+                     model_freezebn=False,
+                     model_channels=3),
+            batchnorm=get_batchnorm2d_class(), backbone=xception, backbone_pretrained=True,
+            dilated=True, multi_grid=False, deep_base=True
+        ),
+        cuda=settings.CUDA,
+        multigpus=settings.MULTIGPUS,
+        patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+        epochs=30,  # 20
+        intrain_val=2,  # 2
+        optimizer=torch.optim.Adam,
+        optimizer_kwargs=dict(lr=1e-4),  # 1e-3, try 1e-4, weight_decay=4e-5
+        labels_data=BinaryCoNSeP,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        },
+        lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+        # TODO: the mode can change based on the quantity monitored
+        # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
+        lr_scheduler_track=LrShedulerTrack.LOSS,
+        criterions=[
+            # torch.nn.BCEWithLogitsLoss()
+            # torch.nn.CrossEntropyLoss()
+            loss_functions.BceDiceLoss(with_logits=True),
+            loss_functions.SpecificityLoss(with_logits=True),
+        ],
+        mask_threshold=0.5,
+        metrics=[
+            MetricItem(torchmetrics.DiceCoefficient(), main=True),
+            MetricItem(torchmetrics.Specificity()),
+            MetricItem(torchmetrics.Recall()),
+            MetricItem(torchmetrics.Accuracy()),
+            MetricItem(torchmetrics.BalancedAccuracy()),
+        ],
+        metric_mode=MetricEvaluatorMode.MAX,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+        checkpoint_interval=0,
+        train_eval_chkpt=False,
+        ini_checkpoint='',
+        dir_checkpoints=os.path.join(
+            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp54', 'deeplabv3plus_xception'),
+        tensorboard=False,
+        # TODO: there a bug that appeared once when plotting to disk after a long training
+        # anyway I can always plot from the checkpoints :)
+        plot_to_disk=False,
+        plot_dir=settings.PLOT_DIRECTORY
+    )
     # model3.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
     # model3()
     # model3.print_data_logger_summary()
+    # model3.plot_and_save(None, 154)
 
     # RuntimeError: [enforce fail at inline_container.cc:300] . unexpected pos 596530496 vs 596530392
 
-    # cot = CoTraining(
-    #     model_mgr_kwargs_list=[model2, model3],
-    #     iterations=5,
-    #     # model_mgr_kwargs_tweaks=[
-    #     #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1}),
-    #     #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1})
-    #     # ],
-    #     metric=metrics.dice_coeff_metric,
-    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
-    #     warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
-    #     overall_best_models=False,
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp54'),
-    #     thresholds=dict(agreement=.8, disagreement=(.25, .8)),  # dict(disagreement=(.25, .8)),
-    #     plots_saving_path=settings.PLOT_DIRECTORY,
-    #     strategy_postprocessing=dict(
-    #         disagreement=[ExpandPrediction(), ],
-    #     ),
-    #     general_postprocessing=[],
-    #     postprocessing_threshold=.8,
-    #     dataset=OfflineCoNSePDataset,
-    #     dataset_kwargs={
-    #         'train_path': settings.CONSEP_TRAIN_PATH,
-    #         'val_path': settings.CONSEP_VAL_PATH,
-    #         'test_path': settings.CONSEP_TEST_PATH,
-    #         'cotraining': settings.COTRAINING,
-    #         'original_masks': settings.ORIGINAL_MASKS,
-    #     },
-    #     train_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
-    #     },
-    #     testval_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-    #     }
-    # )
+    cot = CoTraining(
+        model_mgr_kwargs_list=[model2, model3],
+        iterations=5,
+        # model_mgr_kwargs_tweaks=[
+        #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1}),
+        #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1})
+        # ],
+        metrics=[
+            MetricItem(torchmetrics.DiceCoefficient(), main=True),
+            MetricItem(torchmetrics.Specificity()),
+            MetricItem(torchmetrics.Recall()),
+            MetricItem(torchmetrics.Accuracy()),
+            MetricItem(torchmetrics.BalancedAccuracy()),
+        ],
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
+        warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
+        overall_best_models=True,
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp54'),
+        thresholds=dict(agreement=.8, disagreement=(.25, .8)),  # dict(disagreement=(.25, .8)),
+        plots_saving_path=settings.PLOT_DIRECTORY,
+        strategy_postprocessing=dict(
+            disagreement=[ExpandPrediction(), ],
+        ),
+        general_postprocessing=[],
+        postprocessing_threshold=.8,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+            'original_masks': settings.ORIGINAL_MASKS,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        }
+    )
     # cot()
 
-    # cot.print_data_logger_summary(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp54', 'chkpt_4.pth.tar'))
+    cot.print_data_logger_summary(
+        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp54', 'chkpt_4.pth.tar'))
 
-    # cot.plot_and_save(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp54', 'chkpt_4.pth.tar'),
-    #     save=True, show=False, dpi=300.
-    # )
+    cot.plot_and_save(
+        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp54', 'chkpt_4.pth.tar'),
+        save=True, show=False, dpi=300.
+    )
 
 
 if __name__ == '__main__':

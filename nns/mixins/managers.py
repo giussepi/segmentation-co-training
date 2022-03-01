@@ -29,13 +29,13 @@ from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.checkpoints import CheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
 from nns.mixins.subdatasets import SubDatasetsMixin
-from nns.mixins.torchmetrics import TorchMetricsMixin
 from nns.utils.sync_batchnorm import patch_replication_callback
+
 
 __all__ = ['ModelMGRMixin']
 
 
-class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin, TorchMetricsMixin):
+class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
     """
     General segmentation model manager
 
@@ -680,7 +680,8 @@ If true it track the loss values, else it tracks the metric values.
             train_loss = 0
 
             with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img') as pbar:
-                batch_eval_counter = 0
+                intrain_chkpt_counter = 0
+                intrain_val_counter = 0
 
                 for batch in self.train_loader:
                     pred, true_masks, imgs, loss, metrics, labels, label_names = self.training_step(batch)
@@ -697,6 +698,7 @@ If true it track the loss values, else it tracks the metric values.
 
                     if global_step % step_divider == 0:
                         validation_step += 1
+                        intrain_val_counter += 1
                         val_loss, val_metrics, val_extra_data = self.validation(dataloader=self.val_loader)
                         val_loss_min = min(val_loss.item(), val_loss_min)
 
@@ -748,14 +750,14 @@ If true it track the loss values, else it tracks the metric values.
                             )
                             self.save()
                             self.save_checkpoint(
-                                float(f'{epoch}.{batch_eval_counter}'), optimizer, data_logger,
+                                float(f'{epoch}.{intrain_val_counter}'), optimizer, data_logger,
                                 best_chkpt=True
                             )
                             best_metric = val_metric
 
                         if self.train_eval_chkpt and checkpoint and checkpoint(epoch):
-                            batch_eval_counter += 1
-                            self.save_checkpoint(float(f'{epoch}.{batch_eval_counter}'), optimizer, data_logger)
+                            intrain_chkpt_counter += 1
+                            self.save_checkpoint(float(f'{epoch}.{intrain_chkpt_counter}'), optimizer, data_logger)
                         if scheduler is not None:
                             # TODO: verify the replacement function is working properly
                             LrShedulerTrack.step(self.lr_scheduler_track, scheduler, val_metric, val_loss)
