@@ -186,8 +186,8 @@ def main():
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=1,  # 20
-        intrain_val=1,  # 2
+        epochs=30,  # 20
+        intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
         labels_data=BinaryCoNSeP,
@@ -218,8 +218,10 @@ def main():
         mask_threshold=0.5,
         metrics=[
             MetricItem(torchmetrics.DiceCoefficient(), main=True),
-            MetricItem(torchmetrics.Specificity(), main=True),
-            MetricItem(torchmetrics.Recall())
+            MetricItem(torchmetrics.Specificity()),
+            MetricItem(torchmetrics.Recall()),
+            MetricItem(torchmetrics.Accuracy()),
+            MetricItem(torchmetrics.BalancedAccuracy()),
         ],
         metric_mode=MetricEvaluatorMode.MAX,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
@@ -253,7 +255,7 @@ def main():
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=5,  # 20
+        epochs=30,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4),  # 1e-3, try 1e-4, weight_decay=4e-5
@@ -285,8 +287,10 @@ def main():
         mask_threshold=0.5,
         metrics=[
             MetricItem(torchmetrics.DiceCoefficient(), main=True),
-            MetricItem(torchmetrics.Specificity(), main=True),
-            MetricItem(torchmetrics.Recall())
+            MetricItem(torchmetrics.Specificity()),
+            MetricItem(torchmetrics.Recall()),
+            MetricItem(torchmetrics.Accuracy()),
+            MetricItem(torchmetrics.BalancedAccuracy()),
         ],
         metric_mode=MetricEvaluatorMode.MAX,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
@@ -317,8 +321,10 @@ def main():
         # ],
         metrics=[
             MetricItem(torchmetrics.DiceCoefficient(), main=True),
-            MetricItem(torchmetrics.Specificity(), main=True),
-            MetricItem(torchmetrics.Recall())
+            MetricItem(torchmetrics.Specificity()),
+            MetricItem(torchmetrics.Recall()),
+            MetricItem(torchmetrics.Accuracy()),
+            MetricItem(torchmetrics.BalancedAccuracy()),
         ],
         earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
         warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
