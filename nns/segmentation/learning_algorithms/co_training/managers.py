@@ -17,11 +17,10 @@ from tqdm import tqdm
 
 from nns.managers import ModelMGR
 from nns.mixins.subdatasets import SubDatasetsMixin
-from nns.mixins.torchmetrics import TorchMetricsMixin
 from nns.segmentation.learning_algorithms.co_training.mixins import CotrainingPlotterMixin
 
 
-class CoTraining(SubDatasetsMixin, CotrainingPlotterMixin, TorchMetricsMixin):
+class CoTraining(SubDatasetsMixin, CotrainingPlotterMixin):
     """
 
     Usage:

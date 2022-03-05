@@ -333,7 +333,7 @@ def main():
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
         }
     )
-    cot()
+    # cot()
 
     # cot.print_data_logger_summary(
     #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp55', 'chkpt_4.pth.tar'))
@@ -342,6 +342,9 @@ def main():
     #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp55', 'chkpt_4.pth.tar'),
     #     save=True, show=False, dpi=300.
     # )
+
+    cot.print_data_logger_details(
+        os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp55', 'chkpt_4.pth.tar'))
 
 
 if __name__ == '__main__':

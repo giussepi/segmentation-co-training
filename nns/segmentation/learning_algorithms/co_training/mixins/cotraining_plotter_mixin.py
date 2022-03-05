@@ -2,6 +2,7 @@
 """ nns/segmentation/learning_algorithms/co_training/mixins/cotraining_plotter_mixin """
 
 import os
+from typing import Dict, Union, List
 
 import numpy as np
 import torch
@@ -9,9 +10,10 @@ from logzero import logger
 from tabulate import tabulate
 
 from nns.callbacks.plotters.training import TrainingPlotter
+from nns.mixins.torchmetrics.mixins import TorchMetricsMixin
 
 
-class CotrainingPlotterMixin:
+class CotrainingPlotterMixin(TorchMetricsMixin):
     """
     Contains methods to plot data from class CoTraining
 
@@ -153,7 +155,7 @@ class CotrainingPlotterMixin:
                 show=show
             )
 
-    def print_data_logger_summary(self, checkpoint, tablefmt='orgtbl'):
+    def print_data_logger_summary(self, checkpoint: str, tablefmt: str = 'orgtbl'):
         """
         Prints a summary of the data_logger for the provided ini_checkpoint.
         Always use it with the last checkpoint saved to include all the logs when generating
@@ -235,3 +237,109 @@ class CotrainingPlotterMixin:
         print('Combined predictions metrics')
         print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
         print('\n')
+
+    @staticmethod
+    def print_all_metrics(
+            data_logger_metric: Dict[str, Union[list, np.ndarray]], title: str, /,
+            *, tablefmt: str = 'orgtbl'
+    ):
+        """
+        Prints a table with all metrics per epoch
+
+        Kwargs:
+            data_logger_metric <Dict[str, Union[list, np.ndarray]]>: Dictionary containing the
+                               metric names a keys and a list or np.array of its values per
+                               cotraining epoch
+            title       <str>: Table title
+            tablefmt    <str>: format to be used. See https://pypi.org/project/tabulate/
+                               Default 'orgtbl'
+        """
+        assert isinstance(data_logger_metric, dict), \
+            type(data_logger_metric)
+        assert isinstance(title, str), type(title)
+        assert isinstance(tablefmt, str), type(tablefmt)
+
+        data = [[] for _ in range([*data_logger_metric.values()][0].shape[0])]
+        data.insert(0, [])
+
+        for metric in data_logger_metric:
+            data[0].append(metric.split('_')[-1])
+
+            for score_idx, score in enumerate(data_logger_metric[metric], start=1):
+                data[score_idx].append(f"{score:.4f}")
+
+        print(f'{title}')
+        print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
+        print('\n')
+
+    def print_all_losses(
+            self, data_logger_models_losses: List[list], title: str, /, *, tablefmt: str = 'orgtbl'):
+        """
+        Prints a table with all model losses per epoch
+
+        Kwargs:
+            data_logger_models_losses <List[list]>: List containing lists of models losses per epoch.
+                               e.g. [[model1_score1, model2_score1], [model1_score2, model2_score2], ...]
+            title       <str>: Table title
+            tablefmt    <str>: format to be used. See https://pypi.org/project/tabulate/
+                               Default 'orgtbl'
+        """
+        assert isinstance(data_logger_models_losses, list), type(data_logger_models_losses)
+        assert isinstance(title, str), type(title)
+        assert isinstance(tablefmt, str), type(tablefmt)
+
+        data = [[f'{mmgr["model"].__name__}' for mmgr in self.model_mgr_kwargs_list]]
+        data.extend(data_logger_models_losses)
+        print(title)
+        print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
+        print('\n')
+
+    def print_data_logger_details(self, checkpoint: str, /, *, tablefmt: str = 'orgtbl'):
+        """
+        Prints a summary of the data_logger for the provided ini_checkpoint.
+        Always use it with the last checkpoint saved to include all the logs when generating
+        the summary table
+
+        Kwargs:
+            checkpoint <str>: path to the CoTraining checkpoint
+            tablefmt   <str>: format to be used. See https://pypi.org/project/tabulate/
+                              Default 'orgtbl'
+        """
+        assert os.path.isfile(checkpoint), f'{checkpoint} does not exist.'
+        assert isinstance(tablefmt, str), type(tablefmt)
+
+        data_logger = torch.load(checkpoint)['data_logger']
+
+        # printing metrics per model
+        for idx, mmgr in enumerate(self.model_mgr_kwargs_list):
+            self.print_all_metrics(
+                self.get_separate_metrics(data_logger['train_models_metrics'], model_idx=idx, np_array=True),
+                f'MODEL {idx+1} ({mmgr["model"].__name__}) [TRAIN]',
+                tablefmt=tablefmt
+            )
+            self.print_all_metrics(
+                self.get_separate_metrics(data_logger['val_models_metrics'], model_idx=idx, np_array=True),
+                f'MODEL {idx+1} ({mmgr["model"].__name__}) [VALIDATION]',
+                tablefmt=tablefmt
+            )
+
+        # printing losses per model
+        self.print_all_losses(data_logger['train_models_losses'], "TRAIN LOSS", tablefmt=tablefmt)
+        self.print_all_losses(data_logger['val_models_losses'], "VALIDATION LOSS", tablefmt=tablefmt)
+
+        # printing new masks metrics and combined preds metrics
+        self.print_all_metrics(
+            self.get_separate_metrics(data_logger['train_new_masks_metric'], np_array=True),
+            'TRAIN new masks',
+            tablefmt=tablefmt
+        )
+        self.print_all_metrics(
+            self.get_separate_metrics(data_logger['train_combined_preds_metric'], np_array=True),
+            "TRAIN combined predictions",
+            tablefmt=tablefmt
+        )
+        self.print_all_metrics(
+            self.get_separate_metrics(data_logger['val_combined_preds_metric'], np_array=True),
+            'VALIDATION combined predictions',
+            tablefmt=tablefmt
+        )
