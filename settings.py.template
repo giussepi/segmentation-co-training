@@ -5,6 +5,9 @@ import os
 import logging
 
 import torch
+from gtorch_utils.segmentation import torchmetrics
+
+from nns.utils.metrics import MetricItem
 
 ###############################################################################
 #                                GENERAL CONFIG                               #
@@ -23,6 +26,15 @@ COTRAINING = True
 #                 (not the co-training masks) with the new predictions;
 #                 otherwise, the co-training masks will be used (normal workflow)
 ORIGINAL_MASKS = True
+# Metrics to be used by ModelMGR and CoTraining
+METRICS = [
+    MetricItem(torchmetrics.DiceCoefficient(), main=True),
+    MetricItem(torchmetrics.Specificity()),
+    # MetricItem(torchmetrics.Recall()),
+    MetricItem(torchmetrics.Accuracy()),
+    MetricItem(torchmetrics.BalancedAccuracy()),
+]
+
 
 ###############################################################################
 #                                     NNS                                     #
