@@ -34,7 +34,7 @@ METRICS = [
     MetricItem(torchmetrics.Accuracy()),
     MetricItem(torchmetrics.BalancedAccuracy()),
 ]
-
+DISABLE_PROGRESS_BAR = False
 
 ###############################################################################
 #                                     NNS                                     #

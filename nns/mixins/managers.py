@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from .settings import USE_AMP
+from .settings import USE_AMP, DISABLE_PROGRESS_BAR
 from nns.callbacks.metrics import MetricEvaluator
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.callbacks.plotters.masks import MaskPlotter
@@ -541,7 +541,8 @@ If true it track the loss values, else it tracks the metric values.
         # the folowing variables will store extra data from the last validation batch
         extra_data = None
 
-        for batch in tqdm(dataloader, total=n_val, desc='Testing round', unit='batch', leave=True, disable=not testing):
+        for batch in tqdm(dataloader, total=n_val, desc='Testing round', unit='batch', leave=True,
+                          disable=not testing or DISABLE_PROGRESS_BAR):
             loss_, extra_data = self.validation_step(
                 batch=batch, testing=testing, plot_to_png=plot_to_png, imgs_counter=imgs_counter,
                 mask_plotter=mask_plotter
@@ -679,7 +680,8 @@ If true it track the loss values, else it tracks the metric values.
             self.model.train()
             train_loss = 0
 
-            with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img') as pbar:
+            with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img',
+                      disable=DISABLE_PROGRESS_BAR) as pbar:
                 intrain_chkpt_counter = 0
                 intrain_val_counter = 0
 
@@ -972,7 +974,7 @@ If true it track the loss values, else it tracks the metric values.
         b1 = b2 = c1 = c2 = 0
 
         logger.info('Making predictions')
-        with tqdm(total=total) as pbar:
+        with tqdm(total=total, disable=DISABLE_PROGRESS_BAR) as pbar:
             iy_counter = 0
             for iy in get_slices_coords(y_dim, patch_size, patch_overlapping=patch_overlapping):
                 ix_counter = 0
@@ -1028,7 +1030,7 @@ If true it track the loss values, else it tracks the metric values.
 
             logger.info('Superimposing mask')
             # setting white as transparent
-            for item in tqdm(im2.getdata()):
+            for item in tqdm(im2.getdata(), disable=DISABLE_PROGRESS_BAR):
                 if item[0] == 255 and item[1] == 255 and item[2] == 255:
                     new_data.append((255, 255, 255, 0))
                 else:

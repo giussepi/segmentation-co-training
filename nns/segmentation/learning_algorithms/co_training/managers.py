@@ -15,6 +15,7 @@ from logzero import logger
 from PIL import Image
 from tqdm import tqdm
 
+from .settings import DISABLE_PROGRESS_BAR
 from nns.managers import ModelMGR
 from nns.mixins.subdatasets import SubDatasetsMixin
 from nns.segmentation.learning_algorithms.co_training.mixins import CotrainingPlotterMixin
@@ -424,7 +425,7 @@ class CoTraining(SubDatasetsMixin, CotrainingPlotterMixin):
         for batch in tqdm(
                 self.train_loader, total=total_batches,
                 desc=f'{", ".join(list(self.thresholds.keys())).capitalize()} round',
-                unit='batch'):
+                unit='batch', disable=DISABLE_PROGRESS_BAR):
             results = []
             model_mask_thresholds = []
             true_masks = None
@@ -510,7 +511,8 @@ class CoTraining(SubDatasetsMixin, CotrainingPlotterMixin):
         else:
             dataloader, desc, total_batches = self.val_loader, 'Validation', len(self.val_loader)
 
-        for batch in tqdm(dataloader, total=total_batches, desc=f'{desc} round', unit='batch'):
+        for batch in tqdm(dataloader, total=total_batches, desc=f'{desc} round', unit='batch',
+                          disable=DISABLE_PROGRESS_BAR):
             results = []
             true_masks = None
 
