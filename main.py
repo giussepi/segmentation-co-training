@@ -11,6 +11,7 @@ from gtorch_utils.constants import DB
 from gtorch_utils.nns.models.segmentation import UNet, UNet_3Plus_DeepSup, UNet_3Plus, UNet_3Plus_DeepSup_CGM
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from gtorch_utils.segmentation import loss_functions
+from gtorch_utils.segmentation.loss_functions.dice import dice_coef_loss
 from gtorch_utils.segmentation.visualisation import plot_img_and_mask
 from PIL import Image
 from torch.utils.data import DataLoader
@@ -23,15 +24,65 @@ from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
-from nns.managers import ModelMGR
+from nns.managers import ModelMGR, DAModelMGR
 from nns.mixins.constants import LrShedulerTrack
-from nns.models import Deeplabv3plus
+from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train
 from nns.segmentation.learning_algorithms import CoTraining
 from nns.segmentation.utils.postprocessing import ExpandPrediction
 from nns.utils.sync_batchnorm import get_batchnorm2d_class
 
 
 logzero.loglevel(settings.LOG_LEVEL)
+
+
+def bce_dice_loss(inputs, target):
+    """
+    Same as bce_dice_loss_ but this works a bit faster
+
+    bce_dice_loss   1866.6306 s
+    bce_dice_loss_  1890.8262 s
+
+    Source: https://www.kaggle.com/bonhart/brain-tumor-multi-class-segmentation-baseline
+
+    Returns:
+      dice_loss + bce_loss
+    """
+    dice_loss = dice_coef_loss(inputs, target)
+    bceloss = torch.nn.BCEWithLogitsLoss()(inputs, target)
+
+    return bceloss + dice_loss
+
+
+class BceDiceLoss(torch.nn.Module):
+    """
+    Module based BceDiceLoss with logits support
+
+    Usage:
+        BceDiceLoss()(predictions, ground_truth)
+    """
+
+    def __init__(self, *, with_logits=False):
+        """ Initializes the object instance """
+        super().__init__()
+        assert isinstance(with_logits, bool), type(with_logits)
+
+        self.with_logits = with_logits
+
+    def forward(self, preds, targets):
+        """
+        Calculates and returns the bce_dice loss
+
+        Kwargs:
+            preds  <torch.Tensor>: predicted masks [batch_size,  ...]
+            target <torch.Tensor>: ground truth masks [batch_size, ...]
+
+        Returns:
+            loss <torch.Tensor>
+        """
+        if self.with_logits:
+            return bce_dice_loss(preds, targets)
+
+        return bce_dice_loss(preds, targets)
 
 
 def main():
@@ -299,42 +350,42 @@ def main():
     # model3.print_data_logger_summary()
     # model3.plot_and_save(None, 154)
 
-    cot = CoTraining(
-        model_mgr_kwargs_list=[model2, model3],
-        iterations=5,
-        # model_mgr_kwargs_tweaks=[
-        #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1}),
-        #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1})
-        # ],
-        metrics=settings.METRICS,
-        earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
-        warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
-        overall_best_models=False,  # True
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68'),
-        # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
-        thresholds=dict(agreement=.8),
-        plots_saving_path=settings.PLOT_DIRECTORY,
-        strategy_postprocessing=dict(
-            # disagreement=[ExpandPrediction(), ],
-        ),
-        general_postprocessing=[],
-        postprocessing_threshold=.8,
-        dataset=OfflineCoNSePDataset,
-        dataset_kwargs={
-            'train_path': settings.CONSEP_TRAIN_PATH,
-            'val_path': settings.CONSEP_VAL_PATH,
-            'test_path': settings.CONSEP_TEST_PATH,
-            'cotraining': settings.COTRAINING,
-            'original_masks': settings.ORIGINAL_MASKS,
-        },
-        train_dataloader_kwargs={
-            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
-        },
-        testval_dataloader_kwargs={
-            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-        }
-    )
-    cot()
+    # cot = CoTraining(
+    #     model_mgr_kwargs_list=[model2, model3],
+    #     iterations=5,
+    #     # model_mgr_kwargs_tweaks=[
+    #     #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1}),
+    #     #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1})
+    #     # ],
+    #     metrics=settings.METRICS,
+    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
+    #     warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
+    #     overall_best_models=False,  # True
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68'),
+    #     # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
+    #     thresholds=dict(agreement=.8),
+    #     plots_saving_path=settings.PLOT_DIRECTORY,
+    #     strategy_postprocessing=dict(
+    #         # disagreement=[ExpandPrediction(), ],
+    #     ),
+    #     general_postprocessing=[],
+    #     postprocessing_threshold=.8,
+    #     dataset=OfflineCoNSePDataset,
+    #     dataset_kwargs={
+    #         'train_path': settings.CONSEP_TRAIN_PATH,
+    #         'val_path': settings.CONSEP_VAL_PATH,
+    #         'test_path': settings.CONSEP_TEST_PATH,
+    #         'cotraining': settings.COTRAINING,
+    #         'original_masks': settings.ORIGINAL_MASKS,
+    #     },
+    #     train_dataloader_kwargs={
+    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+    #     },
+    #     testval_dataloader_kwargs={
+    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+    #     }
+    # )
+    # cot()
 
     # cot.print_data_logger_summary(
     #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68', 'chkpt_4.pth.tar'))
@@ -346,6 +397,85 @@ def main():
 
     # cot.print_data_logger_details(
     #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68', 'chkpt_4.pth.tar'))
+
+    # DA experiments ##########################################################
+    # TODO: update doctrings from DAModelMGRMixin
+    model4 = DAModelMGR(
+        model_cls=UNet_3Plus_DA_Train,
+        model_kwargs=dict(
+            model1_cls=UNet_3Plus_DA,
+            kwargs1=dict(da_threshold=np.NINF, da_block_config=dict(thresholds=(.25, .8), beta=-1.),
+                         n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
+                         batchnorm_cls=get_batchnorm2d_class()),
+            model2_cls=UNet_3Plus_DA,
+            kwargs2=dict(da_threshold=np.NINF, da_block_config=dict(thresholds=(.25, .8), beta=-1.),
+                         n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
+                         batchnorm_cls=get_batchnorm2d_class()),
+        ),
+        cuda=settings.CUDA,
+        multigpus=settings.MULTIGPUS,
+        patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+        epochs=1,  # 30
+        intrain_val=2,
+        optimizer1=torch.optim.Adam,
+        optimizer1_kwargs=dict(lr=1e-4),  # lr=1e-3
+        optimizer2=torch.optim.Adam,
+        optimizer2_kwargs=dict(lr=1e-4),  # lr=1e-3
+        labels_data=BinaryCoNSeP,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        },
+        lr_scheduler1=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+        # TODO: the mode can change based on the quantity monitored
+        # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        lr_scheduler1_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
+        lr_scheduler1_track=LrShedulerTrack.LOSS,
+        lr_scheduler2=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+        lr_scheduler2_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
+        lr_scheduler2_track=LrShedulerTrack.LOSS,
+        criterions=[
+            # torch.nn.BCEWithLogitsLoss()
+            # torch.nn.CrossEntropyLoss()
+            # loss_functions.BceDiceLoss(with_logits=True),
+            BceDiceLoss(),
+            loss_functions.SpecificityLoss(with_logits=True),
+        ],
+        mask_threshold=0.5,
+        metrics=settings.METRICS,
+        metric_mode=MetricEvaluatorMode.MAX,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+        checkpoint_interval=1,
+        train_eval_chkpt=False,
+        ini_checkpoint=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining',
+                                    'exp68', 'unet3_plus_1', 'chkpt_0.pth.tar'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68', 'unet3_plus_1'),
+        tensorboard=False,
+        # TODO: there a bug that appeared once when plotting to disk after a long training
+        # anyway I can always plot from the checkpoints :)
+        plot_to_disk=False,
+        plot_dir=settings.PLOT_DIRECTORY
+    )
+    # model4()
+    # model4.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
+    model4.print_data_logger_summary()
+    _, data_logger = model4.load_checkpoint([
+        model4.optimizer1(model4.module.model1.parameters(), **model4.optimizer1_kwargs),
+        model4.optimizer2(model4.module.model2.parameters(), **model4.optimizer2_kwargs),
+    ])
+
+    # __import__("pdb").set_trace()
+
+    model4.plot_and_save(308)
 
 
 if __name__ == '__main__':

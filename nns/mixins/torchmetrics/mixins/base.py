@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/mixins/torchmetrics/mixins """
-
+""" nns/mixins/torchmetrics/mixins/base """
 from collections import defaultdict
 from typing import List, Union, Optional, Dict
 
@@ -8,28 +7,35 @@ import numpy as np
 import torch
 from gtorch_utils.segmentation.torchmetrics import DiceCoefficient
 from logzero import logger
-from torchmetrics import MetricCollection
 
 from nns.mixins.torchmetrics.exceptions import PrepareToSaveError, SeparateMetricsError
 from nns.utils.metrics import MetricItem
 
 
-__all__ = ['TorchMetricsMixin']
+__all__ = ['TorchMetricsBaseMixin']
 
 
-class TorchMetricsMixin:
+class TorchMetricsBaseMixin:
     """
-    Provides methods to initialize the ModelMGR and handle the MetricCollection object
+    Base mixin class (to be subclassed) that provides methods to initialize the ModelMGR and handle
+    the MetricCollection objects
 
     Usage:
-       MyModelMGR(TorchMetricsMixin):
-           def __init__(self, **kwargs):
-               self._TorchMetricsMixin__init(**kwargs)
-               ...
-    """
+       class MyTorchMetricsMixin(TorchMetricsBaseMixin):
+           train_prefix = 'train_'
+           valid_prefix = 'val_'
 
-    train_prefix = 'train_'
-    valid_prefix = 'val_'
+           def __init__(self, **kwargs):
+               self._TorchMetricsBaseMixin__init(**kwargs)
+
+           def _init_subdataset_metrics(self, metrics_tmp: list):
+               assert isinstance(metrics_tmp, list), type(metrics_tmp)
+               metrics_tmp = MetricCollection(metrics_tmp)
+               self.train_metrics = metrics_tmp.clone(prefix=self.train_prefix)
+               self.valid_metrics = metrics_tmp.clone(prefix=self.valid_prefix)
+    """
+    # train_prefix = 'train_'
+    # valid_prefix = 'val_'
 
     def __init(self, **kwargs):
         """
@@ -42,6 +48,7 @@ class TorchMetricsMixin:
         self.metrics = kwargs.get('metrics', [MetricItem(DiceCoefficient(), main=True), ])
 
         assert isinstance(self.metrics, list), type(self.metrics)
+        assert len(self.metrics) > 0, 'metrics must contains at least one MetricItem'
 
         metrics_tmp = []
         self.main_metrics = []
@@ -56,9 +63,25 @@ class TorchMetricsMixin:
 
         assert len(self.main_metrics) > 0, 'At least one MetricItem must have main=True'
 
-        metrics_tmp = MetricCollection(metrics_tmp)
-        self.train_metrics = metrics_tmp.clone(prefix=self.train_prefix)
-        self.valid_metrics = metrics_tmp.clone(prefix=self.valid_prefix)
+        self._init_subdataset_metrics(metrics_tmp)
+
+    def _init_subdataset_metrics(self, metrics_tmp: list):
+        """
+        Initializes the subdataset metrics
+
+        Note: overwrite this method as necessary
+
+        Kwargs:
+            metrics_tmp: list of MetricItem instances
+        """
+        # Example
+        # assert isinstance(metrics_tmp, list), type(metrics_tmp)
+
+        # metrics_tmp = MetricCollection(metrics_tmp)
+        # self.train_metrics = metrics_tmp.clone(prefix=self.train_prefix)
+        # self.valid_metrics = metrics_tmp.clone(prefix=self.valid_prefix)
+
+        raise NotImplementedError
 
     @property
     def main_metrics_str(self) -> str:

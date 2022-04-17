@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/managers """
+""" nns/managers/standard """
 
 from unittest.mock import MagicMock
 

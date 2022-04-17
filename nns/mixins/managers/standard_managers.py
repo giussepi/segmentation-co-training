@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/mixins/managers """
+""" nns/mixins/managers/standard_managers """
 
 import os
 import sys
@@ -21,13 +21,13 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from .settings import USE_AMP, DISABLE_PROGRESS_BAR
 from nns.callbacks.metrics import MetricEvaluator
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.checkpoints import CheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
+from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
 from nns.mixins.subdatasets import SubDatasetsMixin
 from nns.utils.sync_batchnorm import patch_replication_callback
 
@@ -702,7 +702,6 @@ If true it track the loss values, else it tracks the metric values.
                         validation_step += 1
                         intrain_val_counter += 1
                         val_loss, val_metrics, val_extra_data = self.validation(dataloader=self.val_loader)
-                        val_loss_min = min(val_loss.item(), val_loss_min)
 
                         # maybe if there's no scheduler then the lr shouldn't be plotted
                         writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], validation_step)
@@ -756,6 +755,9 @@ If true it track the loss values, else it tracks the metric values.
                                 best_chkpt=True
                             )
                             best_metric = val_metric
+
+                        if val_loss.item() < val_loss_min:
+                            val_loss_min = val_loss.item()
 
                         if self.train_eval_chkpt and checkpoint and checkpoint(epoch):
                             intrain_chkpt_counter += 1
