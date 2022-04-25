@@ -19,6 +19,7 @@ __all__ = ['UNet_3Plus_DA', 'UNet_3Plus_DA_Train']
 class UNet_3Plus_DA(UNet_3Plus):
     """
     UNet_3Plus with disagreement attention between activations maps with the same dimensions
+    Note: DA blocks added only to the encoder
     """
 
     # TODO: make the dablock an argument so it can be easily changed

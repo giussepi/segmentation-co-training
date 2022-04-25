@@ -26,7 +26,7 @@ from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR
 from nns.mixins.constants import LrShedulerTrack
-from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train
+from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, UNet_3Plus_DA_Train2
 from nns.segmentation.learning_algorithms import CoTraining
 from nns.segmentation.utils.postprocessing import ExpandPrediction
 from nns.utils.sync_batchnorm import get_batchnorm2d_class
@@ -219,7 +219,7 @@ def main():
         checkpoint_interval=0,
         train_eval_chkpt=False,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68', 'unet3_plus_1'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'unet3_plus_1'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -274,7 +274,7 @@ def main():
         checkpoint_interval=0,
         train_eval_chkpt=False,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68', 'unet3_plus_2'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'unet3_plus_2'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -338,7 +338,7 @@ def main():
         train_eval_chkpt=False,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68', 'deeplabv3plus_xception'),
+            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'deeplabv3plus_xception'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -361,7 +361,7 @@ def main():
     #     earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
     #     warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
     #     overall_best_models=False,  # True
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68'),
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69'),
     #     # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
     #     thresholds=dict(agreement=.8),
     #     plots_saving_path=settings.PLOT_DIRECTORY,
@@ -388,26 +388,26 @@ def main():
     # cot()
 
     # cot.print_data_logger_summary(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68', 'chkpt_4.pth.tar'))
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'chkpt_4.pth.tar'))
 
     # cot.plot_and_save(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68', 'chkpt_4.pth.tar'),
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'chkpt_4.pth.tar'),
     #     save=True, show=False, dpi=300.
     # )
 
     # cot.print_data_logger_details(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68', 'chkpt_4.pth.tar'))
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'chkpt_4.pth.tar'))
 
     # DA experiments ##########################################################
     # TODO: update doctrings from DAModelMGRMixin
     model4 = DAModelMGR(
-        model_cls=UNet_3Plus_DA_Train,
+        model_cls=UNet_3Plus_DA_Train2,
         model_kwargs=dict(
-            model1_cls=UNet_3Plus_DA,
+            model1_cls=UNet_3Plus_DA2,
             kwargs1=dict(da_threshold=np.NINF, da_block_config=dict(thresholds=(.25, .8), beta=-1.),
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
                          batchnorm_cls=get_batchnorm2d_class()),
-            model2_cls=UNet_3Plus_DA,
+            model2_cls=UNet_3Plus_DA2,
             kwargs2=dict(da_threshold=np.NINF, da_block_config=dict(thresholds=(.25, .8), beta=-1.),
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
                          batchnorm_cls=get_batchnorm2d_class()),
@@ -454,28 +454,27 @@ def main():
         metrics=settings.METRICS,
         metric_mode=MetricEvaluatorMode.MAX,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
-        checkpoint_interval=1,
+        checkpoint_interval=0,
         train_eval_chkpt=False,
-        ini_checkpoint=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining',
-                                    'exp68', 'unet3_plus_1', 'chkpt_0.pth.tar'),
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp68', 'unet3_plus_1'),
+        ini_checkpoint='',
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'unet3_plus_1'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    # model4()
+    model4()
     # model4.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
-    model4.print_data_logger_summary()
-    _, data_logger = model4.load_checkpoint([
-        model4.optimizer1(model4.module.model1.parameters(), **model4.optimizer1_kwargs),
-        model4.optimizer2(model4.module.model2.parameters(), **model4.optimizer2_kwargs),
-    ])
+    # model4.print_data_logger_summary()
+    # _, data_logger = model4.load_checkpoint([
+    #     model4.optimizer1(model4.module.model1.parameters(), **model4.optimizer1_kwargs),
+    #     model4.optimizer2(model4.module.model2.parameters(), **model4.optimizer2_kwargs),
+    # ])
 
     # __import__("pdb").set_trace()
 
-    model4.plot_and_save(308)
+    # model4.plot_and_save(308)
 
 
 if __name__ == '__main__':
