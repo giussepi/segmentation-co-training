@@ -76,7 +76,68 @@ class DACheckPointMixin(CheckPointBaseMixin):
 
         if best_chkpt:
             filename = self.best_checkpoint_name
-        if last_chkpt:
+        elif last_chkpt:
+            filename = self.last_checkpoint_name
+        else:
+            filename = self.checkpoint_pattern.format(f"_{epoch}")
+
+        torch.save(data, os.path.join(self.dir_checkpoints, filename))
+
+    def save_checkpoint_single_model(
+            self, model: torch.nn.Module, epoch: int, optimizer: Optimizer, data_logger: dict, *,
+            best_chkpt=False, last_chkpt=False, filename=''):
+        """
+        Saves the model as a checkpoint for inference and/or resuming training
+
+        When best_chkpt = True, intrain_x_counter refers to the intrain_val_counter
+        (see ModelMGRMixin.training method).
+
+        When best_chkpt = False, intrain_x_counter refers to intrain_chkpt_counter
+        (see ModelMGRMixin.training method). If epoch is an integer, we are not
+        performing intrain validation (instead, we are saving data from the epoch
+        evaluation); thus, intrain_x_counter is set to 0. On the other
+        hand, when epoch is a float, we assign its integer part to epoch_ and its
+        decimal part to intrain_x_counter.
+
+        Kwargs:
+            model    <torch.nn.Module>: model to be saved
+            epoch         <int, float>: current epoch
+            optimizer      <Optimizer>: optimizer instance
+            data_logger         <dict>: dict with the tracked data (like lr, loss, metric, etc)
+            best_chkpt          <bool>: If True the prefix 'best_' will be appended to the filename
+            last_chkpt          <bool>: If True the prefix 'last_' will be appended to the filename
+            filename             <str>: checkpoint filename
+        """
+        assert issubclass(model.__class__, torch.nn.Module), type(model)
+        assert isinstance(epoch, (int, float)), type(epoch)
+        assert epoch >= 0, f'{epoch}'
+        assert isinstance(optimizer, Optimizer), type(optimizer)
+        assert isinstance(data_logger, dict), type(data_logger)
+        assert isinstance(best_chkpt, bool), type(best_chkpt)
+        assert isinstance(last_chkpt, bool), type(last_chkpt)
+        assert isinstance(filename, str), type(filename)
+
+        if isinstance(epoch, float):
+            epoch_, intrain_x_counter = map(int, str(epoch).split('.'))
+        else:
+            epoch_ = epoch
+            intrain_x_counter = 0
+
+        # TODO: only save data_logger data for the current model
+        # TODO: also save the scaler
+        data = {
+            'epoch': epoch_,
+            'intrain_x_counter': intrain_x_counter,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'data_logger': data_logger
+        }
+
+        if filename:
+            pass
+        elif best_chkpt:
+            filename = self.best_checkpoint_name
+        elif last_chkpt:
             filename = self.last_checkpoint_name
         else:
             filename = self.checkpoint_pattern.format(f"_{epoch}")

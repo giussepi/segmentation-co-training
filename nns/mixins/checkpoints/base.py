@@ -130,19 +130,24 @@ class CheckPointBaseMixin:
 
         return None
 
-    def save(self, filename=''):
+    def save(self, filename: str = '', *, model: torch.nn.Module = None):
         """
         Saves the model only for inference
 
         Kwargs:
-            filename <str>: file name to be used to save the model. Default self.best_model_name
-
+            filename          <str>: file name to be used to save the model. Default self.best_model_name
+            model <torch.nn.Module>: Model to be saved
         """
         assert isinstance(filename, str), type(filename)
+        if model:
+            assert issubclass(model.__class__, torch.nn.Module), type(model)
 
         filename = filename if filename else self.best_model_name
 
-        torch.save(self.model.state_dict(), os.path.join(self.dir_checkpoints, filename))
+        if model:
+            torch.save(model.state_dict(), os.path.join(self.dir_checkpoints, filename))
+        else:
+            torch.save(self.model.state_dict(), os.path.join(self.dir_checkpoints, filename))
 
     def load_saved_state_dict(self, filename=''):
         """

@@ -112,6 +112,7 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
                 MetricItem(torchmetrics.Recall())
             ],
             metric_mode=MetricEvaluatorMode.MAX,
+            joint_values=True,
             earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
             checkpoint_interval=1,
             train_eval_chkpt=True,
@@ -202,6 +203,13 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
             metric_mode              <int>: Evaluation mode of the metric.
                                             See nns.callbacks.metrics.constants.MetricEvaluatorMode
                                             Default MetricEvaluatorMode.MAX
+            joint_values            <bool>: If True, the metric evaluation and the early stopping criteria
+                                            are applied to the mean values of the metrics and losses from
+                                            model 1 and model 2; furthermore, the best main model containing
+                                            model 1 and model 2 is saved in a single file. When False,
+                                            the metrics are handled separately, the early stopping is
+                                            disabled; and the best model 1 and model 2 are calculated and
+                                            saved separately. Default True
             earlystopping_kwargs    <dict>: Early stopping parameters. When metric = True, it is
                                             applied to the metric values; otherwise, it is applied to the
                                             loss values. If patience is provided, it will be multiplied
@@ -261,6 +269,7 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
 
         self.mask_threshold = kwargs.get('mask_threshold', 0.5)
         self.metric_mode = kwargs.get('metric_mode', MetricEvaluatorMode.MAX)
+        self.joint_values = kwargs.get('joint_values', True)
         self.earlystopping_kwargs = kwargs.get(
             'earlystopping_kwargs', dict(min_delta=1e-3, patience=8, metric=True))
         self.earlystopping_to_metric = self.earlystopping_kwargs.pop('metric')
@@ -294,6 +303,7 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
         assert isinstance(self.criterions, list), type(self.criterions)
         assert isinstance(self.mask_threshold, float), type(self.mask_threshold)
         MetricEvaluatorMode.validate(self.metric_mode)
+        assert isinstance(self.joint_values, bool), type(self.joint_values)
         assert isinstance(self.earlystopping_kwargs, dict), type(self.earlystopping_kwargs)
         assert isinstance(self.checkpoint_interval, int), type(self.checkpoint_interval)
         assert isinstance(self.train_eval_chkpt, bool), type(self.train_eval_chkpt)
@@ -765,8 +775,12 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
             epoch_val_losses1=[], epoch_val_losses2=[], epoch_val_metrics1=[], epoch_val_metrics2=[],
             epoch_lr1=[], epoch_lr2=[],
         )
-        best_metric = np.NINF
-        val_loss_min = np.inf
+        if self.joint_values:
+            best_metric = np.NINF
+            val_loss_min = np.inf
+        else:
+            best_metric = [np.NINF, np.NINF]
+            val_loss_min = [np.inf, np.inf]
 
         # If a checkpoint file is provided, then load it
         if self.ini_checkpoint:
@@ -886,33 +900,59 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
 
                         # TODO: find out if it's better to apply the early stopping to
                         # val_metric or val_loss
-                        val_metric = mean([self.get_mean_main_metrics(val_metrics1),
-                                           self.get_mean_main_metrics(val_metrics2)])
-                        new_val_loss_min = mean([val_loss1.item(), val_loss2.item()])
+                        val_metric = [self.get_mean_main_metrics(val_metrics1),
+                                      self.get_mean_main_metrics(val_metrics2)]
+                        new_val_loss_min = [val_loss1.item(), val_loss2.item()]
 
-                        if self.earlystopping_to_metric:
-                            if earlystopping(best_metric, val_metric):
+                        if self.joint_values:
+                            # evaluating the mean values and saving the main model
+                            # containing model 1 and model 2
+                            val_metric = mean(val_metric)
+                            new_val_loss_min = mean(new_val_loss_min)
+
+                            if self.earlystopping_to_metric:
+                                if earlystopping(best_metric, val_metric):
+                                    early_stopped = True
+                                    break
+                            elif earlystopping(new_val_loss_min, val_loss_min):
                                 early_stopped = True
                                 break
-                        elif earlystopping(new_val_loss_min, val_loss_min):
-                            early_stopped = True
-                            break
 
-                        if metric_evaluator(val_metric, best_metric):
-                            logger.info(
-                                f'Mean {self.main_metrics_str} increased'
-                                f'({best_metric:.6f} --> {val_metric:.6f}). '
-                                'Saving model ...'
-                            )
-                            self.save()
-                            self.save_checkpoint(
-                                float(f'{epoch}.{intrain_val_counter}'), [optimizer1, optimizer2],
-                                data_logger, best_chkpt=True
-                            )
-                            best_metric = val_metric
+                            if metric_evaluator(val_metric, best_metric):
+                                logger.info(
+                                    f'Mean {self.main_metrics_str} increased'
+                                    f'({best_metric:.6f} --> {val_metric:.6f}). '
+                                    'Saving model ...'
+                                )
+                                self.save()
+                                self.save_checkpoint(
+                                    float(f'{epoch}.{intrain_val_counter}'), [optimizer1, optimizer2],
+                                    data_logger, best_chkpt=True
+                                )
+                                best_metric = val_metric
 
-                        if new_val_loss_min < val_loss_min:
-                            val_loss_min = new_val_loss_min
+                            if new_val_loss_min < val_loss_min:
+                                val_loss_min = new_val_loss_min
+                        else:
+                            # evaluating and saving best models separately
+                            for i, optim_ in enumerate([optimizer1, optimizer2]):
+                                if metric_evaluator(val_metric[i], best_metric[i]):
+                                    logger.info(
+                                        f'MODEL {i+1} {self.main_metrics_str} increased'
+                                        f'({best_metric[i]:.6f} --> {val_metric[i]:.6f}). '
+                                        'Saving model ...'
+                                    )
+                                    self.save(
+                                        f'best_model_{i+1}.pth', model=getattr(self.module, f'model{i+1}'))
+                                    self.save_checkpoint_single_model(
+                                        getattr(self.module, f'model{i+1}'),
+                                        float(f'{epoch}.{intrain_val_counter}'), optim_,
+                                        data_logger, filename=f'best_chkpt_model_{i+1}.pth.tar'
+                                    )
+                                    best_metric[i] = val_metric[i]
+
+                                if new_val_loss_min[i] < val_loss_min[i]:
+                                    val_loss_min[i] = new_val_loss_min[i]
 
                         if self.train_eval_chkpt and checkpoint and checkpoint(epoch):
                             intrain_chkpt_counter += 1
