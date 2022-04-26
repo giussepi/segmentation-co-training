@@ -115,6 +115,7 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
             earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
             checkpoint_interval=1,
             train_eval_chkpt=True,
+            last_checkpoint=True,
             ini_checkpoint='',
             dir_checkpoints=settings.DIR_CHECKPOINTS,
             tensorboard=True,
@@ -215,6 +216,10 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
             train_eval_chkpt        <bool>: If True, a checkpoint will be saved right after each evaluation
                                             executed while processing the training subdataset
                                             (e.gl chkpt_1.1.pth.tar) Default False
+            last_checkpoint         <bool>: If True, the last checkpoint will be saved separately. This is
+                                            useful when checkpoint_interval is set to zero to save disk
+                                            space and you want to have the last checkpoint to get all the
+                                            statistics from the whole training process. Default False
             ini_checkpoint           <str>: path to checkpoint to load. So the training can continue.
                                             It must be inside the the dir_checkpoints directory.
                                             Default ''
@@ -261,6 +266,7 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
         self.earlystopping_to_metric = self.earlystopping_kwargs.pop('metric')
         self.checkpoint_interval = kwargs.get('checkpoint_interval', 1)
         self.train_eval_chkpt = kwargs.get('train_eval_chkpt', False)
+        self.last_checkpoint = kwargs.get('last_checkpoint', False)
         self.ini_checkpoint = kwargs.get('ini_checkpoint', '')
         self.dir_checkpoints = kwargs.get('dir_checkpoints', 'checkpoints')
         self.tensorboard = kwargs.get('tensorboard', True)
@@ -291,6 +297,7 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
         assert isinstance(self.earlystopping_kwargs, dict), type(self.earlystopping_kwargs)
         assert isinstance(self.checkpoint_interval, int), type(self.checkpoint_interval)
         assert isinstance(self.train_eval_chkpt, bool), type(self.train_eval_chkpt)
+        assert isinstance(self.last_checkpoint, bool), type(self.last_checkpoint)
         assert isinstance(self.ini_checkpoint, str), type(self.ini_checkpoint)
 
         if self.ini_checkpoint:
@@ -920,6 +927,10 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
                             # TODO: verify the replacement function is working properly
                             LrShedulerTrack.step(self.lr_scheduler2_track, scheduler2,
                                                  self.get_mean_main_metrics(val_metrics2), val_loss2.item())
+
+            if self.last_checkpoint:
+                self.save_checkpoint(
+                    float(f'{epoch}'), [optimizer1, optimizer2], data_logger, last_chkpt=True)
 
             if early_stopped:
                 break

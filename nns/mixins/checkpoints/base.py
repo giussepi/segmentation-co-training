@@ -22,9 +22,10 @@ class CheckPointBaseMixin:
 
     checkpoint_pattern = 'chkpt{}.pth.tar'
     best_checkpoint_name = 'best_chkpt.pth.tar'
+    last_checkpoint_name = 'last_chkpt.pth.tar'
     best_model_name = 'best_model.pth'
 
-    def save_checkpoint(self, epoch, optimizer, data_logger, best_chkpt=False):
+    def save_checkpoint(self, epoch, optimizer, data_logger, best_chkpt=False, last_chkpt=False):
         """
         Saves the model as a checkpoint for inference and/or resuming training
 
@@ -43,12 +44,14 @@ class CheckPointBaseMixin:
             optimizer <self.optimizer>: optimizer instance
             data_logger         <dict>: dict with the tracked data (like lr, loss, metric, etc)
             best_chkpt          <bool>: If True the prefix 'best_' will be appended to the filename
+            last_chkpt          <bool>: If True the prefix 'last_' will be appended to the filename
         """
         assert isinstance(epoch, (int, float)), type(epoch)
         assert epoch >= 0, f'{epoch}'
         assert isinstance(optimizer, self.optimizer), type(optimizer)
         assert isinstance(data_logger, dict), type(data_logger)
         assert isinstance(best_chkpt, bool), type(best_chkpt)
+        assert isinstance(last_chkpt, bool), type(last_chkpt)
 
         if isinstance(epoch, float):
             epoch_, intrain_x_counter = map(int, str(epoch).split('.'))
@@ -67,6 +70,8 @@ class CheckPointBaseMixin:
 
         if best_chkpt:
             filename = self.best_checkpoint_name
+        elif last_chkpt:
+            filename = self.last_checkpoint_name
         else:
             filename = self.checkpoint_pattern.format(f"_{epoch}")
 

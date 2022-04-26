@@ -456,6 +456,7 @@ def main():
         earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
         checkpoint_interval=0,
         train_eval_chkpt=False,
+        last_checkpoint=True,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'unet3_plus_1'),
         tensorboard=False,

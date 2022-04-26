@@ -26,7 +26,7 @@ class DACheckPointMixin(CheckPointBaseMixin):
 
     def save_checkpoint(
             self, epoch: Union[int, float], optimizers: List[Optimizer], data_logger: dict,
-            best_chkpt: bool = False
+            best_chkpt: bool = False, last_chkpt: bool = False
     ):
         """
         Saves the model as a checkpoint for inference and/or resuming training
@@ -46,6 +46,7 @@ class DACheckPointMixin(CheckPointBaseMixin):
             optimizers <List[Optimizer]>: List of optimizers objects
             data_logger           <dict>: dict with the tracked data (like lr, loss, metric, etc)
             best_chkpt            <bool>: If True the prefix 'best_' will be appended to the filename
+            last_chkpt            <bool>: If True the prefix 'last_' will be appended to the filename
         """
         assert isinstance(epoch, (int, float)), type(epoch)
         assert epoch >= 0, f'{epoch}'
@@ -55,6 +56,7 @@ class DACheckPointMixin(CheckPointBaseMixin):
             assert isinstance(optim, Optimizer), type(optim)
         assert isinstance(data_logger, dict), type(data_logger)
         assert isinstance(best_chkpt, bool), type(best_chkpt)
+        assert isinstance(last_chkpt, bool), type(last_chkpt)
 
         if isinstance(epoch, float):
             epoch_, intrain_x_counter = map(int, str(epoch).split('.'))
@@ -74,6 +76,8 @@ class DACheckPointMixin(CheckPointBaseMixin):
 
         if best_chkpt:
             filename = self.best_checkpoint_name
+        if last_chkpt:
+            filename = self.last_checkpoint_name
         else:
             filename = self.checkpoint_pattern.format(f"_{epoch}")
 
