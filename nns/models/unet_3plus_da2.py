@@ -53,10 +53,10 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
         )
         # disagreement attention after relu1d_1 (hd1)
         # FIXME: not sure this attention block is necessary maybe not....
-        self.da_hd1 = DAConvBlock(
-            ThresholdedDisagreementAttentionBlock(self.UpChannels, self.UpChannels, **da_block_config),
-            2*self.UpChannels, self.UpChannels
-        )
+        # self.da_hd1 = DAConvBlock(
+        #     ThresholdedDisagreementAttentionBlock(self.UpChannels, self.UpChannels, **da_block_config),
+        #     2*self.UpChannels, self.UpChannels
+        # )
 
     def forward_1(self, x: torch.Tensor):
         h1 = self.conv1(x)  # h1->320*320*64
@@ -175,7 +175,7 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
 
     def forward_11(self, x: dict, skip_connection: torch.Tensor, metric2: float):
         # end decoder #########################################################
-        x['hd1'] = self.da_hd1(x['hd1'], skip_connection, disable_attention=metric2 <= self.da_threshold)
+        # x['hd1'] = self.da_hd1(x['hd1'], skip_connection, disable_attention=metric2 <= self.da_threshold)
         d1 = self.outconv1(x['hd1'])  # d1->320*320*n_classes
 
         return d1
