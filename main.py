@@ -219,7 +219,7 @@ def main():
         checkpoint_interval=0,
         train_eval_chkpt=False,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'unet3_plus_1'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp70', 'unet3_plus_1'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -274,7 +274,7 @@ def main():
         checkpoint_interval=0,
         train_eval_chkpt=False,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'unet3_plus_2'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp70', 'unet3_plus_2'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -338,7 +338,7 @@ def main():
         train_eval_chkpt=False,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'deeplabv3plus_xception'),
+            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp70', 'deeplabv3plus_xception'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -361,7 +361,7 @@ def main():
     #     earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
     #     warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
     #     overall_best_models=False,  # True
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69'),
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp70'),
     #     # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
     #     thresholds=dict(agreement=.8),
     #     plots_saving_path=settings.PLOT_DIRECTORY,
@@ -388,15 +388,15 @@ def main():
     # cot()
 
     # cot.print_data_logger_summary(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'chkpt_4.pth.tar'))
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp70', 'chkpt_4.pth.tar'))
 
     # cot.plot_and_save(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'chkpt_4.pth.tar'),
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp70', 'chkpt_4.pth.tar'),
     #     save=True, show=False, dpi=300.
     # )
 
     # cot.print_data_logger_details(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'chkpt_4.pth.tar'))
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp70', 'chkpt_4.pth.tar'))
 
     # DA experiments ##########################################################
     # TODO: update doctrings from DAModelMGRMixin
@@ -458,7 +458,7 @@ def main():
         train_eval_chkpt=False,
         last_checkpoint=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp69', 'unet3_plus_1'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp70', 'unet3_plus_1'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
