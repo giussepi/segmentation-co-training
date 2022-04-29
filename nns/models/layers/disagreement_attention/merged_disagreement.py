@@ -23,22 +23,24 @@ class MergedDisagreementAttentionBlock(nn.Module):
     """
 
     def __init__(
-            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: object = nn.Identity()):
+            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: object = None):
         """
         Initializes the object instance
 
         Kwargs:
             m1_act         <int>: number of feature maps (channels) from model 1
             m2_act         <int>: number of feature maps (channels) from model 2
-            n_coefficients <int>: number of channels used during the calculations
+            n_channels     <int>: number of channels used during the calculations
                                   If not provided will be set to m1_act. Default -1
             resample    <object>: Resample operation to be applied to activations2 to match activations1
-                                  (e.g. identity, pooling, strided convolution, upconv, etc)
+                                  (e.g. identity, pooling, strided convolution, upconv, etc).
+                                  Default nn.Identity()
         """
         super().__init__()
         assert isinstance(m1_act, int), type(m1_act)
         assert isinstance(m2_act, int), type(m2_act)
         assert isinstance(n_channels, int), type(n_channels)
+        resample = resample if resample else nn.Identity()
         assert isinstance(resample, object), 'resample must be an instance'
 
         if n_channels == -1:

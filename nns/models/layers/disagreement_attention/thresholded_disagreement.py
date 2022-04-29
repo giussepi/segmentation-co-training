@@ -28,7 +28,7 @@ class ThresholdedDisagreementAttentionBlock(nn.Module):
     """
 
     def __init__(
-            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: object = nn.Identity(),
+            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: object = None,
             thresholds: Tuple[float] = None, beta: float = -1.0
     ):
         """
@@ -40,7 +40,8 @@ class ThresholdedDisagreementAttentionBlock(nn.Module):
             n_channels     <int>: number of channels used during the calculations
                                   If not provided will be set to m1_act. Default -1
             resample    <object>: Resample operation to be applied to activations2 to match activations1
-                                  (e.g. identity, pooling, strided convolution, upconv, etc),
+                                  (e.g. identity, pooling, strided convolution, upconv, etc).
+                                  Default nn.Identity()
             thresholds   <tuple>: Tuple with the lower and upper disagreement thresholds. If not value is
                                   provided is is set to (.25, .8). Default = None
             beta         <floar>: User-defined attention boost in range ]0,1[. Set it to a negative value
@@ -52,6 +53,7 @@ class ThresholdedDisagreementAttentionBlock(nn.Module):
         assert isinstance(m2_act, int), type(m2_act)
         assert isinstance(n_channels, int), type(n_channels)
         assert isinstance(resample, object), 'resample must be an instance'
+        resample = resample if resample else nn.Identity()
         if thresholds is not None:
             assert isinstance(thresholds, tuple), type(thresholds)
             assert len(thresholds) == 2, 'thresholds must contain only 2 values'
