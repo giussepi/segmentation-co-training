@@ -7,3 +7,4 @@ openslide-python>=1.1.2
 Pillow>=8.4.0
 scikit-image>=0.17.2
 tabulate>=0.8.9
+torchinfo>=1.6.5
