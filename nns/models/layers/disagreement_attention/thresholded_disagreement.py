@@ -6,11 +6,13 @@ from typing import Tuple
 import torch
 from torch import nn
 
+from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
+
 
 __all__ = ['ThresholdedDisagreementAttentionBlock']
 
 
-class ThresholdedDisagreementAttentionBlock(nn.Module):
+class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
     r"""
     Calculates the thresholded-disagreement attention from activations2 (belonging to model 2)
     towards activations1 (belonging to model 1) and returns activations1 with the computed attention
@@ -48,12 +50,8 @@ class ThresholdedDisagreementAttentionBlock(nn.Module):
                                   to not use it and set all values not included in the feature disagreement
                                   index psi2 to zero. Default -1.0
         """
-        super().__init__()
-        assert isinstance(m1_act, int), type(m1_act)
-        assert isinstance(m2_act, int), type(m2_act)
-        assert isinstance(n_channels, int), type(n_channels)
-        assert isinstance(resample, object), 'resample must be an instance'
-        resample = resample if resample else nn.Identity()
+        super().__init__(m1_act, m2_act, n_channels=n_channels, resample=resample)
+
         if thresholds is not None:
             assert isinstance(thresholds, tuple), type(thresholds)
             assert len(thresholds) == 2, 'thresholds must contain only 2 values'
@@ -66,27 +64,20 @@ class ThresholdedDisagreementAttentionBlock(nn.Module):
 
         self.thresholds = (.25, .8) if thresholds is None else thresholds
         self.beta = beta
-
-        if n_channels == -1:
-            n_channels = m1_act
-
         self.w1 = nn.Sequential(
-            nn.Conv2d(m1_act, n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(n_channels)
+            nn.Conv2d(m1_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(self.n_channels)
         )
-
         self.w2 = nn.Sequential(
-            nn.Conv2d(m2_act, n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(n_channels)
+            nn.Conv2d(m2_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(self.n_channels)
         )
-
         self.attention_2to1 = nn.Sequential(
             nn.ReLU(),
-            nn.Conv2d(n_channels, 1, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(self.n_channels, 1, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(1),
             nn.Sigmoid()
         )
-        self.resample = resample
 
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
