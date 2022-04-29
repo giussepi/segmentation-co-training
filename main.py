@@ -27,7 +27,7 @@ from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, UNet_3Plus_DA_Train2
-from nns.segmentation.learning_algorithms import CoTraining
+from nns.segmentation.learning_algorithms import CoTraining, DACoTraining
 from nns.segmentation.utils.postprocessing import ExpandPrediction
 from nns.utils.sync_batchnorm import get_batchnorm2d_class
 
@@ -400,7 +400,8 @@ def main():
 
     # DA experiments ##########################################################
     # TODO: update doctrings from DAModelMGRMixin
-    model4 = DAModelMGR(
+    # model4 = DAModelMGR(
+    model4 = dict(
         model_cls=UNet_3Plus_DA_Train,
         model_kwargs=dict(
             model1_cls=UNet_3Plus_DA,
@@ -415,7 +416,7 @@ def main():
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=1,  # 30
+        epochs=30,
         intrain_val=2,
         optimizer1=torch.optim.Adam,
         optimizer1_kwargs=dict(lr=1e-4),  # lr=1e-3
@@ -453,7 +454,7 @@ def main():
         mask_threshold=0.5,
         metrics=settings.METRICS,
         metric_mode=MetricEvaluatorMode.MAX,
-        joint_values=False,
+        process_joint_values=False,
         earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
         checkpoint_interval=0,
         train_eval_chkpt=False,
@@ -466,7 +467,7 @@ def main():
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    model4()
+    # model4()
     # model4.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
     # model4.print_data_logger_summary()
     # _, data_logger = model4.load_checkpoint([
@@ -477,6 +478,57 @@ def main():
     # __import__("pdb").set_trace()
 
     # model4.plot_and_save(308)
+
+    # Disagreement attention cotraining experiments ###########################
+    cot = DACoTraining(
+        model_mgr_kwargs=model4,
+        iterations=5,
+        # model_mgr_kwargs_tweaks=dict(
+        #     optimizer1_kwargs=dict(lr=1e-3),
+        #     optimizer2_kwargs=dict(lr=1e-3),
+        #     lr_scheduler1_kwargs={'mode': 'min', 'patience': 1},
+        #     lr_scheduler2_kwargs={'mode': 'min', 'patience': 1},
+        # ),
+        metrics=settings.METRICS,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
+        warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
+        overall_best_models=True,
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp71'),
+        # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
+        thresholds=dict(agreement=.8),
+        plots_saving_path=settings.PLOT_DIRECTORY,
+        strategy_postprocessing=dict(
+            # disagreement=[ExpandPrediction(), ],
+        ),
+        general_postprocessing=[],
+        postprocessing_threshold=.8,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+            'original_masks': settings.ORIGINAL_MASKS,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        }
+    )
+    cot()
+
+    # cot.print_data_logger_summary(
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp71', 'chkpt_4.pth.tar'))
+
+    # cot.plot_and_save(
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp71', 'chkpt_4.pth.tar'),
+    #     save=True, show=False, dpi=300.
+    # )
+
+    # cot.print_data_logger_details(
+    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp71', 'chkpt_4.pth.tar'))
 
 
 if __name__ == '__main__':
