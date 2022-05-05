@@ -44,27 +44,28 @@ class UNet_3Plus_DA(UNet_3Plus):
             f'{da_block_cls} is not a descendant of BaseDisagreementAttentionBlock'
         if da_block_config:
             assert isinstance(da_block_config, dict), type(da_block_config)
+            self.da_block_config = da_block_config
         else:
-            da_block_config = {}
+            self.da_block_config = {}
 
         filters = [64, 128, 256, 512, 1024]
 
         self.da_threshold = da_threshold
         # disagreement attention between conv1 layers
         self.da_conv1 = DAConvBlock(
-            da_block_cls(filters[0], filters[0], **da_block_config), 2*filters[0], filters[0])
+            da_block_cls(filters[0], filters[0], **self.da_block_config), 2*filters[0], filters[0])
         # disagreement attention between conv2 layers
         self.da_conv2 = DAConvBlock(
-            da_block_cls(filters[1], filters[1], **da_block_config), 2*filters[1], filters[1])
+            da_block_cls(filters[1], filters[1], **self.da_block_config), 2*filters[1], filters[1])
         # disagreement attention between conv3 layers
         self.da_conv3 = DAConvBlock(
-            da_block_cls(filters[2], filters[2], **da_block_config), 2*filters[2], filters[2])
+            da_block_cls(filters[2], filters[2], **self.da_block_config), 2*filters[2], filters[2])
         # disagreement attention between conv4 layers
         self.da_conv4 = DAConvBlock(
-            da_block_cls(filters[3], filters[3], **da_block_config), 2*filters[3], filters[3])
+            da_block_cls(filters[3], filters[3], **self.da_block_config), 2*filters[3], filters[3])
         # disagreement attention between conv5 layers
         self.da_conv5 = DAConvBlock(
-            da_block_cls(filters[4], filters[4], **da_block_config), 2*filters[4], filters[4])
+            da_block_cls(filters[4], filters[4], **self.da_block_config), 2*filters[4], filters[4])
 
     def forward_1(self, x: torch.Tensor):
         h1 = self.conv1(x)  # h1->320*320*64
