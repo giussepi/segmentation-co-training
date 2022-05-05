@@ -647,7 +647,10 @@ If true it track the loss values, else it tracks the metric values.
         global_step = 0
         step_divider = self.n_train // (self.intrain_val * self.train_dataloader_kwargs['batch_size'])
         optimizer = self.optimizer(self.model.parameters(), **self.optimizer_kwargs)
-        scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
+
+        if self.cuda:
+            scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
+
         metric_evaluator = MetricEvaluator(self.metric_mode)
         earlystopping = EarlyStopping(**self.earlystopping_kwargs)
         early_stopped = False
@@ -696,12 +699,17 @@ If true it track the loss values, else it tracks the metric values.
                     pred, true_masks, imgs, loss, metrics, labels, label_names = self.training_step(batch)
                     train_loss += loss.item()
                     optimizer.zero_grad()
-                    # loss.backward(retain_graph=True)
-                    scaler.scale(loss).backward(retain_graph=True)
-                    nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
-                    # optimizer.step()
-                    scaler.step(optimizer)
-                    scaler.update()
+
+                    if self.cuda:
+                        scaler.scale(loss).backward(retain_graph=True)
+                        nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                        scaler.step(optimizer)
+                        scaler.update()
+                    else:
+                        loss.backward(retain_graph=True)
+                        nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                        optimizer.step()
+
                     pbar.update(imgs.shape[0])
                     global_step += 1
 

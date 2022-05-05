@@ -760,9 +760,12 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
         step_divider = self.n_train // (self.intrain_val * self.train_dataloader_kwargs['batch_size'])
         optimizer1 = self.optimizer1(self.module.model1.parameters(), **self.optimizer1_kwargs)
         optimizer2 = self.optimizer2(self.module.model2.parameters(), **self.optimizer2_kwargs)
-        scaler1 = torch.cuda.amp.GradScaler(enabled=USE_AMP)
-        scaler2 = torch.cuda.amp.GradScaler(enabled=USE_AMP)
+
+        if self.cuda:
+            scaler1 = torch.cuda.amp.GradScaler(enabled=USE_AMP)
+            scaler2 = torch.cuda.amp.GradScaler(enabled=USE_AMP)
         metric_evaluator = MetricEvaluator(self.metric_mode)
+
         earlystopping = EarlyStopping(**self.earlystopping_kwargs)
         early_stopped = False
         checkpoint = Checkpoint(self.checkpoint_interval) if self.checkpoint_interval > 0 else None
@@ -846,16 +849,22 @@ class DAModelMGRMixin(DACheckPointMixin, DADataLoggerMixin, SubDatasetsMixin):
                     train_loss2 += loss2.item()
                     optimizer1.zero_grad()
                     optimizer2.zero_grad()
-                    # loss.backward(retain_graph=True)
-                    scaler1.scale(loss1).backward(retain_graph=True)
-                    scaler2.scale(loss2).backward(retain_graph=True)
-                    nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
-                    # optimizer.step()
-                    # TODO: review if using scaler is still a good option for DA cotraining
-                    scaler1.step(optimizer1)
-                    scaler2.step(optimizer2)
-                    scaler1.update()
-                    scaler2.update()
+
+                    if self.cuda:
+                        scaler1.scale(loss1).backward(retain_graph=True)
+                        scaler2.scale(loss2).backward(retain_graph=True)
+                        nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                        scaler1.step(optimizer1)
+                        scaler2.step(optimizer2)
+                        scaler1.update()
+                        scaler2.update()
+                    else:
+                        loss1.backward(retain_graph=True)
+                        loss2.backward(retain_graph=True)
+                        nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                        optimizer1.step()
+                        optimizer2.step()
+
                     pbar.update(imgs.shape[0])
                     global_step += 1
 
