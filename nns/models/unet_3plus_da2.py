@@ -42,23 +42,23 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
 
         # disagreement attention after relu4d_1 (hd4)
         self.da_hd4 = DAConvBlock(
-            da_block_cls(self.UpChannels, self.UpChannels, **da_block_config),
+            da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
             2*self.UpChannels, self.UpChannels
         )
         # disagreement attention after relu3d_1 (hd3)
         self.da_hd3 = DAConvBlock(
-            da_block_cls(self.UpChannels, self.UpChannels, **da_block_config),
+            da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
             2*self.UpChannels, self.UpChannels
         )
         # disagreement attention after relu2d_1 (hd2)
         self.da_hd2 = DAConvBlock(
-            da_block_cls(self.UpChannels, self.UpChannels, **da_block_config),
+            da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
             2*self.UpChannels, self.UpChannels
         )
         # disagreement attention after relu1d_1 (hd1)
         # FIXME: not sure this attention block is necessary maybe not....
         # self.da_hd1 = DAConvBlock(
-        #     da_block_cls(self.UpChannels, self.UpChannels, **da_block_config),
+        #     da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
         #     2*self.UpChannels, self.UpChannels
         # )
 
