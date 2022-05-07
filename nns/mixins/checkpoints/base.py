@@ -3,8 +3,10 @@
 
 import os
 from collections import OrderedDict
+from typing import Union
 
 import torch
+from torch.optim.optimizer import Optimizer
 from logzero import logger
 
 
@@ -25,7 +27,10 @@ class CheckPointBaseMixin:
     last_checkpoint_name = 'last_chkpt.pth.tar'
     best_model_name = 'best_model.pth'
 
-    def save_checkpoint(self, epoch, optimizer, data_logger, best_chkpt=False, last_chkpt=False):
+    def save_checkpoint(
+            self, epoch: Union[int, float], optimizer: Optimizer, data_logger: dict, best_chkpt: bool = False,
+            last_chkpt: bool = False
+    ):
         """
         Saves the model as a checkpoint for inference and/or resuming training
 
@@ -40,8 +45,8 @@ class CheckPointBaseMixin:
         decimal part to intrain_x_counter.
 
         Kwargs:
-            epoch                <int, float>: current epoch
-            optimizer <self.optimizer>: optimizer instance
+            epoch         <int, float>: current epoch
+            optimizer      <Optimizer>: optimizer instance
             data_logger         <dict>: dict with the tracked data (like lr, loss, metric, etc)
             best_chkpt          <bool>: If True the prefix 'best_' will be appended to the filename
             last_chkpt          <bool>: If True the prefix 'last_' will be appended to the filename
@@ -130,19 +135,24 @@ class CheckPointBaseMixin:
 
         return None
 
-    def save(self, filename=''):
+    def save(self, filename: str = '', *, model: torch.nn.Module = None):
         """
         Saves the model only for inference
 
         Kwargs:
-            filename <str>: file name to be used to save the model. Default self.best_model_name
-
+            filename          <str>: file name to be used to save the model. Default self.best_model_name
+            model <torch.nn.Module>: Model to be saved
         """
         assert isinstance(filename, str), type(filename)
+        if model:
+            assert issubclass(model.__class__, torch.nn.Module), type(model)
 
         filename = filename if filename else self.best_model_name
 
-        torch.save(self.model.state_dict(), os.path.join(self.dir_checkpoints, filename))
+        if model:
+            torch.save(model.state_dict(), os.path.join(self.dir_checkpoints, filename))
+        else:
+            torch.save(self.model.state_dict(), os.path.join(self.dir_checkpoints, filename))
 
     def load_saved_state_dict(self, filename=''):
         """

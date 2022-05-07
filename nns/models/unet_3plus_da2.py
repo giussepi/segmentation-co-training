@@ -8,6 +8,7 @@ from gtorch_utils.utils.images import apply_padding
 
 from nns.models.da_model import BaseDATrain
 from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock
+from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.layers import DAConvBlock
 from nns.models import UNet_3Plus_DA
 
@@ -21,8 +22,10 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
     Note: DA blocks through all the encoder and decoder
     """
 
-    # TODO: make the dablock an argument so it can be easily changed
-    def __init__(self, da_threshold: float = np.inf, da_block_config: Optional[dict] = None,  **kwargs):
+    def __init__(self,
+                 da_threshold: float = np.inf,
+                 da_block_cls: BaseDisagreementAttentionBlock = ThresholdedDisagreementAttentionBlock,
+                 da_block_config: Optional[dict] = None,  **kwargs):
         """
         Kwargs:
             da_threshold   <float>: threshold to apply attention or not. Only when
@@ -30,71 +33,34 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
                                     If you want to always apply disagreement attention set
                                     it to np.NINF.
                                     Default np.inf (no disaggrement attention applied)
+            da_block_cls <BaseDisagreementAttentionBlock>: class descendant of BaseDisagreementAttentionBlock
+                                    Default ThresholdedDisagreementAttentionBlock
             da_block_config <dict>: Configuration for disagreement attention block.
                                     Default None
         """
-        super().__init__(da_threshold, da_block_config, **kwargs)
+        super().__init__(da_threshold, da_block_cls, da_block_config, **kwargs)
 
-        # TODO: update the forward pass to use da_hd4 instead of hd4
         # disagreement attention after relu4d_1 (hd4)
         self.da_hd4 = DAConvBlock(
-            ThresholdedDisagreementAttentionBlock(self.UpChannels, self.UpChannels, **da_block_config),
+            da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
             2*self.UpChannels, self.UpChannels
         )
         # disagreement attention after relu3d_1 (hd3)
         self.da_hd3 = DAConvBlock(
-            ThresholdedDisagreementAttentionBlock(self.UpChannels, self.UpChannels, **da_block_config),
+            da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
             2*self.UpChannels, self.UpChannels
         )
         # disagreement attention after relu2d_1 (hd2)
         self.da_hd2 = DAConvBlock(
-            ThresholdedDisagreementAttentionBlock(self.UpChannels, self.UpChannels, **da_block_config),
+            da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
             2*self.UpChannels, self.UpChannels
         )
         # disagreement attention after relu1d_1 (hd1)
         # FIXME: not sure this attention block is necessary maybe not....
         # self.da_hd1 = DAConvBlock(
-        #     ThresholdedDisagreementAttentionBlock(self.UpChannels, self.UpChannels, **da_block_config),
+        #     da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
         #     2*self.UpChannels, self.UpChannels
         # )
-
-    def forward_1(self, x: torch.Tensor):
-        h1 = self.conv1(x)  # h1->320*320*64
-
-        return {'h1': h1}
-
-    def forward_2(self, x: dict, skip_connection: torch.Tensor, metric2: float):
-        x['h1'] = self.da_conv1(x['h1'], skip_connection, disable_attention=metric2 <= self.da_threshold)
-        x['h2'] = self.maxpool1(x['h1'])
-        x['h2'] = self.conv2(x['h2'])  # h2->160*160*128
-
-        return x
-
-    def forward_3(self, x: dict, skip_connection: torch.Tensor, metric2: float):
-        x['h2'] = self.da_conv2(x['h2'], skip_connection, disable_attention=metric2 <= self.da_threshold)
-        x['h3'] = self.maxpool2(x['h2'])
-        x['h3'] = self.conv3(x['h3'])  # h3->80*80*256
-
-        return x
-
-    def forward_4(self, x: dict, skip_connection: torch.Tensor, metric2: float):
-        x['h3'] = self.da_conv3(x['h3'], skip_connection, disable_attention=metric2 <= self.da_threshold)
-        x['h4'] = self.maxpool3(x['h3'])
-        x['h4'] = self.conv4(x['h4'])  # h4->40*40*512
-
-        return x
-
-    def forward_5(self, x: dict, skip_connection: torch.Tensor, metric2: float):
-        x['h4'] = self.da_conv4(x['h4'], skip_connection, disable_attention=metric2 <= self.da_threshold)
-        x['h5'] = self.maxpool4(x['h4'])
-        x['hd5'] = self.conv5(x['h5'])  # h5->20*20*1024
-
-        return x
-
-    def forward_6(self, x: dict, skip_connection: torch.Tensor, metric2: float):
-        x['hd5'] = self.da_conv5(x['hd5'], skip_connection, disable_attention=metric2 <= self.da_threshold)
-
-        return x
 
     def forward_7(self, x: dict):
         x['h1_PT_hd4'] = self.h1_PT_hd4_relu(self.h1_PT_hd4_bn(self.h1_PT_hd4_conv(self.h1_PT_hd4(x['h1']))))
@@ -174,7 +140,6 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
         return x
 
     def forward_11(self, x: dict, skip_connection: torch.Tensor, metric2: float):
-        # end decoder #########################################################
         # x['hd1'] = self.da_hd1(x['hd1'], skip_connection, disable_attention=metric2 <= self.da_threshold)
         d1 = self.outconv1(x['hd1'])  # d1->320*320*n_classes
 
@@ -214,6 +179,8 @@ class UNet_3Plus_DA_Train2(BaseDATrain):
 
     def forward(self, x: torch.Tensor,  metric1: float = np.NINF, metric2: float = np.NINF):
         """
+        Forward pass with disagreement attention (called during training)
+
         Kwargs:
             x <torch.Tensor>: input
             metric1  <float>: metric from model 1 to be compared with da_threshold to activate

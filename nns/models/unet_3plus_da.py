@@ -10,6 +10,7 @@ from gtorch_utils.utils.images import apply_padding
 
 from nns.models.da_model import BaseDATrain
 from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock
+from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.layers import DAConvBlock
 
 
@@ -22,8 +23,9 @@ class UNet_3Plus_DA(UNet_3Plus):
     Note: DA blocks added only to the encoder
     """
 
-    # TODO: make the dablock an argument so it can be easily changed
-    def __init__(self, da_threshold: float = np.inf, da_block_config: Optional[dict] = None,  **kwargs):
+    def __init__(self, da_threshold: float = np.inf,
+                 da_block_cls: BaseDisagreementAttentionBlock = ThresholdedDisagreementAttentionBlock,
+                 da_block_config: Optional[dict] = None,  **kwargs):
         """
         Kwargs:
             da_threshold   <float>: threshold to apply attention or not. Only when
@@ -31,44 +33,39 @@ class UNet_3Plus_DA(UNet_3Plus):
                                     If you want to always apply disagreement attention set
                                     it to np.NINF.
                                     Default np.inf (no disaggrement attention applied)
+            da_block_cls <BaseDisagreementAttentionBlock>: class descendant of BaseDisagreementAttentionBlock
+                                    Default ThresholdedDisagreementAttentionBlock
             da_block_config <dict>: Configuration for disagreement attention block.
                                     Default None
         """
         super().__init__(**kwargs)
         assert isinstance(da_threshold, float), type(da_threshold)
+        assert issubclass(da_block_cls, BaseDisagreementAttentionBlock), \
+            f'{da_block_cls} is not a descendant of BaseDisagreementAttentionBlock'
         if da_block_config:
             assert isinstance(da_block_config, dict), type(da_block_config)
+            self.da_block_config = da_block_config
         else:
-            da_block_config = {}
+            self.da_block_config = {}
 
         filters = [64, 128, 256, 512, 1024]
 
         self.da_threshold = da_threshold
-        # disagreement attention between conv1 layesrs
+        # disagreement attention between conv1 layers
         self.da_conv1 = DAConvBlock(
-            ThresholdedDisagreementAttentionBlock(filters[0], filters[0], **da_block_config),
-            2*filters[0], filters[0]
-        )
-        # disagreement attention between conv2 layesrs
+            da_block_cls(filters[0], filters[0], **self.da_block_config), 2*filters[0], filters[0])
+        # disagreement attention between conv2 layers
         self.da_conv2 = DAConvBlock(
-            ThresholdedDisagreementAttentionBlock(filters[1], filters[1], **da_block_config),
-            2*filters[1], filters[1]
-        )
-        # disagreement attention between conv3 layesrs
+            da_block_cls(filters[1], filters[1], **self.da_block_config), 2*filters[1], filters[1])
+        # disagreement attention between conv3 layers
         self.da_conv3 = DAConvBlock(
-            ThresholdedDisagreementAttentionBlock(filters[2], filters[2], **da_block_config),
-            2*filters[2], filters[2]
-        )
-        # disagreement attention between conv4 layesrs
+            da_block_cls(filters[2], filters[2], **self.da_block_config), 2*filters[2], filters[2])
+        # disagreement attention between conv4 layers
         self.da_conv4 = DAConvBlock(
-            ThresholdedDisagreementAttentionBlock(filters[3], filters[3], **da_block_config),
-            2*filters[3], filters[3]
-        )
-        # disagreement attention between conv5 layesrs
+            da_block_cls(filters[3], filters[3], **self.da_block_config), 2*filters[3], filters[3])
+        # disagreement attention between conv5 layers
         self.da_conv5 = DAConvBlock(
-            ThresholdedDisagreementAttentionBlock(filters[4], filters[4], **da_block_config),
-            2*filters[4], filters[4]
-        )
+            da_block_cls(filters[4], filters[4], **self.da_block_config), 2*filters[4], filters[4])
 
     def forward_1(self, x: torch.Tensor):
         h1 = self.conv1(x)  # h1->320*320*64
@@ -186,6 +183,8 @@ class UNet_3Plus_DA_Train(BaseDATrain):
 
     def forward(self, x: torch.Tensor,  metric1: float = np.NINF, metric2: float = np.NINF):
         """
+        Forward pass with disagreement attention (called during training)
+
         Kwargs:
             x <torch.Tensor>: input
             metric1  <float>: metric from model 1 to be compared with da_threshold to activate

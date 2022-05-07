@@ -93,6 +93,7 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
             earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),
             checkpoint_interval=1,
             train_eval_chkpt=True,
+            last_checkpoint=True,
             ini_checkpoint='',
             dir_checkpoints=settings.DIR_CHECKPOINTS,
             tensorboard=True,
@@ -167,6 +168,10 @@ If true it track the loss values, else it tracks the metric values.
             train_eval_chkpt <bool>: If True, a checkpoint will be saved right after each evaluation executed
                                   while processing the training subdataset (e.gl chkpt_1.1.pth.tar)
                                   Default False
+            last_checkpoint    <bool>: If True, the last checkpoint will be saved separately. This is
+                                       useful when checkpoint_interval is set to zero to save disk
+                                       space and you want to have the last checkpoint to get all the
+                                       statistics from the whole training process. Default False
             ini_checkpoint <str>: path to checkpoint to load. So the training can continue.
                                   It must be inside the the dir_checkpoints directory.
                                   Default ''
@@ -206,6 +211,7 @@ If true it track the loss values, else it tracks the metric values.
         self.earlystopping_to_metric = self.earlystopping_kwargs.pop('metric')
         self.checkpoint_interval = kwargs.get('checkpoint_interval', 1)
         self.train_eval_chkpt = kwargs.get('train_eval_chkpt', False)
+        self.last_checkpoint = kwargs.get('last_checkpoint', False)
         self.ini_checkpoint = kwargs.get('ini_checkpoint', '')
         self.dir_checkpoints = kwargs.get('dir_checkpoints', 'checkpoints')
         self.tensorboard = kwargs.get('tensorboard', True)
@@ -229,6 +235,7 @@ If true it track the loss values, else it tracks the metric values.
         assert isinstance(self.earlystopping_kwargs, dict), type(self.earlystopping_kwargs)
         assert isinstance(self.checkpoint_interval, int), type(self.checkpoint_interval)
         assert isinstance(self.train_eval_chkpt, bool), type(self.train_eval_chkpt)
+        assert isinstance(self.last_checkpoint, bool), type(self.last_checkpoint)
         assert isinstance(self.ini_checkpoint, str), type(self.ini_checkpoint)
 
         if self.ini_checkpoint:
@@ -278,7 +285,7 @@ If true it track the loss values, else it tracks the metric values.
 
         self.model.to(self.device)
         self._SubDatasetsMixin__init(**kwargs)
-        self._TorchMetricsMixin__init(**kwargs)
+        self._TorchMetricsBaseMixin__init(**kwargs)
 
     @staticmethod
     def calculate_loss(criterion_list, pred_masks, true_masks):
@@ -640,7 +647,10 @@ If true it track the loss values, else it tracks the metric values.
         global_step = 0
         step_divider = self.n_train // (self.intrain_val * self.train_dataloader_kwargs['batch_size'])
         optimizer = self.optimizer(self.model.parameters(), **self.optimizer_kwargs)
-        scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
+
+        if self.cuda:
+            scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
+
         metric_evaluator = MetricEvaluator(self.metric_mode)
         earlystopping = EarlyStopping(**self.earlystopping_kwargs)
         early_stopped = False
@@ -689,12 +699,17 @@ If true it track the loss values, else it tracks the metric values.
                     pred, true_masks, imgs, loss, metrics, labels, label_names = self.training_step(batch)
                     train_loss += loss.item()
                     optimizer.zero_grad()
-                    # loss.backward(retain_graph=True)
-                    scaler.scale(loss).backward(retain_graph=True)
-                    nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
-                    # optimizer.step()
-                    scaler.step(optimizer)
-                    scaler.update()
+
+                    if self.cuda:
+                        scaler.scale(loss).backward(retain_graph=True)
+                        nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                        scaler.step(optimizer)
+                        scaler.update()
+                    else:
+                        loss.backward(retain_graph=True)
+                        nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                        optimizer.step()
+
                     pbar.update(imgs.shape[0])
                     global_step += 1
 
@@ -766,9 +781,6 @@ If true it track the loss values, else it tracks the metric values.
                             # TODO: verify the replacement function is working properly
                             LrShedulerTrack.step(self.lr_scheduler_track, scheduler, val_metric, val_loss)
 
-            if early_stopped:
-                break
-
             # computing epoch statistiscs #####################################
             data_logger['epoch_lr'].append(optimizer.param_groups[0]['lr'])
 
@@ -787,6 +799,12 @@ If true it track the loss values, else it tracks the metric values.
 
             if checkpoint and checkpoint(epoch):
                 self.save_checkpoint(epoch, optimizer, data_logger)
+
+            if self.last_checkpoint:
+                self.save_checkpoint(float(f'{epoch}'), optimizer, data_logger, last_chkpt=True)
+
+            if early_stopped:
+                break
 
         train_metrics = [f'{self.train_prefix}{metric}' for metric in self.train_metrics]
         val_metrics = [f'{self.valid_prefix}{metric}' for metric in self.valid_metrics]

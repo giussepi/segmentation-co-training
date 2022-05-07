@@ -4,11 +4,13 @@
 import torch
 from torch import nn
 
+from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
+
 
 __all__ = ['PureDisagreementAttentionBlock']
 
 
-class PureDisagreementAttentionBlock(nn.Module):
+class PureDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
     r"""
     Calculates the pure-disagreement attention from activations2 (belonging to model 2) towards
     activations1 (belonging to model 1) and returns activations1 with the computed attention
@@ -24,44 +26,35 @@ class PureDisagreementAttentionBlock(nn.Module):
     """
 
     def __init__(
-            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: object = nn.Identity()):
+            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: object = None):
         """
         Initializes the object instance
 
         Kwargs:
             m1_act         <int>: number of feature maps (channels) from model 1
             m2_act         <int>: number of feature maps (channels) from model 2
-            n_coefficients <int>: number of channels used during the calculations
+            n_channels     <int>: number of channels used during the calculations
                                   If not provided will be set to m1_act. Default -1
             resample    <object>: Resample operation to be applied to activations2 to match activations1
                                   (e.g. identity, pooling, strided convolution, upconv, etc)
+                                  Default nn.Identity()
         """
-        super().__init__()
-        assert isinstance(m1_act, int), type(m1_act)
-        assert isinstance(m2_act, int), type(m2_act)
-        assert isinstance(n_channels, int), type(n_channels)
-        assert isinstance(resample, object), 'resample must be an instance'
-
-        if n_channels == -1:
-            n_channels = m1_act
+        super().__init__(m1_act, m2_act, n_channels=n_channels, resample=resample)
 
         self.w1 = nn.Sequential(
-            nn.Conv2d(m1_act, n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(n_channels)
+            nn.Conv2d(m1_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(self.n_channels)
         )
-
         self.w2 = nn.Sequential(
-            nn.Conv2d(m2_act, n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(n_channels)
+            nn.Conv2d(m2_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(self.n_channels)
         )
-
         self.attention_2to1 = nn.Sequential(
             nn.ReLU(),
-            nn.Conv2d(n_channels, 1, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(self.n_channels, 1, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(1),
             nn.Sigmoid()
         )
-        self.resample = resample
 
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
