@@ -1,61 +1,29 @@
 # -*- coding: utf-8 -*-
-""" nns/segmentation/learning_algorithms/co_training/mixins/cotraining_plotter_mixin """
+""" nns/segmentation/learning_algorithms/co_training/mixins/da_cotraining_plotter_mixin """
 
 import os
 from typing import Dict, Union, List
 
 import numpy as np
 import torch
-from logzero import logger
 from tabulate import tabulate
 
 from nns.callbacks.plotters.training import TrainingPlotter
-from nns.mixins.torchmetrics.mixins import TorchMetricsMixin
+from nns.segmentation.learning_algorithms.co_training.mixins.base_cotraining_plotter_mixin import \
+    BaseCotrainingPlotterMixin
 
 
-class CotrainingPlotterMixin(TorchMetricsMixin):
+__all__ = ['DACotrainingPlotterMixin']
+
+
+class DACotrainingPlotterMixin(BaseCotrainingPlotterMixin):
     """
     Contains methods to plot data from class CoTraining
 
     Usage:
-        class CoTraining(CotrainingPlotterMixin, ...):
+        class DACoTraining(DACotrainingPlotterMixin, ...):
+            ...
     """
-
-    def print_epoch_summary(self, data_logger: dict, epoch: int):
-        """
-        Prints a summary of the cotraining epoch
-
-        Kwargs:
-            epoch        <int>: Current zero-based epoch
-            data_logger <dict>: Dictionary of training logs
-        """
-        assert isinstance(data_logger, dict), type(data_logger)
-        assert isinstance(epoch, int), type(epoch)
-
-        text = f'Co-training epoch {epoch+1}:\n' + \
-            'train_models_losses: ' + ', '.join([f'model {idx}: {val:.6f}' for idx, val in enumerate(
-                data_logger["train_models_losses"][epoch], start=1)]) + '\t\t'\
-            'val_models_losses: ' + ', '.join([f'model {idx}: {val:.6f}' for idx, val in enumerate(
-                data_logger["val_models_losses"][epoch], start=1)]) + '\n'
-
-        if data_logger["val_new_masks_metric"][epoch]:
-            text += self.metrics_to_str(
-                data_logger["train_new_masks_metric"][epoch],
-                data_logger["val_new_masks_metric"][epoch]
-            )
-        else:
-            text += self.metrics_to_str(data_logger["train_new_masks_metric"][epoch])
-
-        text += self.metrics_to_str(
-            data_logger["train_combined_preds_metric"][epoch],
-            data_logger["val_combined_preds_metric"][epoch]
-        )
-
-        for metrics1, metrics2 in zip(data_logger["train_models_metrics"][epoch],
-                                      data_logger["val_models_metrics"][epoch]):
-            text += self.metrics_to_str(metrics1, metrics2)
-
-        logger.info(text)
 
     def plot_and_save(self, checkpoint: str, save: bool = False, dpi: str = 'figure', show: bool = True):
         """
@@ -78,7 +46,8 @@ class CotrainingPlotterMixin(TorchMetricsMixin):
         data = torch.load(checkpoint)['data_logger']
 
         # plotting metrics and losses
-        for idx, mmgr in enumerate(self.model_mgr_kwargs_list):
+        for idx, model_cls in enumerate([self.model_mgr_kwargs['model_kwargs']['model1_cls'],
+                                         self.model_mgr_kwargs['model_kwargs']['model2_cls']]):
             data_logger_val_models_metrics = self.get_separate_metrics(
                 data['val_models_metrics'], model_idx=idx)
             data_logger_train_models_metrics = self.get_separate_metrics(
@@ -91,7 +60,7 @@ class CotrainingPlotterMixin(TorchMetricsMixin):
                     train_metric=data_logger_train_models_metrics[metric.replace('valid', 'train')],
                     val_metric=data_logger_val_models_metrics[metric]
                 )(
-                    lm_title=f'Model {idx+1} ({mmgr["model"].__name__}): Metrics',
+                    lm_title=f'Model {idx+1} ({model_cls.__name__}): Metrics',
                     xlabel='Co-training epochs',
                     lm_ylabel=metric_name,
                     train_metric_label='train',
@@ -109,7 +78,7 @@ class CotrainingPlotterMixin(TorchMetricsMixin):
                 train_loss=torch.as_tensor(data['train_models_losses'])[:, idx].detach().cpu().tolist(),
                 val_loss=torch.as_tensor(data['val_models_losses'])[:, idx].detach().cpu().tolist(),
             )(
-                lm_title=f'Model {idx+1} ({mmgr["model"].__name__}): Losses',
+                lm_title=f'Model {idx+1} ({model_cls.__name__}): Losses',
                 xlabel='Co-training epochs',
                 lm_ylabel='Loss',
                 train_loss_label='train',
@@ -172,7 +141,8 @@ class CotrainingPlotterMixin(TorchMetricsMixin):
         data_logger = torch.load(checkpoint)['data_logger']
 
         # plotting metrics and losses
-        for idx, mmgr in enumerate(self.model_mgr_kwargs_list):
+        for idx, model_cls in enumerate([self.model_mgr_kwargs['model_kwargs']['model1_cls'],
+                                         self.model_mgr_kwargs['model_kwargs']['model2_cls']]):
             data = [["key", "Validation", "corresponding training value", "Epoch"]]
 
             data_logger_val_models_metrics = self.get_separate_metrics(
@@ -197,7 +167,7 @@ class CotrainingPlotterMixin(TorchMetricsMixin):
                          f"{data_logger['train_models_losses'][min_idx, idx]:.4f}",
                          f"{min_idx+1}"])
 
-            print(f'MODEL {idx+1} ({mmgr["model"].__name__}):')
+            print(f'MODEL {idx+1} ({model_cls.__name__}):')
             print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
             print('\n')
 
@@ -288,7 +258,11 @@ class CotrainingPlotterMixin(TorchMetricsMixin):
         assert isinstance(title, str), type(title)
         assert isinstance(tablefmt, str), type(tablefmt)
 
-        data = [[f'{mmgr["model"].__name__}' for mmgr in self.model_mgr_kwargs_list]]
+        data = [[f'{model_cls.__name__}' for model_cls in [
+            self.model_mgr_kwargs['model_kwargs']['model1_cls'],
+            self.model_mgr_kwargs['model_kwargs']['model2_cls']
+        ]]]
+
         data.extend(data_logger_models_losses)
         print(title)
         print(tabulate(data, headers="firstrow", showindex=False, tablefmt=tablefmt))
@@ -311,15 +285,16 @@ class CotrainingPlotterMixin(TorchMetricsMixin):
         data_logger = torch.load(checkpoint)['data_logger']
 
         # printing metrics per model
-        for idx, mmgr in enumerate(self.model_mgr_kwargs_list):
+        for idx, model_cls in enumerate([self.model_mgr_kwargs['model_kwargs']['model1_cls'],
+                                         self.model_mgr_kwargs['model_kwargs']['model2_cls']]):
             self.print_all_metrics(
                 self.get_separate_metrics(data_logger['train_models_metrics'], model_idx=idx, np_array=True),
-                f'MODEL {idx+1} ({mmgr["model"].__name__}) [TRAIN]',
+                f'MODEL {idx+1} ({model_cls.__name__}) [TRAIN]',
                 tablefmt=tablefmt
             )
             self.print_all_metrics(
                 self.get_separate_metrics(data_logger['val_models_metrics'], model_idx=idx, np_array=True),
-                f'MODEL {idx+1} ({mmgr["model"].__name__}) [VALIDATION]',
+                f'MODEL {idx+1} ({model_cls.__name__}) [VALIDATION]',
                 tablefmt=tablefmt
             )
 

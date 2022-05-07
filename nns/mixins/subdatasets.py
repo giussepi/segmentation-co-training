@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 class SubDatasetsMixin:
     """
-    Provides methods to handle the subdatasets
+    Provides methods to handle the subdatasets (train, val, test)
 
     Usage:
         class SomeClass(SubDatasetsMixin):

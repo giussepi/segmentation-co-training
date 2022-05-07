@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/mixins/loggers """
+""" nns/mixins/data_loggers/standard_data_loggers """
 
 import os
 
