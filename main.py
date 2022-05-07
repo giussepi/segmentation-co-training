@@ -221,8 +221,9 @@ def main():
         earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
         checkpoint_interval=0,
         train_eval_chkpt=False,
+        last_checkpoint=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72', 'unet3_plus_1'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80', 'unet3_plus_1'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -276,8 +277,9 @@ def main():
         earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
         checkpoint_interval=0,
         train_eval_chkpt=False,
+        last_checkpoint=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72', 'unet3_plus_2'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80', 'unet3_plus_2'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -339,9 +341,10 @@ def main():
         earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
         checkpoint_interval=0,
         train_eval_chkpt=False,
+        last_checkpoint=True,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72', 'deeplabv3plus_xception'),
+            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80', 'deeplabv3plus_xception'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -354,7 +357,7 @@ def main():
     # model3.plot_and_save(None, 154)
 
     # cot = CoTraining(
-    #     model_mgr_kwargs_list=[model2, model3],
+    #     model_mgr_kwargs_list=[model1, model2],
     #     iterations=5,
     #     # model_mgr_kwargs_tweaks=[
     #     #     dict(optimizer_kwargs=dict(lr=1e-3), lr_scheduler_kwargs={'mode': 'min', 'patience': 1}),
@@ -364,15 +367,15 @@ def main():
     #     earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
     #     warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
     #     overall_best_models=False,  # True
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72'),
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80'),
     #     # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
-    #     thresholds=dict(agreement=.8),
+    #     thresholds=dict(disagreement=(.25, .8)),
     #     plots_saving_path=settings.PLOT_DIRECTORY,
     #     strategy_postprocessing=dict(
-    #         # disagreement=[ExpandPrediction(), ],
+    #         disagreement=[ExpandPrediction(), ],
     #     ),
     #     general_postprocessing=[],
-    #     postprocessing_threshold=.8,
+    #     postprocessing_threshold=.8,  # try same experiment but raising the thresholds to reduce errors
     #     dataset=OfflineCoNSePDataset,
     #     dataset_kwargs={
     #         'train_path': settings.CONSEP_TRAIN_PATH,
@@ -390,32 +393,35 @@ def main():
     # )
     # cot()
 
-    # cot.print_data_logger_summary(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72', 'chkpt_4.pth.tar'))
+    # try:
+    #     cot.print_data_logger_summary(
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80', 'chkpt_4.pth.tar'))
 
-    # cot.plot_and_save(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72', 'chkpt_4.pth.tar'),
-    #     save=True, show=False, dpi=300.
-    # )
+    #     cot.plot_and_save(
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80', 'chkpt_4.pth.tar'),
+    #         save=True, show=False, dpi=300.
+    #     )
 
-    # cot.print_data_logger_details(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72', 'chkpt_4.pth.tar'))
+    #     cot.print_data_logger_details(
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80', 'chkpt_4.pth.tar'))
+    # except:
+    #     pass
 
     # DA experiments ##########################################################
     # TODO: update doctrings from DAModelMGRMixin
-    # model4 = DAModelMGR(
+    # # model4 = DAModelMGR(
     model4 = dict(
-        model_cls=UNet_3Plus_DA_Train,
+        model_cls=UNet_3Plus_DA_Train2,
         model_kwargs=dict(
-            model1_cls=UNet_3Plus_DA,
-            kwargs1=dict(da_threshold=np.NINF, da_block_cls=ThresholdedDisagreementAttentionBlock,
-                         da_block_config=dict(thresholds=(.25, .8), beta=-1.),
+            model1_cls=UNet_3Plus_DA2,
+            kwargs1=dict(da_threshold=np.NINF, da_block_cls=PureDisagreementAttentionBlock,
+                         # da_block_config=dict(thresholds=(.25, .8), beta=-1.),
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
                          batchnorm_cls=get_batchnorm2d_class()),
-            model2_cls=UNet_3Plus_DA,
-            kwargs2=dict(da_threshold=np.NINF, da_block_cls=ThresholdedDisagreementAttentionBlock,
-                         da_block_config=dict(thresholds=(.25, .8), beta=-1.),
-                         n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
+            model2_cls=UNet_3Plus_DA2,
+            kwargs2=dict(da_threshold=np.NINF, da_block_cls=PureDisagreementAttentionBlock,
+                         # da_block_config=dict(thresholds=(.25, .8), beta=-1.),
+                         n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
                          batchnorm_cls=get_batchnorm2d_class()),
         ),
         cuda=settings.CUDA,
@@ -465,7 +471,7 @@ def main():
         train_eval_chkpt=False,
         last_checkpoint=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72', 'unet3_plus_DA'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80', 'unet3_plus_DA'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -499,7 +505,7 @@ def main():
         earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
         warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
         overall_best_models=True,
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80'),
         # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
         thresholds=dict(agreement=.8),
         plots_saving_path=settings.PLOT_DIRECTORY,
@@ -525,16 +531,19 @@ def main():
     )
     cot()
 
-    # cot.print_data_logger_summary(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72', 'chkpt_4.pth.tar'))
+    # try:
+    #     cot.print_data_logger_summary(
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80', 'chkpt_4.pth.tar'))
 
-    # cot.plot_and_save(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72', 'chkpt_4.pth.tar'),
-    #     save=True, show=False, dpi=300.
-    # )
+    #     cot.plot_and_save(
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80', 'chkpt_4.pth.tar'),
+    #         save=True, show=False, dpi=300.
+    #     )
 
-    # cot.print_data_logger_details(
-    #     os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp72', 'chkpt_4.pth.tar'))
+    #     cot.print_data_logger_details(
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp80', 'chkpt_4.pth.tar'))
+    # except Exception:
+    #     pass
 
 
 if __name__ == '__main__':
