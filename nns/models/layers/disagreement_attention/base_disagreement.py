@@ -45,9 +45,7 @@ class BaseDisagreementAttentionBlock(nn.Module):
         assert isinstance(resample, object)
         assert issubclass(resample.__class__, nn.Module)
 
-        if n_channels == -1:
-            self.n_channels = m1_act
-
+        self.n_channels = m1_act if n_channels == -1 else n_channels
         self.resample = resample
 
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):

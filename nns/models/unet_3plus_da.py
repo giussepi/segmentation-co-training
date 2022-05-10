@@ -25,7 +25,7 @@ class UNet_3Plus_DA(UNet_3Plus):
 
     def __init__(self, da_threshold: float = np.inf,
                  da_block_cls: BaseDisagreementAttentionBlock = ThresholdedDisagreementAttentionBlock,
-                 da_block_config: Optional[dict] = None,  **kwargs):
+                 da_block_config: Optional[dict] = None, **kwargs):
         """
         Kwargs:
             da_threshold   <float>: threshold to apply attention or not. Only when
@@ -48,31 +48,42 @@ class UNet_3Plus_DA(UNet_3Plus):
         else:
             self.da_block_config = {}
 
-        filters = [64, 128, 256, 512, 1024]
+        self.filters = [64, 128, 256, 512, 1024]
 
         self.da_threshold = da_threshold
         # disagreement attention between conv1 layers
         self.da_conv1 = DAConvBlock(
-            da_block_cls(filters[0], filters[0], **self.da_block_config), 2*filters[0], filters[0])
+            da_block_cls(self.filters[0], self.filters[0], **self.da_block_config), 2*self.filters[0],
+            self.filters[0])
         # disagreement attention between conv2 layers
         self.da_conv2 = DAConvBlock(
-            da_block_cls(filters[1], filters[1], **self.da_block_config), 2*filters[1], filters[1])
+            da_block_cls(self.filters[1], self.filters[1], **self.da_block_config), 2*self.filters[1],
+            self.filters[1])
         # disagreement attention between conv3 layers
         self.da_conv3 = DAConvBlock(
-            da_block_cls(filters[2], filters[2], **self.da_block_config), 2*filters[2], filters[2])
+            da_block_cls(self.filters[2], self.filters[2], **self.da_block_config), 2*self.filters[2],
+            self.filters[2])
         # disagreement attention between conv4 layers
         self.da_conv4 = DAConvBlock(
-            da_block_cls(filters[3], filters[3], **self.da_block_config), 2*filters[3], filters[3])
+            da_block_cls(self.filters[3], self.filters[3], **self.da_block_config), 2*self.filters[3],
+            self.filters[3])
         # disagreement attention between conv5 layers
         self.da_conv5 = DAConvBlock(
-            da_block_cls(filters[4], filters[4], **self.da_block_config), 2*filters[4], filters[4])
+            da_block_cls(self.filters[4], self.filters[4], **self.da_block_config), 2*self.filters[4],
+            self.filters[4])
 
     def forward_1(self, x: torch.Tensor):
+        assert isinstance(x, torch.Tensor), type(x)
+
         h1 = self.conv1(x)  # h1->320*320*64
 
         return {'h1': h1}
 
     def forward_2(self, x: dict, skip_connection: torch.Tensor, metric2: float):
+        assert isinstance(x, dict), type(x)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+        assert isinstance(metric2, float), type(metric2)
+
         x['h1'] = self.da_conv1(x['h1'], skip_connection, disable_attention=metric2 <= self.da_threshold)
         x['h2'] = self.maxpool1(x['h1'])
         x['h2'] = self.conv2(x['h2'])  # h2->160*160*128
@@ -80,6 +91,10 @@ class UNet_3Plus_DA(UNet_3Plus):
         return x
 
     def forward_3(self, x: dict, skip_connection: torch.Tensor, metric2: float):
+        assert isinstance(x, dict), type(x)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+        assert isinstance(metric2, float), type(metric2)
+
         x['h2'] = self.da_conv2(x['h2'], skip_connection, disable_attention=metric2 <= self.da_threshold)
         x['h3'] = self.maxpool2(x['h2'])
         x['h3'] = self.conv3(x['h3'])  # h3->80*80*256
@@ -87,6 +102,10 @@ class UNet_3Plus_DA(UNet_3Plus):
         return x
 
     def forward_4(self, x: dict, skip_connection: torch.Tensor, metric2: float):
+        assert isinstance(x, dict), type(x)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+        assert isinstance(metric2, float), type(metric2)
+
         x['h3'] = self.da_conv3(x['h3'], skip_connection, disable_attention=metric2 <= self.da_threshold)
         x['h4'] = self.maxpool3(x['h3'])
         x['h4'] = self.conv4(x['h4'])  # h4->40*40*512
@@ -94,6 +113,10 @@ class UNet_3Plus_DA(UNet_3Plus):
         return x
 
     def forward_5(self, x: dict, skip_connection: torch.Tensor, metric2: float):
+        assert isinstance(x, dict), type(x)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+        assert isinstance(metric2, float), type(metric2)
+
         x['h4'] = self.da_conv4(x['h4'], skip_connection, disable_attention=metric2 <= self.da_threshold)
         x['h5'] = self.maxpool4(x['h4'])
         x['hd5'] = self.conv5(x['h5'])  # h5->20*20*1024
@@ -101,11 +124,17 @@ class UNet_3Plus_DA(UNet_3Plus):
         return x
 
     def forward_6(self, x: dict, skip_connection: torch.Tensor, metric2: float):
+        assert isinstance(x, dict), type(x)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+        assert isinstance(metric2, float), type(metric2)
+
         x['hd5'] = self.da_conv5(x['hd5'], skip_connection, disable_attention=metric2 <= self.da_threshold)
 
         return x
 
     def forward_7(self, x: dict):
+        assert isinstance(x, dict), type(x)
+
         # -------------Decoder-------------
         h1_PT_hd4 = self.h1_PT_hd4_relu(self.h1_PT_hd4_bn(self.h1_PT_hd4_conv(self.h1_PT_hd4(x['h1']))))
         h1_PT_hd4 = apply_padding(h1_PT_hd4, x['h4'])
@@ -161,12 +190,14 @@ class UNet_3Plus_DA(UNet_3Plus):
 
     def forward(self, x: torch.Tensor):
         """ forward pass without disagreement attention (called when working with a single model) """
+        assert isinstance(x, torch.Tensor), type(x)
+
         x = self.forward_1(x)
-        x = self.forward_2(x, x, np.inf)
-        x = self.forward_3(x, x, np.inf)
-        x = self.forward_4(x, x, np.inf)
-        x = self.forward_5(x, x, np.inf)
-        x = self.forward_6(x, x, np.inf)
+        x = self.forward_2(x, x['h1'], np.inf)
+        x = self.forward_3(x, x['h2'], np.inf)
+        x = self.forward_4(x, x['h3'], np.inf)
+        x = self.forward_5(x, x['h4'], np.inf)
+        x = self.forward_6(x, x['hd5'], np.inf)
         x = self.forward_7(x)
 
         return x
@@ -181,7 +212,7 @@ class UNet_3Plus_DA_Train(BaseDATrain):
             model1_cls=model1_cls, kwargs1=kwargs1, model1_cls=model2_cls, kwargs2=kwargs2)
     """
 
-    def forward(self, x: torch.Tensor,  metric1: float = np.NINF, metric2: float = np.NINF):
+    def forward(self, x: torch.Tensor,  metric1: float, metric2: float):
         """
         Forward pass with disagreement attention (called during training)
 
@@ -195,18 +226,24 @@ class UNet_3Plus_DA_Train(BaseDATrain):
         returns:
             logits_model1 <torch.Tensor>, logits_model2 <torch.Tensor>
         """
+        assert isinstance(x, torch.Tensor), type(x)
+        assert isinstance(metric1, float), type(metric1)
+        assert isinstance(metric2, float), type(metric2)
+
         x1 = self.model1.forward_1(x)
         x2 = self.model2.forward_1(x)
-        x1_ = self.model1.forward_2(x1, x2, metric2)
-        x2 = self.model2.forward_2(x2, x1, metric1)
-        x1 = self.model1.forward_3(x1_, x2, metric2)
-        x2 = self.model2.forward_3(x2, x1_, metric1)
-        x1_ = self.model1.forward_4(x1, x2, metric2)
-        x2 = self.model2.forward_4(x2, x1, metric1)
-        x1 = self.model1.forward_5(x1_, x2, metric2)
-        x2 = self.model2.forward_5(x2, x1_, metric1)
-        x1_ = self.model1.forward_6(x1, x2, metric2)
-        x2 = self.model2.forward_6(x2, x1, metric1)
+        # FIXME: I don't think using x1_ will keep the previous values from x1_
+        # try x1, x2 = self.model1.forward_2(x1, x2['h1'], metric2), self.model2.forward_2(x2, x1['h1'], metric1)
+        x1_ = self.model1.forward_2(x1, x2['h1'], metric2)
+        x2 = self.model2.forward_2(x2, x1['h1'], metric1)
+        x1 = self.model1.forward_3(x1_, x2['h2'], metric2)
+        x2 = self.model2.forward_3(x2, x1_['h2'], metric1)
+        x1_ = self.model1.forward_4(x1, x2['h3'], metric2)
+        x2 = self.model2.forward_4(x2, x1['h3'], metric1)
+        x1 = self.model1.forward_5(x1_, x2['h4'], metric2)
+        x2 = self.model2.forward_5(x2, x1_['h4'], metric1)
+        x1_ = self.model1.forward_6(x1, x2['hd5'], metric2)
+        x2 = self.model2.forward_6(x2, x1['hd5'], metric1)
         x1 = self.model1.forward_7(x1_)
         x2 = self.model2.forward_7(x2)
 

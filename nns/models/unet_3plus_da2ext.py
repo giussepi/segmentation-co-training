@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/unet_3plus_da2 """
+""" nns/models/unet_3plus_da2ext """
 from typing import Optional
 
 import numpy as np
@@ -7,25 +7,29 @@ import torch
 from gtorch_utils.utils.images import apply_padding
 
 from nns.models.da_model import BaseDATrain
-from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock
+from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock, \
+    GatingSignalAttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
-from nns.models.layers.disagreement_attention.layers import DAConvBlock
+from nns.models.layers.disagreement_attention.constants import AttentionMergingType
+from nns.models.layers.disagreement_attention.layers import DAConvBlock, AttentionMergingBlock
 from nns.models import UNet_3Plus_DA
 
 
-__all__ = ['UNet_3Plus_DA2', 'UNet_3Plus_DA_Train2']
+__all__ = ['UNet_3Plus_DA2Ext', 'UNet_3Plus_DA2Ext_Train']
 
 
-class UNet_3Plus_DA2(UNet_3Plus_DA):
+class UNet_3Plus_DA2Ext(UNet_3Plus_DA):
     """
-    UNet_3Plus with disagreement attention between activations maps with the same dimensions
+    UNet_3Plus with disagreement attention between activations maps with the same dimensions and also
+    gating signals in the decoders.
     Note: DA blocks through all the encoder and decoder
     """
 
     def __init__(self,
                  da_threshold: float = np.inf,
                  da_block_cls: BaseDisagreementAttentionBlock = ThresholdedDisagreementAttentionBlock,
-                 da_block_config: Optional[dict] = None, **kwargs):
+                 da_block_config: Optional[dict] = None, da_merging_type: str = AttentionMergingType.SUM,
+                 **kwargs):
         """
         Kwargs:
             da_threshold   <float>: threshold to apply attention or not. Only when
@@ -37,32 +41,68 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
                                     Default ThresholdedDisagreementAttentionBlock
             da_block_config <dict>: Configuration for disagreement attention block.
                                     Default None
+            da_merging_type  <str>: Valid attention merging strategy
+                                    (see nns.models.layers.disagreement_attention.constants.AttentionMergingType).
+                                    Default AttentionMergingType.SUM
         """
         super().__init__(da_threshold, da_block_cls, da_block_config, **kwargs)
 
+        # attention merging infrastructure for hd4  ###########################
         # disagreement attention after relu4d_1 (hd4)
         self.da_hd4 = DAConvBlock(
             da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
-            2*self.UpChannels, self.UpChannels
+            2*self.UpChannels, self.UpChannels, only_attention=True
         )
+        # gating signal for hd4
+        self.gsa_hd5_to_hd4 = GatingSignalAttentionBlock(
+            self.UpChannels, self.filters[4], resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
+        # attention merging block for hd4
+        self.att_merging_block_for_hd4 = AttentionMergingBlock(
+            2*self.UpChannels, self.UpChannels, merging_type=da_merging_type)
+
+        # attention merging infrastructure for hd3  ###########################
         # disagreement attention after relu3d_1 (hd3)
         self.da_hd3 = DAConvBlock(
             da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
-            2*self.UpChannels, self.UpChannels
+            2*self.UpChannels, self.UpChannels, only_attention=True
         )
+        # gating signal for hd3
+        self.gsa_hd4_to_hd3 = GatingSignalAttentionBlock(
+            self.UpChannels, self.UpChannels, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
+        # attention merging block for hd3
+        self.att_merging_block_for_hd3 = AttentionMergingBlock(
+            2*self.UpChannels, self.UpChannels, merging_type=da_merging_type)
+
+        # attention merging infrastructure for hd2  ###########################
         # disagreement attention after relu2d_1 (hd2)
         self.da_hd2 = DAConvBlock(
             da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
-            2*self.UpChannels, self.UpChannels
+            2*self.UpChannels, self.UpChannels, only_attention=True
         )
+        # gating signal for hd2
+        self.gsa_hd3_to_hd2 = GatingSignalAttentionBlock(
+            self.UpChannels, self.UpChannels, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
+        # attention merging block for hd2
+        self.att_merging_block_for_hd2 = AttentionMergingBlock(
+            2*self.UpChannels, self.UpChannels, merging_type=da_merging_type)
+
+        # attention merging infrastructure for hd1  ###########################
         # disagreement attention after relu1d_1 (hd1)
         # FIXME: not sure this attention block is necessary maybe not....
         # self.da_hd1 = DAConvBlock(
         #     da_block_cls(self.UpChannels, self.UpChannels, **self.da_block_config),
-        #     2*self.UpChannels, self.UpChannels
+        #     2*self.UpChannels, self.UpChannels, only_attention=True
         # )
+        # gating signal for hd1
+        # self.gsa_hd2_to_hd1 = GatingSignalAttentionBlock(
+        #     self.UpChannels, self.UpChannels, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
+        # attention merging block for hd1
+        # self.att_merging_block_for_hd1 = AttentionMergingBlock(
+        #     2*self.UpChannels, self.UpChannels, merging_type=da_merging_type)
 
     def forward_7(self, x: dict):
+        assert isinstance(x, dict), type(x)
+
         x['h1_PT_hd4'] = self.h1_PT_hd4_relu(self.h1_PT_hd4_bn(self.h1_PT_hd4_conv(self.h1_PT_hd4(x['h1']))))
         x['h1_PT_hd4'] = apply_padding(x['h1_PT_hd4'], x['h4'])
         x['h2_PT_hd4'] = self.h2_PT_hd4_relu(self.h2_PT_hd4_bn(self.h2_PT_hd4_conv(self.h2_PT_hd4(x['h2']))))
@@ -80,7 +120,14 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
         return x
 
     def forward_8(self, x: dict, skip_connection: torch.Tensor, metric2: float):
-        x['hd4'] = self.da_hd4(x['hd4'], skip_connection, disable_attention=metric2 <= self.da_threshold)
+        assert isinstance(x, dict), type(x)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+        assert isinstance(metric2, float), type(metric2)
+
+        da_hd4 = self.da_hd4(x['hd4'], skip_connection, disable_attention=metric2 <= self.da_threshold)
+        _, gsa_hd5_to_hd4 = self.gsa_hd5_to_hd4(x['hd4'], x['hd5'])
+        x['hd4'] = self.att_merging_block_for_hd4(
+            x['hd4'], gsa_hd5_to_hd4, da_hd4, disable_da=metric2 < self.da_threshold)
         x['h1_PT_hd3'] = self.h1_PT_hd3_relu(self.h1_PT_hd3_bn(self.h1_PT_hd3_conv(self.h1_PT_hd3(x['h1']))))
         x['h1_PT_hd3'] = apply_padding(x['h1_PT_hd3'], x['h3'])
         x['h2_PT_hd3'] = self.h2_PT_hd3_relu(self.h2_PT_hd3_bn(self.h2_PT_hd3_conv(self.h2_PT_hd3(x['h2']))))
@@ -99,7 +146,14 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
         return x
 
     def forward_9(self, x: dict, skip_connection: torch.Tensor, metric2: float):
-        x['hd3'] = self.da_hd3(x['hd3'], skip_connection, disable_attention=metric2 <= self.da_threshold)
+        assert isinstance(x, dict), type(x)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+        assert isinstance(metric2, float), type(metric2)
+
+        da_hd3 = self.da_hd3(x['hd3'], skip_connection, disable_attention=metric2 <= self.da_threshold)
+        _, gsa_hd4_to_hd3 = self.gsa_hd4_to_hd3(x['hd3'], x['hd4'])
+        x['hd3'] = self.att_merging_block_for_hd3(
+            x['hd3'], gsa_hd4_to_hd3, da_hd3, disable_da=metric2 <= self.da_threshold)
         x['h1_PT_hd2'] = self.h1_PT_hd2_relu(self.h1_PT_hd2_bn(self.h1_PT_hd2_conv(self.h1_PT_hd2(x['h1']))))
         x['h1_PT_hd2'] = apply_padding(x['h1_PT_hd2'], x['h2'])
         x['h2_Cat_hd2'] = self.h2_Cat_hd2_relu(self.h2_Cat_hd2_bn(self.h2_Cat_hd2_conv(x['h2'])))
@@ -119,7 +173,14 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
         return x
 
     def forward_10(self, x: dict, skip_connection: torch.Tensor, metric2: float):
-        x['hd2'] = self.da_hd2(x['hd2'], skip_connection, disable_attention=metric2 <= self.da_threshold)
+        assert isinstance(x, dict), type(x)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+        assert isinstance(metric2, float), type(metric2)
+
+        da_hd2 = self.da_hd2(x['hd2'], skip_connection, disable_attention=metric2 <= self.da_threshold)
+        _, gsa_hd3_to_hd2 = self.gsa_hd3_to_hd2(x['hd2'], x['hd3'])
+        x['hd2'] = self.att_merging_block_for_hd2(
+            x['hd2'], gsa_hd3_to_hd2, da_hd2, disable_da=metric2 <= self.da_threshold)
         x['h1_Cat_hd1'] = self.h1_Cat_hd1_relu(self.h1_Cat_hd1_bn(self.h1_Cat_hd1_conv(x['h1'])))
         x['hd2_UT_hd1'] = self.hd2_UT_hd1_relu(self.hd2_UT_hd1_bn(self.hd2_UT_hd1_conv(
             self.hd2_UT_hd1(x['hd2']))))
@@ -140,13 +201,23 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
         return x
 
     def forward_11(self, x: dict, skip_connection: torch.Tensor, metric2: float):
-        # x['hd1'] = self.da_hd1(x['hd1'], skip_connection, disable_attention=metric2 <= self.da_threshold)
+        assert isinstance(x, dict), type(x)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+        assert isinstance(metric2, float), type(metric2)
+
+        # da_hd1 = self.da_hd1(x['hd1'], skip_connection, disable_attention=metric2 <= self.da_threshold)
+        # _, gsa_hd2_to_hd1 = self.gsa_hd2_hd1(x['hd1'], x['hd2'])
+        # x['hd1'] = self.att_merging_block_for_hd1(
+        #     x['hd1'], gsa_hd2_to_hd1, da_hd1, disable_da=metric2 <= self.da_threshold)
+
         d1 = self.outconv1(x['hd1'])  # d1->320*320*n_classes
 
         return d1
 
     def forward(self, x: torch.Tensor):
         """ forward pass without disagreement attention (called when working with a single model) """
+        assert isinstance(x, torch.Tensor), type(x)
+
         #######################################################################
         #                               encoder                               #
         #######################################################################
@@ -168,7 +239,7 @@ class UNet_3Plus_DA2(UNet_3Plus_DA):
         return x
 
 
-class UNet_3Plus_DA2_Train(BaseDATrain):
+class UNet_3Plus_DA2Ext_Train(BaseDATrain):
     """
     Disagreement attention trainer class for two UNet_3Plus
 
@@ -177,7 +248,7 @@ class UNet_3Plus_DA2_Train(BaseDATrain):
             model1_cls=model1_cls, kwargs1=kwargs1, model1_cls=model2_cls, kwargs2=kwargs2)
     """
 
-    def forward(self, x: torch.Tensor,  metric1: float = np.NINF, metric2: float = np.NINF):
+    def forward(self, x: torch.Tensor,  metric1: float, metric2: float):
         """
         Forward pass with disagreement attention (called during training)
 
@@ -191,6 +262,10 @@ class UNet_3Plus_DA2_Train(BaseDATrain):
         returns:
             logits_model1 <torch.Tensor>, logits_model2 <torch.Tensor>
         """
+        assert isinstance(x, torch.Tensor), type(x)
+        assert isinstance(metric1, float), type(metric1)
+        assert isinstance(metric2, float), type(metric2)
+
         #######################################################################
         #                               encoder                               #
         #######################################################################
