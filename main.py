@@ -413,18 +413,18 @@ def main():
     # TODO: update doctrings from DAModelMGRMixin
     # model4 = dict(
     model4 = DAModelMGR(
-        model_cls=UNet_3Plus_DA2_Train,
+        model_cls=UNet_3Plus_DA2Ext_Train,
         model_kwargs=dict(
-            model1_cls=UNet_3Plus_DA2,
+            model1_cls=UNet_3Plus_DA2Ext,
             kwargs1=dict(da_threshold=np.NINF, da_block_cls=ThresholdedDisagreementAttentionBlock,
                          da_block_config=dict(thresholds=(.25, .8), beta=-1.),
-                         # da_merging_type=AttentionMergingType.SUM,
+                         da_merging_type=AttentionMergingType.SUM,
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
                          batchnorm_cls=get_batchnorm2d_class()),
-            model2_cls=UNet_3Plus_DA2,
+            model2_cls=UNet_3Plus_DA2Ext,
             kwargs2=dict(da_threshold=np.NINF, da_block_cls=ThresholdedDisagreementAttentionBlock,
                          da_block_config=dict(thresholds=(.25, .8), beta=-1.),
-                         # da_merging_type=AttentionMergingType.SUM,
+                         da_merging_type=AttentionMergingType.SUM,
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
                          batchnorm_cls=get_batchnorm2d_class()),
         ),

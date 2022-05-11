@@ -103,16 +103,16 @@ class UNet_3Plus_DA2Ext(UNet_3Plus_DA):
     def forward_7(self, x: dict):
         assert isinstance(x, dict), type(x)
 
-        x['h1_PT_hd4'] = self.h1_PT_hd4_relu(self.h1_PT_hd4_bn(self.h1_PT_hd4_conv(self.h1_PT_hd4(x['h1']))))
-        x['h1_PT_hd4'] = apply_padding(x['h1_PT_hd4'], x['h4'])
-        x['h2_PT_hd4'] = self.h2_PT_hd4_relu(self.h2_PT_hd4_bn(self.h2_PT_hd4_conv(self.h2_PT_hd4(x['h2']))))
-        x['h2_PT_hd4'] = apply_padding(x['h2_PT_hd4'], x['h4'])
-        x['h3_PT_hd4'] = self.h3_PT_hd4_relu(self.h3_PT_hd4_bn(self.h3_PT_hd4_conv(self.h3_PT_hd4(x['h3']))))
-        x['h3_PT_hd4'] = apply_padding(x['h3_PT_hd4'], x['h4'])
-        x['h4_Cat_hd4'] = self.h4_Cat_hd4_relu(self.h4_Cat_hd4_bn(self.h4_Cat_hd4_conv(x['h4'])))
+        x['h1_PT_hd4'] = self.h1_PT_hd4_relu(self.h1_PT_hd4_bn(self.h1_PT_hd4_conv(self.h1_PT_hd4(x['h1A']))))
+        x['h1_PT_hd4'] = apply_padding(x['h1_PT_hd4'], x['h4A'])
+        x['h2_PT_hd4'] = self.h2_PT_hd4_relu(self.h2_PT_hd4_bn(self.h2_PT_hd4_conv(self.h2_PT_hd4(x['h2A']))))
+        x['h2_PT_hd4'] = apply_padding(x['h2_PT_hd4'], x['h4A'])
+        x['h3_PT_hd4'] = self.h3_PT_hd4_relu(self.h3_PT_hd4_bn(self.h3_PT_hd4_conv(self.h3_PT_hd4(x['h3A']))))
+        x['h3_PT_hd4'] = apply_padding(x['h3_PT_hd4'], x['h4A'])
+        x['h4_Cat_hd4'] = self.h4_Cat_hd4_relu(self.h4_Cat_hd4_bn(self.h4_Cat_hd4_conv(x['h4A'])))
         x['hd5_UT_hd4'] = self.hd5_UT_hd4_relu(self.hd5_UT_hd4_bn(self.hd5_UT_hd4_conv(
-            self.hd5_UT_hd4(x['hd5']))))
-        x['hd5_UT_hd4'] = apply_padding(x['hd5_UT_hd4'], x['h4'])
+            self.hd5_UT_hd4(x['hd5A']))))
+        x['hd5_UT_hd4'] = apply_padding(x['hd5_UT_hd4'], x['h4A'])
         x['hd4'] = self.relu4d_1(self.bn4d_1(self.conv4d_1(
             torch.cat((x['h1_PT_hd4'], x['h2_PT_hd4'], x['h3_PT_hd4'], x['h4_Cat_hd4'], x['hd5_UT_hd4']), 1)
         )))  # hd4->40*40*UpChannels
@@ -125,20 +125,20 @@ class UNet_3Plus_DA2Ext(UNet_3Plus_DA):
         assert isinstance(metric2, float), type(metric2)
 
         da_hd4 = self.da_hd4(x['hd4'], skip_connection, disable_attention=metric2 <= self.da_threshold)
-        _, gsa_hd5_to_hd4 = self.gsa_hd5_to_hd4(x['hd4'], x['hd5'])
-        x['hd4'] = self.att_merging_block_for_hd4(
+        _, gsa_hd5_to_hd4 = self.gsa_hd5_to_hd4(x['hd4'], x['hd5A'])
+        x['hd4A'] = self.att_merging_block_for_hd4(
             x['hd4'], gsa_hd5_to_hd4, da_hd4, disable_da=metric2 < self.da_threshold)
-        x['h1_PT_hd3'] = self.h1_PT_hd3_relu(self.h1_PT_hd3_bn(self.h1_PT_hd3_conv(self.h1_PT_hd3(x['h1']))))
-        x['h1_PT_hd3'] = apply_padding(x['h1_PT_hd3'], x['h3'])
-        x['h2_PT_hd3'] = self.h2_PT_hd3_relu(self.h2_PT_hd3_bn(self.h2_PT_hd3_conv(self.h2_PT_hd3(x['h2']))))
-        x['h2_PT_hd3'] = apply_padding(x['h2_PT_hd3'], x['h3'])
-        x['h3_Cat_hd3'] = self.h3_Cat_hd3_relu(self.h3_Cat_hd3_bn(self.h3_Cat_hd3_conv(x['h3'])))
+        x['h1_PT_hd3'] = self.h1_PT_hd3_relu(self.h1_PT_hd3_bn(self.h1_PT_hd3_conv(self.h1_PT_hd3(x['h1A']))))
+        x['h1_PT_hd3'] = apply_padding(x['h1_PT_hd3'], x['h3A'])
+        x['h2_PT_hd3'] = self.h2_PT_hd3_relu(self.h2_PT_hd3_bn(self.h2_PT_hd3_conv(self.h2_PT_hd3(x['h2A']))))
+        x['h2_PT_hd3'] = apply_padding(x['h2_PT_hd3'], x['h3A'])
+        x['h3_Cat_hd3'] = self.h3_Cat_hd3_relu(self.h3_Cat_hd3_bn(self.h3_Cat_hd3_conv(x['h3A'])))
         x['hd4_UT_hd3'] = self.hd4_UT_hd3_relu(self.hd4_UT_hd3_bn(self.hd4_UT_hd3_conv(
-            self.hd4_UT_hd3(x['hd4']))))
-        x['hd4_UT_hd3'] = apply_padding(x['hd4_UT_hd3'], x['h3'])
+            self.hd4_UT_hd3(x['hd4A']))))
+        x['hd4_UT_hd3'] = apply_padding(x['hd4_UT_hd3'], x['h3A'])
         x['hd5_UT_hd3'] = self.hd5_UT_hd3_relu(self.hd5_UT_hd3_bn(self.hd5_UT_hd3_conv(
-            self.hd5_UT_hd3(x['hd5']))))
-        x['hd5_UT_hd3'] = apply_padding(x['hd5_UT_hd3'], x['h3'])
+            self.hd5_UT_hd3(x['hd5A']))))
+        x['hd5_UT_hd3'] = apply_padding(x['hd5_UT_hd3'], x['h3A'])
         x['hd3'] = self.relu3d_1(self.bn3d_1(self.conv3d_1(
             torch.cat((x['h1_PT_hd3'], x['h2_PT_hd3'], x['h3_Cat_hd3'], x['hd4_UT_hd3'], x['hd5_UT_hd3']), 1)
         )))  # hd3->80*80*UpChannels
@@ -151,21 +151,21 @@ class UNet_3Plus_DA2Ext(UNet_3Plus_DA):
         assert isinstance(metric2, float), type(metric2)
 
         da_hd3 = self.da_hd3(x['hd3'], skip_connection, disable_attention=metric2 <= self.da_threshold)
-        _, gsa_hd4_to_hd3 = self.gsa_hd4_to_hd3(x['hd3'], x['hd4'])
-        x['hd3'] = self.att_merging_block_for_hd3(
+        _, gsa_hd4_to_hd3 = self.gsa_hd4_to_hd3(x['hd3'], x['hd4A'])
+        x['hd3A'] = self.att_merging_block_for_hd3(
             x['hd3'], gsa_hd4_to_hd3, da_hd3, disable_da=metric2 <= self.da_threshold)
-        x['h1_PT_hd2'] = self.h1_PT_hd2_relu(self.h1_PT_hd2_bn(self.h1_PT_hd2_conv(self.h1_PT_hd2(x['h1']))))
-        x['h1_PT_hd2'] = apply_padding(x['h1_PT_hd2'], x['h2'])
-        x['h2_Cat_hd2'] = self.h2_Cat_hd2_relu(self.h2_Cat_hd2_bn(self.h2_Cat_hd2_conv(x['h2'])))
+        x['h1_PT_hd2'] = self.h1_PT_hd2_relu(self.h1_PT_hd2_bn(self.h1_PT_hd2_conv(self.h1_PT_hd2(x['h1A']))))
+        x['h1_PT_hd2'] = apply_padding(x['h1_PT_hd2'], x['h2A'])
+        x['h2_Cat_hd2'] = self.h2_Cat_hd2_relu(self.h2_Cat_hd2_bn(self.h2_Cat_hd2_conv(x['h2A'])))
         x['hd3_UT_hd2'] = self.hd3_UT_hd2_relu(self.hd3_UT_hd2_bn(self.hd3_UT_hd2_conv(
-            self.hd3_UT_hd2(x['hd3']))))
-        x['hd3_UT_hd2'] = apply_padding(x['hd3_UT_hd2'], x['h2'])
+            self.hd3_UT_hd2(x['hd3A']))))
+        x['hd3_UT_hd2'] = apply_padding(x['hd3_UT_hd2'], x['h2A'])
         x['hd4_UT_hd2'] = self.hd4_UT_hd2_relu(self.hd4_UT_hd2_bn(self.hd4_UT_hd2_conv(
-            self.hd4_UT_hd2(x['hd4']))))
-        x['hd4_UT_hd2'] = apply_padding(x['hd4_UT_hd2'], x['h2'])
+            self.hd4_UT_hd2(x['hd4A']))))
+        x['hd4_UT_hd2'] = apply_padding(x['hd4_UT_hd2'], x['h2A'])
         x['hd5_UT_hd2'] = self.hd5_UT_hd2_relu(self.hd5_UT_hd2_bn(self.hd5_UT_hd2_conv(
-            self.hd5_UT_hd2(x['hd5']))))
-        x['hd5_UT_hd2'] = apply_padding(x['hd5_UT_hd2'], x['h2'])
+            self.hd5_UT_hd2(x['hd5A']))))
+        x['hd5_UT_hd2'] = apply_padding(x['hd5_UT_hd2'], x['h2A'])
         x['hd2'] = self.relu2d_1(self.bn2d_1(self.conv2d_1(
             torch.cat((x['h1_PT_hd2'], x['h2_Cat_hd2'], x['hd3_UT_hd2'], x['hd4_UT_hd2'], x['hd5_UT_hd2']), 1)
         )))  # hd2->160*160*UpChannels
@@ -178,22 +178,22 @@ class UNet_3Plus_DA2Ext(UNet_3Plus_DA):
         assert isinstance(metric2, float), type(metric2)
 
         da_hd2 = self.da_hd2(x['hd2'], skip_connection, disable_attention=metric2 <= self.da_threshold)
-        _, gsa_hd3_to_hd2 = self.gsa_hd3_to_hd2(x['hd2'], x['hd3'])
-        x['hd2'] = self.att_merging_block_for_hd2(
+        _, gsa_hd3_to_hd2 = self.gsa_hd3_to_hd2(x['hd2'], x['hd3A'])
+        x['hd2A'] = self.att_merging_block_for_hd2(
             x['hd2'], gsa_hd3_to_hd2, da_hd2, disable_da=metric2 <= self.da_threshold)
-        x['h1_Cat_hd1'] = self.h1_Cat_hd1_relu(self.h1_Cat_hd1_bn(self.h1_Cat_hd1_conv(x['h1'])))
+        x['h1_Cat_hd1'] = self.h1_Cat_hd1_relu(self.h1_Cat_hd1_bn(self.h1_Cat_hd1_conv(x['h1A'])))
         x['hd2_UT_hd1'] = self.hd2_UT_hd1_relu(self.hd2_UT_hd1_bn(self.hd2_UT_hd1_conv(
-            self.hd2_UT_hd1(x['hd2']))))
-        x['hd2_UT_hd1'] = apply_padding(x['hd2_UT_hd1'], x['h1'])
+            self.hd2_UT_hd1(x['hd2A']))))
+        x['hd2_UT_hd1'] = apply_padding(x['hd2_UT_hd1'], x['h1A'])
         x['hd3_UT_hd1'] = self.hd3_UT_hd1_relu(self.hd3_UT_hd1_bn(self.hd3_UT_hd1_conv(
-            self.hd3_UT_hd1(x['hd3']))))
-        x['hd3_UT_hd1'] = apply_padding(x['hd3_UT_hd1'], x['h1'])
+            self.hd3_UT_hd1(x['hd3A']))))
+        x['hd3_UT_hd1'] = apply_padding(x['hd3_UT_hd1'], x['h1A'])
         x['hd4_UT_hd1'] = self.hd4_UT_hd1_relu(self.hd4_UT_hd1_bn(self.hd4_UT_hd1_conv(
-            self.hd4_UT_hd1(x['hd4']))))
-        x['hd4_UT_hd1'] = apply_padding(x['hd4_UT_hd1'], x['h1'])
+            self.hd4_UT_hd1(x['hd4A']))))
+        x['hd4_UT_hd1'] = apply_padding(x['hd4_UT_hd1'], x['h1A'])
         x['hd5_UT_hd1'] = self.hd5_UT_hd1_relu(self.hd5_UT_hd1_bn(self.hd5_UT_hd1_conv(
-            self.hd5_UT_hd1(x['hd5']))))
-        x['hd5_UT_hd1'] = apply_padding(x['hd5_UT_hd1'], x['h1'])
+            self.hd5_UT_hd1(x['hd5A']))))
+        x['hd5_UT_hd1'] = apply_padding(x['hd5_UT_hd1'], x['h1A'])
         x['hd1'] = self.relu1d_1(self.bn1d_1(self.conv1d_1(
             torch.cat((x['h1_Cat_hd1'], x['hd2_UT_hd1'], x['hd3_UT_hd1'], x['hd4_UT_hd1'], x['hd5_UT_hd1']), 1)
         )))  # hd1->320*320*UpChannels
@@ -206,10 +206,16 @@ class UNet_3Plus_DA2Ext(UNet_3Plus_DA):
         assert isinstance(metric2, float), type(metric2)
 
         # da_hd1 = self.da_hd1(x['hd1'], skip_connection, disable_attention=metric2 <= self.da_threshold)
-        # _, gsa_hd2_to_hd1 = self.gsa_hd2_hd1(x['hd1'], x['hd2'])
-        # x['hd1'] = self.att_merging_block_for_hd1(
+        # _, gsa_hd2_to_hd1 = self.gsa_hd2_hd1(x['hd1'], x['hd2A'])
+        # x['hd1A'] = self.att_merging_block_for_hd1(
         #     x['hd1'], gsa_hd2_to_hd1, da_hd1, disable_da=metric2 <= self.da_threshold)
 
+        return x
+
+    def forward_12(self, x: dict):
+        assert isinstance(x, dict), type(x)
+
+        # d1 = self.outconv1(x['hd1A'])  # d1->320*320*n_classes
         d1 = self.outconv1(x['hd1'])  # d1->320*320*n_classes
 
         return d1
@@ -235,6 +241,7 @@ class UNet_3Plus_DA2Ext(UNet_3Plus_DA):
         x = self.forward_9(x, x['hd3'], np.inf)
         x = self.forward_10(x, x['hd2'], np.inf)
         x = self.forward_11(x, x['hd1'], np.inf)
+        x = self.forward_12(x)
 
         return x
 
@@ -271,30 +278,30 @@ class UNet_3Plus_DA2Ext_Train(BaseDATrain):
         #######################################################################
         x1 = self.model1.forward_1(x)
         x2 = self.model2.forward_1(x)
-        # FIXME: I don't think using x1_ will keep the previous values from x1_
-        # try x1, x2 = self.model1.forward_2(x1, x2['h1'], metric2), self.model2.forward_2(x2, x1['h1'], metric1)
-        x1_ = self.model1.forward_2(x1, x2['h1'], metric2)
+        x1 = self.model1.forward_2(x1, x2['h1'], metric2)
         x2 = self.model2.forward_2(x2, x1['h1'], metric1)
-        x1 = self.model1.forward_3(x1_, x2['h2'], metric2)
-        x2 = self.model2.forward_3(x2, x1_['h2'], metric1)
-        x1_ = self.model1.forward_4(x1, x2['h3'], metric2)
+        x1 = self.model1.forward_3(x1, x2['h2'], metric2)
+        x2 = self.model2.forward_3(x2, x1['h2'], metric1)
+        x1 = self.model1.forward_4(x1, x2['h3'], metric2)
         x2 = self.model2.forward_4(x2, x1['h3'], metric1)
-        x1 = self.model1.forward_5(x1_, x2['h4'], metric2)
-        x2 = self.model2.forward_5(x2, x1_['h4'], metric1)
-        x1_ = self.model1.forward_6(x1, x2['hd5'], metric2)
+        x1 = self.model1.forward_5(x1, x2['h4'], metric2)
+        x2 = self.model2.forward_5(x2, x1['h4'], metric1)
+        x1 = self.model1.forward_6(x1, x2['hd5'], metric2)
         x2 = self.model2.forward_6(x2, x1['hd5'], metric1)
         #######################################################################
         #                               decoder                               #
         #######################################################################
-        x1 = self.model1.forward_7(x1_)
+        x1 = self.model1.forward_7(x1)
         x2 = self.model2.forward_7(x2)
-        x1_ = self.model1.forward_8(x1, x2['hd4'], metric2)
+        x1 = self.model1.forward_8(x1, x2['hd4'], metric2)
         x2 = self.model2.forward_8(x2, x1['hd4'], metric1)
-        x1 = self.model1.forward_9(x1_, x2['hd3'], metric2)
-        x2 = self.model2.forward_9(x2, x1_['hd3'], metric1)
-        x1_ = self.model1.forward_10(x1, x2['hd2'], metric2)
+        x1 = self.model1.forward_9(x1, x2['hd3'], metric2)
+        x2 = self.model2.forward_9(x2, x1['hd3'], metric1)
+        x1 = self.model1.forward_10(x1, x2['hd2'], metric2)
         x2 = self.model2.forward_10(x2, x1['hd2'], metric1)
-        x1 = self.model1.forward_11(x1_, x2['hd1'], metric2)
-        x2 = self.model2.forward_11(x2, x1_['hd1'], metric1)
+        x1 = self.model1.forward_11(x1, x2['hd1'], metric2)
+        x2 = self.model2.forward_11(x2, x1['hd1'], metric1)
+        x1 = self.model1.forward_12(x1)
+        x2 = self.model2.forward_12(x2)
 
         return x1, x2
