@@ -60,7 +60,7 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
             assert thresholds[0] < thresholds[1], f'{thresholds[0]} must be less than {thresholds[1]}'
         assert isinstance(beta, float), type(beta)
         if beta >= 0:
-            assert 0 < beta < 1, f'{beta} must be in range ]0,1['
+            assert 0 <= beta < 1, f'{beta} must be in range [0,1['
 
         self.thresholds = (.25, .8) if thresholds is None else thresholds
         self.beta = beta
@@ -92,10 +92,11 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
         wact2 = self.w2(act2)
         resampled_wact2 = self.resample(wact2)
         delta_phi2 = resampled_wact2 - wact1
+        delta_phi2 = torch.relu(delta_phi2) * resampled_wact2
         psi2 = (torch.sigmoid(resampled_wact2) > self.thresholds[1]) * \
             (torch.sigmoid(wact1) < self.thresholds[0])
 
-        if self.beta > 0:
+        if self.beta >= 0:
             delta_phi2[psi2] *= (1+self.beta)
         else:
             delta_phi2[~psi2] = 0
