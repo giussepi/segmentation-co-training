@@ -92,7 +92,9 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
         wact2 = self.w2(act2)
         resampled_wact2 = self.resample(wact2)
         delta_phi2 = resampled_wact2 - wact1
-        delta_phi2 = torch.relu(delta_phi2) * resampled_wact2
+        # delta_phi2 = resampled_wact2 * torch.relu(delta_phi2)  # opt3
+        delta_phi2 = resampled_wact2 + torch.relu(delta_phi2)  # opt2
+        # delta_phi2 = resampled_wact2 * (torch.relu(delta_phi2)+1)  # opt1
         psi2 = (torch.sigmoid(resampled_wact2) > self.thresholds[1]) * \
             (torch.sigmoid(wact1) < self.thresholds[0])
 
