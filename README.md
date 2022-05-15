@@ -483,9 +483,9 @@ This application is using [logzero](https://logzero.readthedocs.io/en/latest/). 
 
 
 ## TODO
-- [ ] Review issue about passing the skip connections (in all DA models)
+- [x] Review issue about passing the skip connections (in all DA models)
 - [ ] AttentionMergingBlock.forward think how it should work to make the models separable
-- [ ] AttentionMergingBlock: if there's time. Implement the others ways of merging the attentions
+- [ ] AttentionMergingBlock: if there's time. Implement the other ways of merging the attentions
 - [ ] DAModelMGR: Pass training metrics to forward pass when using DAModelManagers
   For now I'm passing zeroes as metrics [self.model(imgs, 0., 0.)] and using
   da_threshold=np.NINF to have always apply DA

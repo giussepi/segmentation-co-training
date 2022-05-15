@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """ nns/models/layers/disagreement_attention/base_disagreement """
 
+from typing import Callable
+
 import torch
 from torch import nn
 
@@ -23,7 +25,7 @@ class BaseDisagreementAttentionBlock(nn.Module):
     """
 
     def __init__(
-            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: object = None, **kwargs):
+            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: Callable = None, **kwargs):
         """
         Validates the arguments and initializes the attributes self.n_channels and self.resample properly
 
@@ -32,7 +34,7 @@ class BaseDisagreementAttentionBlock(nn.Module):
             m2_act         <int>: number of feature maps (channels) from model 2
             n_channels     <int>: number of channels used during the calculations
                                   If not provided will be set to m1_act. Default -1
-            resample <nn.Module>: Resample operation to be applied to activations2 to match activations1
+            resample  <Callable>: Resample operation to be applied to activations2 to match activations1
                                   (e.g. identity, pooling, strided convolution, upconv, etc).
                                   Default nn.Identity()
         """
@@ -40,10 +42,8 @@ class BaseDisagreementAttentionBlock(nn.Module):
         assert isinstance(m1_act, int), type(m1_act)
         assert isinstance(m2_act, int), type(m2_act)
         assert isinstance(n_channels, int), type(n_channels)
-        assert isinstance(resample, object), 'resample must be an instance'
         resample = resample if resample else nn.Identity()
-        assert isinstance(resample, object)
-        assert issubclass(resample.__class__, nn.Module)
+        assert callable(resample), 'resample must be a callable'
 
         self.n_channels = m1_act if n_channels == -1 else n_channels
         self.resample = resample
