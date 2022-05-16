@@ -412,78 +412,78 @@ def main():
     # DA experiments ##########################################################
     # TODO: update doctrings from DAModelMGRMixin
     # model4 = dict(
-    # model4 = DAModelMGR(
-    #     model_cls=UNet_3Plus_DA_Train,
-    #     model_kwargs=dict(
-    #         model1_cls=UNet_3Plus_DA,
-    #         kwargs1=dict(da_threshold=np.NINF, da_block_cls=EmbeddedDisagreementAttentionBlock,
-    #                      # da_block_config=dict(thresholds=(.25, .8), beta=0.),
-    #                      # da_merging_type=AttentionMergingType.MAX,
-    #                      n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
-    #                      batchnorm_cls=get_batchnorm2d_class()),
-    #         model2_cls=UNet_3Plus_DA,
-    #         kwargs2=dict(da_threshold=np.NINF, da_block_cls=EmbeddedDisagreementAttentionBlock,
-    #                      # da_block_config=dict(thresholds=(.25, .8), beta=0.),
-    #                      # da_merging_type=AttentionMergingType.MAX,
-    #                      n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
-    #                      batchnorm_cls=get_batchnorm2d_class()),
-    #     ),
-    #     cuda=settings.CUDA,
-    #     multigpus=settings.MULTIGPUS,
-    #     patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-    #     epochs=30,
-    #     intrain_val=2,
-    #     optimizer1=torch.optim.Adam,
-    #     optimizer1_kwargs=dict(lr=1e-4),  # lr=1e-3
-    #     optimizer2=torch.optim.Adam,
-    #     optimizer2_kwargs=dict(lr=1e-4),  # lr=1e-3
-    #     labels_data=BinaryCoNSeP,
-    #     dataset=OfflineCoNSePDataset,
-    #     dataset_kwargs={
-    #         'train_path': settings.CONSEP_TRAIN_PATH,
-    #         'val_path': settings.CONSEP_VAL_PATH,
-    #         'test_path': settings.CONSEP_TEST_PATH,
-    #         'cotraining': settings.COTRAINING,
-    #     },
-    #     train_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
-    #     },
-    #     testval_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-    #     },
-    #     lr_scheduler1=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
-    #     # TODO: the mode can change based on the quantity monitored
-    #     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-    #     lr_scheduler1_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
-    #     lr_scheduler1_track=LrShedulerTrack.LOSS,
-    #     lr_scheduler2=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
-    #     lr_scheduler2_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
-    #     lr_scheduler2_track=LrShedulerTrack.LOSS,
-    #     criterions=[
-    #         # torch.nn.BCEWithLogitsLoss()
-    #         # torch.nn.CrossEntropyLoss()
-    #         # loss_functions.BceDiceLoss(with_logits=True),
-    #         BceDiceLoss(),
-    #         loss_functions.SpecificityLoss(with_logits=True),
-    #     ],
-    #     mask_threshold=0.5,
-    #     metrics=settings.METRICS,
-    #     metric_mode=MetricEvaluatorMode.MAX,
-    #     process_joint_values=False,
-    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
-    #     checkpoint_interval=0,
-    #     train_eval_chkpt=False,
-    #     last_checkpoint=True,
-    #     ini_checkpoint='',
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'unet3_plus_DA'),
-    #     tensorboard=False,
-    #     # TODO: there a bug that appeared once when plotting to disk after a long training
-    #     # anyway I can always plot from the checkpoints :)
-    #     plot_to_disk=False,
-    #     plot_dir=settings.PLOT_DIRECTORY
-    # )
-    # # summary(model4.module, depth=10, verbose=1)
-    # model4()
+    model4 = DAModelMGR(
+        model_cls=UNet_3Plus_DA_Train,
+        model_kwargs=dict(
+            model1_cls=UNet_3Plus_DA,
+            kwargs1=dict(da_threshold=np.NINF, da_block_cls=PureDisagreementAttentionBlock,
+                         # da_block_config=dict(thresholds=(.25, .8), beta=0.),
+                         # da_merging_type=AttentionMergingType.MAX,
+                         n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
+                         batchnorm_cls=get_batchnorm2d_class()),
+            model2_cls=UNet_3Plus_DA,
+            kwargs2=dict(da_threshold=np.NINF, da_block_cls=PureDisagreementAttentionBlock,
+                         # da_block_config=dict(thresholds=(.25, .8), beta=0.),
+                         # da_merging_type=AttentionMergingType.MAX,
+                         n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
+                         batchnorm_cls=get_batchnorm2d_class()),
+        ),
+        cuda=settings.CUDA,
+        multigpus=settings.MULTIGPUS,
+        patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+        epochs=30,
+        intrain_val=2,
+        optimizer1=torch.optim.Adam,
+        optimizer1_kwargs=dict(lr=1e-4),  # lr=1e-3
+        optimizer2=torch.optim.Adam,
+        optimizer2_kwargs=dict(lr=1e-4),  # lr=1e-3
+        labels_data=BinaryCoNSeP,
+        dataset=OfflineCoNSePDataset,
+        dataset_kwargs={
+            'train_path': settings.CONSEP_TRAIN_PATH,
+            'val_path': settings.CONSEP_VAL_PATH,
+            'test_path': settings.CONSEP_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        },
+        lr_scheduler1=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+        # TODO: the mode can change based on the quantity monitored
+        # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        lr_scheduler1_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
+        lr_scheduler1_track=LrShedulerTrack.LOSS,
+        lr_scheduler2=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+        lr_scheduler2_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
+        lr_scheduler2_track=LrShedulerTrack.LOSS,
+        criterions=[
+            # torch.nn.BCEWithLogitsLoss()
+            # torch.nn.CrossEntropyLoss()
+            # loss_functions.BceDiceLoss(with_logits=True),
+            BceDiceLoss(),
+            loss_functions.SpecificityLoss(with_logits=True),
+        ],
+        mask_threshold=0.5,
+        metrics=settings.METRICS,
+        metric_mode=MetricEvaluatorMode.MAX,
+        process_joint_values=False,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+        checkpoint_interval=0,
+        train_eval_chkpt=False,
+        last_checkpoint=True,
+        ini_checkpoint='',
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'unet3_plus_DA'),
+        tensorboard=False,
+        # TODO: there a bug that appeared once when plotting to disk after a long training
+        # anyway I can always plot from the checkpoints :)
+        plot_to_disk=False,
+        plot_dir=settings.PLOT_DIRECTORY
+    )
+    # summary(model4.module, depth=10, verbose=1)
+    model4()
     # model4.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
     # model4.print_data_logger_summary()
     # _, data_logger = model4.load_checkpoint([
@@ -492,8 +492,8 @@ def main():
     # ])
     # model4.plot_and_save(152)
 
-    # model5 = dict(
-    model5 = ModelMGR(
+    # model5 = ModelMGR(
+    model5 = dict(
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
         model=AttentionUNet,
@@ -548,8 +548,8 @@ def main():
         plot_dir=settings.PLOT_DIRECTORY
     )
     # model5()
-    model5.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
-    model5.print_data_logger_summary()
+    # model5.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
+    # model5.print_data_logger_summary()
     # model5.plot_and_save(None, 154)
 
     # Disagreement attention cotraining experiments ###########################
