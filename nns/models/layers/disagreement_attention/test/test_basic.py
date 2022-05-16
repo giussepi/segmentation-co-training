@@ -5,17 +5,17 @@ import unittest
 
 import torch
 
-from nns.models.layers.disagreement_attention.gating_signal import GatingSignalAttentionBlock
+from nns.models.layers.disagreement_attention import AttentionBlock
 
 
-class Test_GatingSignalAttentionBlock(unittest.TestCase):
+class Test_AttentionBlock(unittest.TestCase):
 
     def setUp(self):
         self.input_ = torch.rand(2, 4, 4, 4)
         self.gated_signal = torch.rand(2, 8, 2, 2)
 
     def test_forward(self):
-        g = GatingSignalAttentionBlock(4, 8, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
+        g = AttentionBlock(4, 8, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
         input_with_gs_att, att = g(self.input_, self.gated_signal)
 
         self.assertEqual(input_with_gs_att.shape, self.input_.shape)
@@ -23,7 +23,7 @@ class Test_GatingSignalAttentionBlock(unittest.TestCase):
         self.assertEqual(att.shape, (2, 1, 4, 4))
 
     def test_forward_with_custom_n_channels(self):
-        g = GatingSignalAttentionBlock(
+        g = AttentionBlock(
             4, 8, n_channels=10, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
         input_with_gs_att, att = g(self.input_, self.gated_signal)
 

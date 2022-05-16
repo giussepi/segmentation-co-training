@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/gating_signal """
+""" nns/models/layers/disagreement_attention/basic """
 
 import torch
 from torch import nn
@@ -10,9 +10,9 @@ from nns.models.layers.disagreement_attention.base_disagreement import BaseDisag
 __all__ = ['GatingSignalAttentionBlock']
 
 
-class GatingSignalAttentionBlock(BaseDisagreementAttentionBlock):
+class AttentionBlock(BaseDisagreementAttentionBlock):
     r"""
-    Calculates gating signal attention and returns the activations with the computed attention
+    Calculates the attention and returns the activations with the computed attention
 
     \begin{equation}
     \begin{split}
@@ -35,7 +35,7 @@ class GatingSignalAttentionBlock(BaseDisagreementAttentionBlock):
     \end{align}
 
     Usage:
-        g = GatingSignalAttentionBlock(320, 1024, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
+        g = AttentionBlock(320, 1024, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
         g(act, gs)
 
     """
@@ -75,22 +75,22 @@ class GatingSignalAttentionBlock(BaseDisagreementAttentionBlock):
             nn.Sigmoid()
         )
 
-    def forward(self, act: torch.Tensor, gating_signal: torch.Tensor):
+    def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
         Kwargs:
-            act           <torch.Tensor>: activations maps where gating signal attention will be applied
-            gating_signal <torch.Tensor>: activations maps from gating signal
+            act  <torch.Tensor>: activations maps from model 1 (where the attention will be applied)
+            act2 <torch.Tensor>: activations maps from model 2 (skip connection)
 
         Returns:
             activations1_with_attention <torch.Tensor>, attention <torch.Tensor>
         """
-        assert isinstance(act, torch.Tensor), type(act)
-        assert isinstance(gating_signal, torch.Tensor), type(gating_signal)
+        assert isinstance(act1, torch.Tensor), type(act1)
+        assert isinstance(act2, torch.Tensor), type(act2)
 
-        wact = self.w1(act)
-        wgs = self.w2(gating_signal)
+        wact = self.w1(act1)
+        wgs = self.w2(act2)
         wgs = self.resample(wgs)
         attention = self.act_with_attention(wact+wgs)
-        act_with_attention = act * attention
+        act_with_attention = act1 * attention
 
         return act_with_attention, attention

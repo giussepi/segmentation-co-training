@@ -8,7 +8,7 @@ from gtorch_utils.utils.images import apply_padding
 
 from nns.models.da_model import BaseDATrain
 from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock, \
-    GatingSignalAttentionBlock
+    AttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
 from nns.models.layers.disagreement_attention.layers import DAConvBlock, AttentionMergingBlock
@@ -54,7 +54,7 @@ class UNet_3Plus_DA2Ext(UNet_3Plus_DA):
             2*self.UpChannels, self.UpChannels, only_attention=True
         )
         # gating signal for hd4
-        self.gsa_hd5_to_hd4 = GatingSignalAttentionBlock(
+        self.gsa_hd5_to_hd4 = AttentionBlock(
             self.UpChannels, self.filters[4], resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
         # attention merging block for hd4
         self.att_merging_block_for_hd4 = AttentionMergingBlock(
@@ -67,7 +67,7 @@ class UNet_3Plus_DA2Ext(UNet_3Plus_DA):
             2*self.UpChannels, self.UpChannels, only_attention=True
         )
         # gating signal for hd3
-        self.gsa_hd4_to_hd3 = GatingSignalAttentionBlock(
+        self.gsa_hd4_to_hd3 = AttentionBlock(
             self.UpChannels, self.UpChannels, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
         # attention merging block for hd3
         self.att_merging_block_for_hd3 = AttentionMergingBlock(
@@ -80,7 +80,7 @@ class UNet_3Plus_DA2Ext(UNet_3Plus_DA):
             2*self.UpChannels, self.UpChannels, only_attention=True
         )
         # gating signal for hd2
-        self.gsa_hd3_to_hd2 = GatingSignalAttentionBlock(
+        self.gsa_hd3_to_hd2 = AttentionBlock(
             self.UpChannels, self.UpChannels, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
         # attention merging block for hd2
         self.att_merging_block_for_hd2 = AttentionMergingBlock(
