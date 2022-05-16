@@ -490,3 +490,4 @@ This application is using [logzero](https://logzero.readthedocs.io/en/latest/). 
   For now I'm passing zeroes as metrics [self.model(imgs, 0., 0.)] and using
   da_threshold=np.NINF to have always apply DA
 - [ ] UNet_3Plus_DA_Train, UNet_3Plus_DA2_Train, UNet_3Plus_DA2ext_Train: fix x1_, x2 issue in the forward pass
+- [ ] Attention UNet: add batchnorm_cls and init_type
