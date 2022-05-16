@@ -57,7 +57,7 @@ class MergedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
         Kwargs:
-            act1 <torch.Tensor>: activations maps from model 1 (gating signal)
+            act1 <torch.Tensor>: activations maps from model 1
             act2 <torch.Tensor>: activations maps from model 2 (skip connection)
 
         Returns:
