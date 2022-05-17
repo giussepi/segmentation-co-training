@@ -37,10 +37,12 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
         Initializes the object instance
 
         Kwargs:
-            m1_act         <int>: number of feature maps (channels) from model 1
-            m2_act         <int>: number of feature maps (channels) from model 2
+            m1_act         <int>: number of feature maps (channels) from model 1 (current model)
+            m2_act         <int>: number of feature maps (channels) from model 2 (other model)
             n_channels     <int>: number of channels used during the calculations
                                   If not provided will be set to m1_act. Default -1
+            # FIXME: depending on how well the new forward methods works this resample logic coulb need
+                     to be changed
             resample    <object>: Resample operation to be applied to activations2 to match activations1
                                   (e.g. identity, pooling, strided convolution, upconv, etc).
                                   Default nn.Identity()
@@ -81,6 +83,10 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
 
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
+        Calculates the attention using the difference between act1 and act2. Finally,
+        returns the act1 with the computed attention; i.e. act1 with
+        the regions where act2 is better than act1 highlighted
+
         Kwargs:
             act1 <torch.Tensor>: activations maps from model 1
             act2 <torch.Tensor>: activations maps from model 2 (skip connection)
@@ -107,3 +113,73 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
         act1_with_attention = act1 * attention
 
         return act1_with_attention, attention
+
+    def forward_2(self, skip_connection: torch.Tensor, act: torch.Tensor):
+        """
+        Calculates the attention using the difference between act and skip_connection. Finally,
+        returns the skip_connection with the computed attention; i.e. the skip connection with
+        the regions where act is better than skip highlighted
+
+        Kwargs:
+            skip_connection <torch.Tensor>: activations maps from the other model (it will receive
+                                            the attention)
+            act             <torch.Tensor>: activations maps from current model
+
+        Returns:
+            activations1_with_attention <torch.Tensor>, attention <torch.Tensor>
+        """
+        wskip = self.w1(skip_connection)
+        wact = self.w2(act)
+        # FIXME: this line for now works but need to be updated
+        resampled_wact = self.resample(wact)
+        delta_phi2 = resampled_wact - wskip  # values where act is better than skip
+        # delta_phi2 = resampled_wact2 * torch.relu(delta_phi2)  # opt3
+        delta_phi2 = resampled_wact + torch.relu(delta_phi2)  # opt2
+        # delta_phi2 = resampled_wact2 * (torch.relu(delta_phi2)+1)  # opt1
+        psi2 = (torch.sigmoid(resampled_wact) > self.thresholds[1]) * \
+            (torch.sigmoid(wskip) < self.thresholds[0])
+
+        if self.beta >= 0:
+            delta_phi2[psi2] *= (1+self.beta)
+        else:
+            delta_phi2[~psi2] = 0
+
+        attention = self.attention_2to1(delta_phi2)
+        skip_with_attention = skip_connection * attention
+
+        return skip_with_attention, attention
+
+    def forward_3(self, skip_connection: torch.Tensor, act: torch.Tensor):
+        """
+        Calculates the attention using the difference between skip_connection and act. Finally,
+        returns the skip_connection with the computed attention; i.e. the skip connection with
+        the regions where skip is better than act highlighted
+
+        Kwargs:
+            skip_connection <torch.Tensor>: activations maps from the other model (it will receive
+                                            the attention)
+            act             <torch.Tensor>: activations maps from current model
+
+        Returns:
+            skip_with_attention <torch.Tensor>, attention <torch.Tensor>
+        """
+        wskip = self.w1(skip_connection)
+        wact = self.w2(act)
+        # FIXME: this line for now works but need to be updated
+        resampled_wact = self.resample(wact)
+        delta_phi2 = wskip - resampled_wact  # values where wskip is better than wact
+        # delta_phi2 = resampled_wact2 * torch.relu(delta_phi2)  # opt3
+        delta_phi2 = wskip + torch.relu(delta_phi2)  # opt2
+        # delta_phi2 = resampled_wact2 * (torch.relu(delta_phi2)+1)  # opt1
+        psi2 = (torch.sigmoid(wskip) > self.thresholds[1]) * \
+            (torch.sigmoid(resampled_wact) < self.thresholds[0])
+
+        if self.beta >= 0:
+            delta_phi2[psi2] *= (1+self.beta)
+        else:
+            delta_phi2[~psi2] = 0
+
+        attention = self.attention_2to1(delta_phi2)
+        skip_with_attention = skip_connection * attention
+
+        return skip_with_attention, attention

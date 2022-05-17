@@ -96,6 +96,7 @@ class DAConvBlock(torch.nn.Module):
             da, att = self.identity(x), None
         else:
             da, att = self.dattentionblock(x, skip_connection)
+            # da, att = self.dattentionblock(skip_connection, x)
 
         if self.only_attention:
             return att
