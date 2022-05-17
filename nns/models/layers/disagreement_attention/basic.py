@@ -12,7 +12,7 @@ __all__ = ['AttentionBlock']
 
 class AttentionBlock(BaseDisagreementAttentionBlock):
     r"""
-    Calculates the attention and returns the activations with the computed attention
+    Calculates the attention and returns the skip connections with the computed attention
 
     \begin{equation}
     \begin{split}
@@ -41,27 +41,26 @@ class AttentionBlock(BaseDisagreementAttentionBlock):
     """
 
     def __init__(
-            self, act: int, gs_act: int,  /, *, n_channels: int = -1, resample: object = None):
+            self, skip_act: int, gs_act: int,  /, *, n_channels: int = -1, resample: object = None):
         """
         Initializes the object instance
 
         Kwargs:
-            act            <int>: number of feature maps (channels) of the signal to be merged with the
-                                  gating signal
+            skip_act       <int>: number of feature maps (channels) of the skip connection
             gs_act         <int>: number of feature maps (channels) of the gating signal
             n_channels     <int>: number of channels for act  used during the calculations
-                                  If not provided will be set to gs_act. Default -1
-            resample    <object>: Resample operation to be applied to activations2 to match activations1
+                                  If not provided will be set to skip_act. Default -1
+            resample    <object>: Resample operation to be applied to gs_act to match skip_act
                                   (e.g. identity, pooling, strided convolution, upconv, etc)
                                   Default nn.Identity()
         """
         if n_channels == -1:
-            n_channels = gs_act
+            n_channels = skip_act
 
-        super().__init__(act, gs_act, n_channels=n_channels, resample=resample)
+        super().__init__(skip_act, gs_act, n_channels=n_channels, resample=resample)
 
         self.w1 = nn.Sequential(
-            nn.Conv2d(act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(skip_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(self.n_channels)
         )
         self.w2 = nn.Sequential(
@@ -75,22 +74,23 @@ class AttentionBlock(BaseDisagreementAttentionBlock):
             nn.Sigmoid()
         )
 
-    def forward(self, act1: torch.Tensor, act2: torch.Tensor):
+    def forward(self, skip_connection: torch.Tensor, gating_signal: torch.Tensor):
         """
         Kwargs:
-            act  <torch.Tensor>: activations maps from model 1 (where the attention will be applied)
-            act2 <torch.Tensor>: activations maps from model 2 (skip connection)
+            skip_connection  <torch.Tensor>: skip connection feature activations maps
+                                             (where the attention will be applied)
+            gating_signal    <torch.Tensor>: gating signal activations maps
 
         Returns:
-            activations1_with_attention <torch.Tensor>, attention <torch.Tensor>
+            skip_with_attention <torch.Tensor>, attention <torch.Tensor>
         """
-        assert isinstance(act1, torch.Tensor), type(act1)
-        assert isinstance(act2, torch.Tensor), type(act2)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+        assert isinstance(gating_signal, torch.Tensor), type(gating_signal)
 
-        wact = self.w1(act1)
-        wgs = self.w2(act2)
+        wskip = self.w1(skip_connection)
+        wgs = self.w2(gating_signal)
         wgs = self.resample(wgs)
-        attention = self.act_with_attention(wact+wgs)
-        act_with_attention = act1 * attention
+        attention = self.act_with_attention(wskip+wgs)
+        skip_with_attention = skip_connection * attention
 
-        return act_with_attention, attention
+        return skip_with_attention, attention
