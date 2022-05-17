@@ -225,7 +225,7 @@ def main():
         train_eval_chkpt=False,
         last_checkpoint=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'unet3_plus_1'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'unet3_plus_1'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -281,7 +281,7 @@ def main():
         train_eval_chkpt=False,
         last_checkpoint=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'unet3_plus_2'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'unet3_plus_2'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -346,7 +346,7 @@ def main():
         last_checkpoint=True,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'deeplabv3plus_xception'),
+            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'deeplabv3plus_xception'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -369,7 +369,7 @@ def main():
     #     earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
     #     warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
     #     overall_best_models=False,  # True
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90'),
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93'),
     #     # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
     #     thresholds=dict(disagreement=(.25, .8)),
     #     plots_saving_path=settings.PLOT_DIRECTORY,
@@ -397,22 +397,22 @@ def main():
 
     # try:
     #     cot.print_data_logger_summary(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'chkpt_4.pth.tar'))
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'chkpt_4.pth.tar'))
 
     #     cot.plot_and_save(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'chkpt_4.pth.tar'),
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'chkpt_4.pth.tar'),
     #         save=True, show=False, dpi=300.
     #     )
 
     #     cot.print_data_logger_details(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'chkpt_4.pth.tar'))
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'chkpt_4.pth.tar'))
     # except:
     #     pass
 
     # DA experiments ##########################################################
     # TODO: update doctrings from DAModelMGRMixin
-    # model4 = DAModelMGR(
-    model4 = dict(
+    # model4 = dict(
+    model4 = DAModelMGR(
         model_cls=UNet_3Plus_DA_Train,
         model_kwargs=dict(
             model1_cls=UNet_3Plus_DA,
@@ -475,7 +475,7 @@ def main():
         train_eval_chkpt=False,
         last_checkpoint=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'unet3_plus_DA'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'unet3_plus_DA'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -483,7 +483,7 @@ def main():
         plot_dir=settings.PLOT_DIRECTORY
     )
     # summary(model4.module, depth=10, verbose=1)
-    # model4()
+    model4()
     # model4.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
     # model4.print_data_logger_summary()
     # _, data_logger = model4.load_checkpoint([
@@ -493,60 +493,60 @@ def main():
     # model4.plot_and_save(152)
 
     # model5 = dict(
-    model5 = ModelMGR(
-        # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
-        # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
-        model=AttentionUNet2,
-        model_kwargs=dict(n_channels=3, n_classes=1, batchnorm_cls=get_batchnorm2d_class()),
-        cuda=settings.CUDA,
-        multigpus=settings.MULTIGPUS,
-        patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=30,  # 20
-        intrain_val=2,  # 2
-        optimizer=torch.optim.Adam,
-        optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
-        labels_data=BinaryCoNSeP,
-        dataset=OfflineCoNSePDataset,
-        dataset_kwargs={
-            'train_path': settings.CONSEP_TRAIN_PATH,
-            'val_path': settings.CONSEP_VAL_PATH,
-            'test_path': settings.CONSEP_TEST_PATH,
-            'cotraining': settings.COTRAINING,
-        },
-        train_dataloader_kwargs={
-            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
-        },
-        testval_dataloader_kwargs={
-            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-        },
-        lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
-        # TODO: the mode can change based on the quantity monitored
-        # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
-        lr_scheduler_track=LrShedulerTrack.LOSS,
-        criterions=[
-            # torch.nn.BCEWithLogitsLoss()
-            # torch.nn.CrossEntropyLoss()
-            # loss_functions.BceDiceLoss(with_logits=True),
-            BceDiceLoss(),
-            loss_functions.SpecificityLoss(with_logits=True),
-        ],
-        mask_threshold=0.5,
-        metrics=settings.METRICS,
-        metric_mode=MetricEvaluatorMode.MAX,
-        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
-        checkpoint_interval=0,
-        train_eval_chkpt=False,
-        last_checkpoint=True,
-        ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'unet3_plus_2'),
-        tensorboard=False,
-        # TODO: there a bug that appeared once when plotting to disk after a long training
-        # anyway I can always plot from the checkpoints :)
-        plot_to_disk=False,
-        plot_dir=settings.PLOT_DIRECTORY
-    )
-    model5()
+    # model5 = ModelMGR(
+    #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
+    #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
+    #     model=AttentionUNet2,
+    #     model_kwargs=dict(n_channels=3, n_classes=1, batchnorm_cls=get_batchnorm2d_class()),
+    #     cuda=settings.CUDA,
+    #     multigpus=settings.MULTIGPUS,
+    #     patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+    #     epochs=30,  # 20
+    #     intrain_val=2,  # 2
+    #     optimizer=torch.optim.Adam,
+    #     optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
+    #     labels_data=BinaryCoNSeP,
+    #     dataset=OfflineCoNSePDataset,
+    #     dataset_kwargs={
+    #         'train_path': settings.CONSEP_TRAIN_PATH,
+    #         'val_path': settings.CONSEP_VAL_PATH,
+    #         'test_path': settings.CONSEP_TEST_PATH,
+    #         'cotraining': settings.COTRAINING,
+    #     },
+    #     train_dataloader_kwargs={
+    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+    #     },
+    #     testval_dataloader_kwargs={
+    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+    #     },
+    #     lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+    #     # TODO: the mode can change based on the quantity monitored
+    #     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+    #     lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
+    #     lr_scheduler_track=LrShedulerTrack.LOSS,
+    #     criterions=[
+    #         # torch.nn.BCEWithLogitsLoss()
+    #         # torch.nn.CrossEntropyLoss()
+    #         # loss_functions.BceDiceLoss(with_logits=True),
+    #         BceDiceLoss(),
+    #         loss_functions.SpecificityLoss(with_logits=True),
+    #     ],
+    #     mask_threshold=0.5,
+    #     metrics=settings.METRICS,
+    #     metric_mode=MetricEvaluatorMode.MAX,
+    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+    #     checkpoint_interval=0,
+    #     train_eval_chkpt=False,
+    #     last_checkpoint=True,
+    #     ini_checkpoint='',
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'unet3_plus_2'),
+    #     tensorboard=False,
+    #     # TODO: there a bug that appeared once when plotting to disk after a long training
+    #     # anyway I can always plot from the checkpoints :)
+    #     plot_to_disk=False,
+    #     plot_dir=settings.PLOT_DIRECTORY
+    # )
+    # model5()
     # model5.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
     # model5.print_data_logger_summary()
     # model5.plot_and_save(None, 154)
@@ -565,7 +565,7 @@ def main():
     #     earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
     #     warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
     #     overall_best_models=True,
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90'),
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93'),
     #     # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
     #     thresholds=dict(agreement=.8),
     #     plots_saving_path=settings.PLOT_DIRECTORY,
@@ -593,15 +593,15 @@ def main():
 
     # try:
     #     cot.print_data_logger_summary(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'chkpt_4.pth.tar'))
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'chkpt_4.pth.tar'))
 
     #     cot.plot_and_save(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'chkpt_4.pth.tar'),
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'chkpt_4.pth.tar'),
     #         save=True, show=False, dpi=300.
     #     )
 
     #     cot.print_data_logger_details(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'chkpt_4.pth.tar'))
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp93', 'chkpt_4.pth.tar'))
     # except Exception:
     #     pass
 
