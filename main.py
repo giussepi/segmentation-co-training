@@ -28,7 +28,7 @@ from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
-    UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet
+    UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2
 from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock, \
     MergedDisagreementAttentionBlock, PureDisagreementAttentionBlock, EmbeddedDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
@@ -411,19 +411,19 @@ def main():
 
     # DA experiments ##########################################################
     # TODO: update doctrings from DAModelMGRMixin
-    # model4 = dict(
-    model4 = DAModelMGR(
+    # model4 = DAModelMGR(
+    model4 = dict(
         model_cls=UNet_3Plus_DA_Train,
         model_kwargs=dict(
             model1_cls=UNet_3Plus_DA,
             kwargs1=dict(da_threshold=np.NINF, da_block_cls=ThresholdedDisagreementAttentionBlock,
-                         da_block_config=dict(thresholds=(.25, .8), beta=0.),
+                         da_block_config=dict(thresholds=(.25, .8), beta=0., n_channels=1),
                          # da_merging_type=AttentionMergingType.MAX,
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
                          batchnorm_cls=get_batchnorm2d_class()),
             model2_cls=UNet_3Plus_DA,
             kwargs2=dict(da_threshold=np.NINF, da_block_cls=ThresholdedDisagreementAttentionBlock,
-                         da_block_config=dict(thresholds=(.25, .8), beta=0.),
+                         da_block_config=dict(thresholds=(.25, .8), beta=0., n_channels=1),
                          # da_merging_type=AttentionMergingType.MAX,
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
                          batchnorm_cls=get_batchnorm2d_class()),
@@ -483,7 +483,7 @@ def main():
         plot_dir=settings.PLOT_DIRECTORY
     )
     # summary(model4.module, depth=10, verbose=1)
-    model4()
+    # model4()
     # model4.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
     # model4.print_data_logger_summary()
     # _, data_logger = model4.load_checkpoint([
@@ -492,12 +492,12 @@ def main():
     # ])
     # model4.plot_and_save(152)
 
-    # model5 = ModelMGR(
-    model5 = dict(
+    # model5 = dict(
+    model5 = ModelMGR(
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
-        model=AttentionUNet,
-        model_kwargs=dict(n_channels=3, n_classes=1),
+        model=AttentionUNet2,
+        model_kwargs=dict(n_channels=3, n_classes=1, batchnorm_cls=get_batchnorm2d_class()),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
@@ -538,8 +538,7 @@ def main():
         checkpoint_interval=0,
         train_eval_chkpt=False,
         last_checkpoint=True,
-        ini_checkpoint=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining',
-                                    'exp90', 'unet3_plus_2', 'last_chkpt.pth.tar'),
+        ini_checkpoint='',
         dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp90', 'unet3_plus_2'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
@@ -547,7 +546,7 @@ def main():
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    # model5()
+    model5()
     # model5.predict('1.ann.tiff', Image.open, patch_size=256, patch_overlapping=2, superimpose=False, size=None)
     # model5.print_data_logger_summary()
     # model5.plot_and_save(None, 154)
