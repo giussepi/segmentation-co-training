@@ -7,7 +7,7 @@ from torch import nn
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 
 
-__all__ = ['GatingSignalAttentionBlock']
+__all__ = ['AttentionBlock']
 
 
 class AttentionBlock(BaseDisagreementAttentionBlock):
