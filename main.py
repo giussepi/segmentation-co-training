@@ -608,6 +608,8 @@ def main():
         plot_dir=settings.PLOT_DIRECTORY
     )
     model6()
+    # model6.print_data_logger_summary()
+    # model6.plot_and_save(None, 154)
 
     # Disagreement attention cotraining experiments ###########################
     # cot = DACoTraining(
