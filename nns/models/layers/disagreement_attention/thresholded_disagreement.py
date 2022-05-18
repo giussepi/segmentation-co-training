@@ -81,40 +81,7 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
             nn.Sigmoid()
         )
 
-    def forward(self, act1: torch.Tensor, act2: torch.Tensor):
-        """
-        Calculates the attention using the difference between act1 and act2. Finally,
-        returns the act1 with the computed attention; i.e. act1 with
-        the regions where act2 is better than act1 highlighted
-
-        Kwargs:
-            act1 <torch.Tensor>: activations maps from model 1
-            act2 <torch.Tensor>: activations maps from model 2 (skip connection)
-
-        Returns:
-            activations1_with_attention <torch.Tensor>, attention <torch.Tensor>
-        """
-        wact1 = self.w1(act1)
-        wact2 = self.w2(act2)
-        resampled_wact2 = self.resample(wact2)
-        delta_phi2 = resampled_wact2 - wact1
-        # delta_phi2 = resampled_wact2 * torch.relu(delta_phi2)  # opt3
-        delta_phi2 = resampled_wact2 + torch.relu(delta_phi2)  # opt2
-        # delta_phi2 = resampled_wact2 * (torch.relu(delta_phi2)+1)  # opt1
-        psi2 = (torch.sigmoid(resampled_wact2) > self.thresholds[1]) * \
-            (torch.sigmoid(wact1) < self.thresholds[0])
-
-        if self.beta >= 0:
-            delta_phi2[psi2] *= (1+self.beta)
-        else:
-            delta_phi2[~psi2] = 0
-
-        attention = self.attention_2to1(delta_phi2)
-        act1_with_attention = act1 * attention
-
-        return act1_with_attention, attention
-
-    def forward_2(self, skip_connection: torch.Tensor, act: torch.Tensor):
+    def forward(self, skip_connection: torch.Tensor, act: torch.Tensor):
         """
         Calculates the attention using the difference between act and skip_connection. Finally,
         returns the skip_connection with the computed attention; i.e. the skip connection with
@@ -133,9 +100,9 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
         # FIXME: this line for now works but need to be updated
         resampled_wact = self.resample(wact)
         delta_phi2 = resampled_wact - wskip  # values where act is better than skip
-        # delta_phi2 = resampled_wact2 * torch.relu(delta_phi2)  # opt3
+        # delta_phi2 = resampled_wact * torch.relu(delta_phi2)  # opt3
         delta_phi2 = resampled_wact + torch.relu(delta_phi2)  # opt2
-        # delta_phi2 = resampled_wact2 * (torch.relu(delta_phi2)+1)  # opt1
+        # delta_phi2 = resampled_wact * (torch.relu(delta_phi2)+1)  # opt1
         psi2 = (torch.sigmoid(resampled_wact) > self.thresholds[1]) * \
             (torch.sigmoid(wskip) < self.thresholds[0])
 
@@ -168,9 +135,9 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
         # FIXME: this line for now works but need to be updated
         resampled_wact = self.resample(wact)
         delta_phi2 = wskip - resampled_wact  # values where wskip is better than wact
-        # delta_phi2 = resampled_wact2 * torch.relu(delta_phi2)  # opt3
+        # delta_phi2 = resampled_wact * torch.relu(delta_phi2)  # opt3
         delta_phi2 = wskip + torch.relu(delta_phi2)  # opt2
-        # delta_phi2 = resampled_wact2 * (torch.relu(delta_phi2)+1)  # opt1
+        # delta_phi2 = resampled_wact * (torch.relu(delta_phi2)+1)  # opt1
         psi2 = (torch.sigmoid(wskip) > self.thresholds[1]) * \
             (torch.sigmoid(resampled_wact) < self.thresholds[0])
 
