@@ -54,6 +54,7 @@ class UNet_3Plus_Intra_DA(UNet_3Plus):
             # attention to skip_connection
             # da_block_cls(self.filters[2], self.UpChannels, **self.da_block_config),
             # self.filters[2]+self.UpChannels,
+            # atttention to X
             da_block_cls(self.UpChannels, self.filters[2], **self.da_block_config), 2*self.UpChannels,
             self.UpChannels
         )
