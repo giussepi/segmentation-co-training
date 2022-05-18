@@ -33,7 +33,8 @@ class BaseDisagreementAttentionBlock(nn.Module):
             m1_act         <int>: number of feature maps (channels) from model 1
             m2_act         <int>: number of feature maps (channels) from model 2
             n_channels     <int>: number of channels used during the calculations
-                                  If not provided will be set to m1_act. Default -1
+                                  If not provided will be set to max(m1_act, m2_act).
+                                  Default -1
             resample  <Callable>: Resample operation to be applied to activations2 to match activations1
                                   (e.g. identity, pooling, strided convolution, upconv, etc).
                                   Default nn.Identity()
@@ -45,7 +46,7 @@ class BaseDisagreementAttentionBlock(nn.Module):
         resample = resample if resample else nn.Identity()
         assert callable(resample), 'resample must be a callable'
 
-        self.n_channels = m1_act if n_channels == -1 else n_channels
+        self.n_channels = max(m1_act, m2_act) if n_channels == -1 else n_channels
         self.resample = resample
 
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
