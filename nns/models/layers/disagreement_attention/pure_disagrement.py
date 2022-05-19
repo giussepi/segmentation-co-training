@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """ nns/models/layers/disagreement_attention/pure_disagrement """
 
+from typing import Callable
+
 import torch
 from torch import nn
 
@@ -26,17 +28,22 @@ class PureDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
     """
 
     def __init__(
-            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: object = None):
+            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: Callable = None):
         """
         Initializes the object instance
 
         Kwargs:
-            m1_act         <int>: number of feature maps (channels) from model 1
-            m2_act         <int>: number of feature maps (channels) from model 2
+            m1_act         <int>: number of feature maps (channels) from the activation which will
+                                  receive the attention
+            m2_act         <int>: number of feature maps (channels) from the activation which will
+                                  be used to create the attention
             n_channels     <int>: number of channels used during the calculations
-                                  If not provided will be set to m1_act. Default -1
-            resample    <object>: Resample operation to be applied to activations2 to match activations1
-                                  (e.g. identity, pooling, strided convolution, upconv, etc)
+                                  If not provided will be set to max(m1_act, m2_act).
+                                  Default -1
+            # FIXME: depending on how well the new forward methods works this resample logic coulb need
+                     to be changed
+            resample  <Callable>: Resample operation to be applied to activations2 to match activations1
+                                  (e.g. identity, pooling, strided convolution, upconv, etc).
                                   Default nn.Identity()
         """
         super().__init__(m1_act, m2_act, n_channels=n_channels, resample=resample)
@@ -59,8 +66,8 @@ class PureDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
         Kwargs:
-            act1 <torch.Tensor>: activations maps from model 1
-            act2 <torch.Tensor>: activations maps from model 2 (skip connection)
+            act1 <torch.Tensor>: activations maps which will receive the attention
+            act2 <torch.Tensor>: activations maps employed to calculate the attention
 
         Returns:
             activations1_with_attention <torch.Tensor>, attention <torch.Tensor>
