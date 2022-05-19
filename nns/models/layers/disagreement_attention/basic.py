@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """ nns/models/layers/disagreement_attention/basic """
 
+from typing import Callable
+
 import torch
 from torch import nn
 
@@ -12,7 +14,7 @@ __all__ = ['AttentionBlock']
 
 class AttentionBlock(BaseDisagreementAttentionBlock):
     r"""
-    Calculates the attention and returns the skip connections with the computed attention
+    Calculates the attention and returns the act1 with the computed attention
 
     \begin{equation}
     \begin{split}
@@ -41,30 +43,35 @@ class AttentionBlock(BaseDisagreementAttentionBlock):
     """
 
     def __init__(
-            self, skip_act: int, gs_act: int,  /, *, n_channels: int = -1, resample: object = None):
+            self, m1_act: int, m2_act: int,  /, *, n_channels: int = -1, resample: Callable = None):
         """
         Initializes the object instance
 
         Kwargs:
-            skip_act       <int>: number of feature maps (channels) of the skip connection
-            gs_act         <int>: number of feature maps (channels) of the gating signal
-            n_channels     <int>: number of channels for act  used during the calculations
-                                  If not provided will be set to skip_act. Default -1
-            resample    <object>: Resample operation to be applied to gs_act to match skip_act
-                                  (e.g. identity, pooling, strided convolution, upconv, etc)
-                                  Default nn.Identity()
+            m1_act     <int>: number of feature maps (channels) from the activation which will
+                              receive the attention
+            m2_act     <int>: number of feature maps (channels) from the activation which will
+                              be used to create the attention
+            n_channels <int>: number of channels used during the calculations
+                              If not provided will be set to max(m1_act, m2_act).
+                              Default -1
+            # FIXME: depending on how well the new forward methods works this resample logic coulb need
+                     to be changed
+            resample <Callable>: Resample operation to be applied to activations2 to match activations1
+                              (e.g. identity, pooling, strided convolution, upconv, etc).
+                              Default nn.Identity()
         """
         if n_channels == -1:
-            n_channels = skip_act
+            n_channels = m1_act
 
-        super().__init__(skip_act, gs_act, n_channels=n_channels, resample=resample)
+        super().__init__(m1_act, m2_act, n_channels=n_channels, resample=resample)
 
         self.w1 = nn.Sequential(
-            nn.Conv2d(skip_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(m1_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(self.n_channels)
         )
         self.w2 = nn.Sequential(
-            nn.Conv2d(gs_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(m2_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(self.n_channels)
         )
         self.act_with_attention = nn.Sequential(
@@ -74,23 +81,22 @@ class AttentionBlock(BaseDisagreementAttentionBlock):
             nn.Sigmoid()
         )
 
-    def forward(self, skip_connection: torch.Tensor, gating_signal: torch.Tensor):
+    def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
         Kwargs:
-            skip_connection  <torch.Tensor>: skip connection feature activations maps
-                                             (where the attention will be applied)
-            gating_signal    <torch.Tensor>: gating signal activations maps
+            act1 <torch.Tensor>: activations maps which will receive the attention
+            act2 <torch.Tensor>: activations maps employed to calculate the attention
 
         Returns:
-            skip_with_attention <torch.Tensor>, attention <torch.Tensor>
+            act1_with_attention <torch.Tensor>, attention <torch.Tensor>
         """
-        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
-        assert isinstance(gating_signal, torch.Tensor), type(gating_signal)
+        assert isinstance(act1, torch.Tensor), type(act1)
+        assert isinstance(act2, torch.Tensor), type(act2)
 
-        wskip = self.w1(skip_connection)
-        wgs = self.w2(gating_signal)
-        wgs = self.resample(wgs)
-        attention = self.act_with_attention(wskip+wgs)
-        skip_with_attention = skip_connection * attention
+        wact1 = self.w1(act1)
+        wact2 = self.w2(act2)
+        wact2 = self.resample(wact2)
+        attention = self.act_with_attention(wact1+wact2)
+        skip_with_attention = act1 * attention
 
         return skip_with_attention, attention
