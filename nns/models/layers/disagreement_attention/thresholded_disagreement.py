@@ -14,8 +14,8 @@ __all__ = ['ThresholdedDisagreementAttentionBlock']
 
 class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
     r"""
-    Calculates the thresholded-disagreement attention from activations2 (belonging to model 2)
-    towards activations1 (belonging to model 1) and returns activations1 with the computed attention
+    Calculates the thresholded-disagreement attention between activations2
+    and activations1 and returns activations1 with the computed attention
 
     \begin{equation}
     \begin{split}
