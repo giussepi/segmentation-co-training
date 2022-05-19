@@ -4,6 +4,7 @@
 from typing import Callable
 
 import torch
+from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from torch import nn
 
 
@@ -25,7 +26,8 @@ class BaseDisagreementAttentionBlock(nn.Module):
     """
 
     def __init__(
-            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: Callable = None, **kwargs):
+            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: Callable = None,
+            batchnorm_cls=nn.BatchNorm2d, init_type=UNet3InitMethod.KAIMING, **kwargs):
         """
         Validates the arguments and initializes the attributes self.n_channels and self.resample properly
 
@@ -38,6 +40,11 @@ class BaseDisagreementAttentionBlock(nn.Module):
             resample  <Callable>: Resample operation to be applied to activations2 to match activations1
                                   (e.g. identity, pooling, strided convolution, upconv, etc).
                                   Default nn.Identity()
+            batchnorm_cls <_BatchNorm>: Batch normalization class to be used.
+                                  Default nn.BatchNorm2d
+            init_type      <int>: Initialization method id.
+                                  See gtorch_utils.nns.models.segmentation.unet3_plus.constants.UNet3InitMethod
+                                  Default UNet3InitMethod.KAIMING
         """
         super().__init__()
         assert isinstance(m1_act, int), type(m1_act)
@@ -45,9 +52,13 @@ class BaseDisagreementAttentionBlock(nn.Module):
         assert isinstance(n_channels, int), type(n_channels)
         resample = resample if resample else nn.Identity()
         assert callable(resample), 'resample must be a callable'
+        assert issubclass(batchnorm_cls, nn.modules.batchnorm._BatchNorm), type(self.batchnom_cls)
+        UNet3InitMethod.validate(init_type)
 
         self.n_channels = max(m1_act, m2_act) if n_channels == -1 else n_channels
         self.resample = resample
+        self.batchnorm_cls = batchnorm_cls
+        self.init_type = init_type
 
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """

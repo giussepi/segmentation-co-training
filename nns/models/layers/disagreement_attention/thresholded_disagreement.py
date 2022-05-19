@@ -4,6 +4,7 @@
 from typing import Tuple, Callable
 
 import torch
+from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from torch import nn
 
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
@@ -31,6 +32,7 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
 
     def __init__(
             self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: Callable = None,
+            batchnorm_cls=nn.BatchNorm2d, init_type=UNet3InitMethod.KAIMING,
             thresholds: Tuple[float] = None, beta: float = -1.0
     ):
         """
@@ -49,13 +51,21 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
             resample  <Callable>: Resample operation to be applied to activations2 to match activations1
                                   (e.g. identity, pooling, strided convolution, upconv, etc).
                                   Default nn.Identity()
+            batchnorm_cls <_BatchNorm>: Batch normalization class to be used.
+                                  Default nn.BatchNorm2d
+            init_type      <int>: Initialization method id.
+                                  See gtorch_utils.nns.models.segmentation.unet3_plus.constants.UNet3InitMethod
+                                  Default UNet3InitMethod.KAIMING
             thresholds   <tuple>: Tuple with the lower and upper disagreement thresholds. If not value is
                                   provided is is set to (.25, .8). Default = None
             beta         <floar>: User-defined attention boost in range ]0,1[. Set it to a negative value
                                   to not use it and set all values not included in the feature disagreement
                                   index psi2 to zero. Default -1.0
         """
-        super().__init__(m1_act, m2_act, n_channels=n_channels, resample=resample)
+        super().__init__(
+            m1_act, m2_act, n_channels=n_channels, resample=resample, batchnorm_cls=batchnorm_cls,
+            init_type=init_type
+        )
 
         if thresholds is not None:
             assert isinstance(thresholds, tuple), type(thresholds)
@@ -71,16 +81,16 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
         self.beta = beta
         self.w1 = nn.Sequential(
             nn.Conv2d(m1_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(self.n_channels)
+            self.batchnorm_cls(self.n_channels)
         )
         self.w2 = nn.Sequential(
             nn.Conv2d(m2_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(self.n_channels)
+            self.batchnorm_cls(self.n_channels)
         )
         self.attention_2to1 = nn.Sequential(
             nn.ReLU(),
             nn.Conv2d(self.n_channels, 1, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(1),
+            self.batchnorm_cls(1),
             nn.Sigmoid()
         )
 

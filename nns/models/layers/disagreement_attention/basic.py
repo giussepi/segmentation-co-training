@@ -4,6 +4,8 @@
 from typing import Callable
 
 import torch
+from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
+# from gtorch_utils.nns.models.segmentation.unet3_plus.init_weights import init_weights
 from torch import nn
 
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
@@ -39,11 +41,11 @@ class AttentionBlock(BaseDisagreementAttentionBlock):
     Usage:
         g = AttentionBlock(320, 1024, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
         g(act, gs)
-
     """
 
     def __init__(
-            self, m1_act: int, m2_act: int,  /, *, n_channels: int = -1, resample: Callable = None):
+            self, m1_act: int, m2_act: int,  /, *, n_channels: int = -1, resample: Callable = None,
+            batchnorm_cls=nn.BatchNorm2d, init_type=UNet3InitMethod.KAIMING):
         """
         Initializes the object instance
 
@@ -60,26 +62,36 @@ class AttentionBlock(BaseDisagreementAttentionBlock):
             resample <Callable>: Resample operation to be applied to activations2 to match activations1
                               (e.g. identity, pooling, strided convolution, upconv, etc).
                               Default nn.Identity()
+            batchnorm_cls <_BatchNorm>: Batch normalization class to be used.
+                                  Default nn.BatchNorm2d
+            init_type      <int>: Initialization method id.
+                                  See gtorch_utils.nns.models.segmentation.unet3_plus.constants.UNet3InitMethod
+                                  Default UNet3InitMethod.KAIMING
         """
-        if n_channels == -1:
-            n_channels = m1_act
-
-        super().__init__(m1_act, m2_act, n_channels=n_channels, resample=resample)
+        super().__init__(
+            m1_act, m2_act, n_channels=n_channels, resample=resample, batchnorm_cls=batchnorm_cls,
+            init_type=init_type
+        )
 
         self.w1 = nn.Sequential(
             nn.Conv2d(m1_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(self.n_channels)
+            self.batchnorm_cls(self.n_channels)
         )
         self.w2 = nn.Sequential(
             nn.Conv2d(m2_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(self.n_channels)
+            self.batchnorm_cls(self.n_channels)
         )
         self.act_with_attention = nn.Sequential(
             nn.ReLU(),
             nn.Conv2d(self.n_channels, 1, kernel_size=1, stride=1, padding=0, bias=True),
-            nn.BatchNorm2d(1),
+            self.batchnorm_cls(1),
             nn.Sigmoid()
         )
+
+        # initialise weights
+        # for m in self.modules():
+        #     if isinstance(m, (nn.Conv2d, self.batchnorm_cls)):
+        #         init_weights(m, init_type=self.init_type)
 
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
