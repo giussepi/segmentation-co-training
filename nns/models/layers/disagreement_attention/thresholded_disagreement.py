@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ nns/models/layers/disagreement_attention/thresholded_disagreement """
 
-from typing import Tuple
+from typing import Tuple, Callable
 
 import torch
 from torch import nn
@@ -30,7 +30,7 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
     """
 
     def __init__(
-            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: object = None,
+            self, m1_act: int, m2_act: int, /, *, n_channels: int = -1, resample: Callable = None,
             thresholds: Tuple[float] = None, beta: float = -1.0
     ):
         """
@@ -46,7 +46,7 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
                                   Default -1
             # FIXME: depending on how well the new forward methods works this resample logic coulb need
                      to be changed
-            resample    <object>: Resample operation to be applied to activations2 to match activations1
+            resample  <Callable>: Resample operation to be applied to activations2 to match activations1
                                   (e.g. identity, pooling, strided convolution, upconv, etc).
                                   Default nn.Identity()
             thresholds   <tuple>: Tuple with the lower and upper disagreement thresholds. If not value is
