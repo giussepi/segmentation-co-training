@@ -484,6 +484,7 @@ This application is using [logzero](https://logzero.readthedocs.io/en/latest/). 
 
 ## TODO
 - [x] Review issue about passing the skip connections (in all DA models)
+- [ ] Update all DA models to use batchnorm_cls and init_type properly (like UNet_3Plus_Intra_DA)
 - [ ] Review that AttentionBlock is properly used everywhere!!!
 - [ ] Select onlyohe attention unet and remove the other one
 - [ ] AttentionMergingBlock.forward think how it should work to make the models separable
