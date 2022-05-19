@@ -34,10 +34,15 @@ class EmbeddedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
         Initializes the object instance
 
         Kwargs:
-            m1_act         <int>: number of feature maps (channels) from model 1
-            m2_act         <int>: number of feature maps (channels) from model 2
+            m1_act         <int>: number of feature maps (channels) from the activation which will
+                                  receive the attention
+            m2_act         <int>: number of feature maps (channels) from the activation which will
+                                  be used to create the attention
             n_channels     <int>: number of channels used during the calculations
-                                  If not provided will be set to m1_act. Default -1
+                                  If not provided will be set to max(m1_act, m2_act).
+                                  Default -1
+            # FIXME: depending on how well the new forward methods works this resample logic coulb need
+                     to be changed
             resample  <Callable>: Resample operation to be applied to activations2 to match activations1
                                   (e.g. identity, pooling, strided convolution, upconv, etc).
                                   Default nn.Identity()
@@ -62,15 +67,14 @@ class EmbeddedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
         Kwargs:
-            act1 <torch.Tensor>: activations maps from model 1
-            act2 <torch.Tensor>: activations maps from model 2 (skip connection)
+            act1 <torch.Tensor>: activations maps which will receive the attention
+            act2 <torch.Tensor>: activations maps employed to calculate the attention
 
         Returns:
             activations1_with_attention <torch.Tensor>, attention <torch.Tensor>
         """
         wact1 = self.w1(act1)
         wact2 = self.w2(act2)
-
         act1_with_attention = self.resample(wact2) + torch.abs(self.resample(wact2) - wact1)
         attention = self.attention_2to1(act1_with_attention/act1)
 
