@@ -10,14 +10,17 @@ from gtorch_utils.utils.images import apply_padding
 from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.layers import DAConvBlock
+from nns.models.mixins import InitMixin
 
 
 __all__ = ['UNet_3Plus_Intra_DA']
 
 
-class UNet_3Plus_Intra_DA(UNet_3Plus):
+class UNet_3Plus_Intra_DA(UNet_3Plus, InitMixin):
     """
     UNet_3Plus with intra-model disagreement attention
+
+    Note: batchnorm_cls and init_type kwargs are copied into da_block_config kwarg
     """
 
     def __init__(self, da_block_cls: BaseDisagreementAttentionBlock = ThresholdedDisagreementAttentionBlock,
@@ -37,6 +40,9 @@ class UNet_3Plus_Intra_DA(UNet_3Plus):
             self.da_block_config = da_block_config
         else:
             self.da_block_config = {}
+        # adding extra configuration to da_block_config
+        self.da_block_config['batchnorm_cls'] = kwargs.get('batchnorm_cls')
+        self.da_block_config['init_type'] = kwargs.get('init_type')
 
         self.filters = [64, 128, 256, 512, 1024]
 
@@ -53,7 +59,8 @@ class UNet_3Plus_Intra_DA(UNet_3Plus):
         self.intra_da_hd3 = DAConvBlock(
             # attention to skip_connection
             da_block_cls(self.filters[2], self.UpChannels, **self.da_block_config),
-            self.filters[2]+self.UpChannels,
+            # 2*self.UpChannels,  # for EmbeddedDisagreementAttentionBlock
+            self.filters[2]+self.UpChannels,  # for the rest of attentions
             # atttention to X
             # da_block_cls(self.UpChannels, self.filters[2], **self.da_block_config), 2*self.UpChannels,
             self.UpChannels
@@ -62,7 +69,8 @@ class UNet_3Plus_Intra_DA(UNet_3Plus):
         self.intra_da_hd2 = DAConvBlock(
             # attention to skip_connection
             da_block_cls(self.filters[1], self.UpChannels, **self.da_block_config),
-            self.filters[1]+self.UpChannels,
+            # 2*self.UpChannels,  # for EmbeddedDisagreementAttentionBlock
+            self.filters[1]+self.UpChannels,  # for the rest of attentions
             # atttention to X
             # da_block_cls(self.UpChannels, self.filters[1], **self.da_block_config), 2*self.UpChannels,
             self.UpChannels
@@ -71,11 +79,15 @@ class UNet_3Plus_Intra_DA(UNet_3Plus):
         self.intra_da_hd1 = DAConvBlock(
             # attention to skip_connection
             da_block_cls(self.filters[0], self.UpChannels, **self.da_block_config),
-            self.filters[0]+self.UpChannels,
+            # 2*self.UpChannels,  # for EmbeddedDisagreementAttentionBlock
+            self.filters[0]+self.UpChannels,  # for the rest of attentions
             # atttention to X
             # da_block_cls(self.UpChannels, self.filters[0], **self.da_block_config), 2*self.UpChannels,
             self.UpChannels
         )
+
+        self.initialize_weights(
+            kwargs.get('init_type'), layers_cls=(torch.nn.Conv2d, kwargs.get('batchnorm_cls')))
 
     def forward_1(self, x: torch.Tensor):
         assert isinstance(x, torch.Tensor), type(x)
