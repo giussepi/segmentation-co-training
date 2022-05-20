@@ -75,18 +75,24 @@ class AttentionBlock(BaseDisagreementAttentionBlock):
 
         self.w1 = nn.Sequential(
             nn.Conv2d(m1_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            self.batchnorm_cls(self.n_channels)
+            self.batchnorm_cls(self.n_channels)  # not present in original implementation
         )
         self.w2 = nn.Sequential(
             nn.Conv2d(m2_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            self.batchnorm_cls(self.n_channels)
+            self.batchnorm_cls(self.n_channels)  # not present in original implementation
         )
         self.act_with_attention = nn.Sequential(
             nn.ReLU(),
             nn.Conv2d(self.n_channels, 1, kernel_size=1, stride=1, padding=0, bias=True),
-            self.batchnorm_cls(1),
+            self.batchnorm_cls(1),  # not present in original implementation
             nn.Sigmoid()
         )
+
+        # not from original implementation but some authors used it
+        # self.output = nn.Sequential(
+        #     nn.Conv2d(m1_act, m1_act, kernel_size=1, stride=1, padding=0, bias=True),
+        #     self.batchnorm_cls(m1_act)
+        # )
 
         # initialise weights
         # for m in self.modules():
@@ -110,5 +116,6 @@ class AttentionBlock(BaseDisagreementAttentionBlock):
         wact2 = self.resample(wact2)
         attention = self.act_with_attention(wact1+wact2)
         skip_with_attention = act1 * attention
+        # act1_with_attention = self.output(act1_with_attention)
 
         return skip_with_attention, attention
