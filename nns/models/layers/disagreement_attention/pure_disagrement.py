@@ -60,18 +60,24 @@ class PureDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
 
         self.w1 = nn.Sequential(
             nn.Conv2d(m1_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            self.batchnorm_cls(self.n_channels)
+            self.batchnorm_cls(self.n_channels)  # not present in original implementation
         )
         self.w2 = nn.Sequential(
             nn.Conv2d(m2_act, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
-            self.batchnorm_cls(self.n_channels)
+            self.batchnorm_cls(self.n_channels)  # not present in original implementation
         )
         self.attention_2to1 = nn.Sequential(
             nn.ReLU(),
             nn.Conv2d(self.n_channels, 1, kernel_size=1, stride=1, padding=0, bias=True),
-            self.batchnorm_cls(1),
+            self.batchnorm_cls(1),  # not present in original implementation
             nn.Sigmoid()
         )
+
+        # not from original implementation but some authors used it
+        # self.output = nn.Sequential(
+        #     nn.Conv2d(m1_act, m1_act, kernel_size=1, stride=1, padding=0, bias=True),
+        #     self.batchnorm_cls(m1_act)
+        # )
 
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
@@ -87,5 +93,6 @@ class PureDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
         delta_phi2 = self.resample(wact2) - wact1
         attention = self.attention_2to1(delta_phi2)
         act1_with_attention = act1 * attention
+        # act1_with_attention = self.output(act1_with_attention)
 
         return act1_with_attention, attention
