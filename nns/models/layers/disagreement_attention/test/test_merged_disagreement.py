@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/test/test_pure_disagreement """
+""" nns/models/layers/disagreement_attention/test/test_merged_disagreement """
 
 import unittest
 
