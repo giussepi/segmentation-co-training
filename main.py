@@ -568,6 +568,7 @@ def main():
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
+        sanity_checks=False,
         labels_data=BinaryCoNSeP,
         dataset=OfflineCoNSePDataset,
         dataset_kwargs={

@@ -27,6 +27,7 @@ from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.checkpoints import CheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
+from nns.mixins.sanity_checks import SanityChecksMixin
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
 from nns.mixins.subdatasets import SubDatasetsMixin
 from nns.utils.sync_batchnorm import patch_replication_callback
@@ -35,7 +36,7 @@ from nns.utils.sync_batchnorm import patch_replication_callback
 __all__ = ['ModelMGRMixin']
 
 
-class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
+class ModelMGRMixin(SanityChecksMixin, CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
     """
     General segmentation model manager
 
@@ -53,6 +54,7 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
             intrain_val=2,
             optimizer=torch.optim.Adam,
             optimizer_kwargs=dict(lr=1e-3),
+            sanity_checks=True,
             labels_data=MyLabelClass,
             ###################################################################
             #                         SubDatasetsMixin                         #
@@ -122,6 +124,7 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
                                the learning rate. Default 10
             optimizer: optimizer class from torch.optim
             optimizer_kwargs: optimizer keyword arguments
+            sanity_checks <bool>: Whether or not run model sanity checks. Default False
             labels_data <object>: class containing all the details of the classes/labels. See
                                    nns.callbacks.plotters.masks.MaskPlotter definition
             ###################################################################
@@ -190,6 +193,7 @@ If true it track the loss values, else it tracks the metric values.
         self.intrain_val = kwargs.get('intrain_val', 10)
         self.optimizer = kwargs.get('optimizer', torch.optim.RMSprop)
         self.optimizer_kwargs = kwargs.get('optimizer_kwargs', dict(lr=1e-4, weight_decay=1e-8, momentum=.9))
+        self.sanity_checks = kwargs.get('sanity_checks', False)
         self.labels_data = kwargs['labels_data']
         self.dataset = kwargs['dataset']
 
@@ -543,6 +547,9 @@ If true it track the loss values, else it tracks the metric values.
             mask_plotter = None
 
         self.model.eval()
+
+        if self.sanity_checks:
+            self.disable_sanity_checks()
         n_val = len(dataloader)  # the number of batchs
         loss = imgs_counter = 0
         # the folowing variables will store extra data from the last validation batch
@@ -566,6 +573,9 @@ If true it track the loss values, else it tracks the metric values.
             func_plot_palette(os.path.join(saving_dir, 'label_palette.png'))
 
         self.model.train()
+
+        if self.sanity_checks:
+            self.enable_sanity_checks()
 
         return loss / n_val, metrics, extra_data
 
@@ -647,6 +657,9 @@ If true it track the loss values, else it tracks the metric values.
         global_step = 0
         step_divider = self.n_train // (self.intrain_val * self.train_dataloader_kwargs['batch_size'])
         optimizer = self.optimizer(self.model.parameters(), **self.optimizer_kwargs)
+
+        if self.sanity_checks:
+            self.add_sanity_checks(optimizer)
 
         if self.cuda:
             scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
