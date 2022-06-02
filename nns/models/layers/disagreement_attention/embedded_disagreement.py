@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/merged_disagreement """
+""" nns/models/layers/disagreement_attention/embedded_disagreement """
 
 import torch
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
