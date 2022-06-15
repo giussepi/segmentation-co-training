@@ -46,7 +46,7 @@ class EmbeddedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
             # FIXME: depending on how well the new forward methods works this resample logic coulb need
                      to be changed
             resample  <Callable>: Resample operation to be applied to activations2 to match activations1
-                                  (e.g. identity, pooling, strided convolution, upconv, etc).
+                                  (e.g. identity, pooling, strided convolution, upconv, UpSample, etc).
                                   Default nn.Identity()
             batchnorm_cls <_BatchNorm>: Batch normalization class to be used.
                                   Default nn.BatchNorm2d
