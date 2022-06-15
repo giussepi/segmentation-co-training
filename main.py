@@ -29,7 +29,7 @@ from nns.managers import ModelMGR, DAModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
-    UNet_3Plus_Intra_DA
+    UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS
 from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock, \
     MergedDisagreementAttentionBlock, PureDisagreementAttentionBlock, EmbeddedDisagreementAttentionBlock, \
     AttentionBlock
