@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/test/test_embedded_disagreement """
+""" nns/models/layers/disagreement_attention/test/test_mixed_embedded_disagreement """
 
 import unittest
 from functools import reduce
