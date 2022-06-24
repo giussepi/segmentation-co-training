@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """ nns/models/layers/disagreement_attention/mixed_merged_disagreement """
 
+from typing import Callable
+
 import torch
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from torch import nn
-from typing import Callable
 
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 
