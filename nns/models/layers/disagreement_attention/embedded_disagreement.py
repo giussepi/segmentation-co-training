@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """ nns/models/layers/disagreement_attention/embedded_disagreement """
 
+from typing import Callable
+
 import torch
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from torch import nn
-from typing import Callable
 
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 
@@ -74,32 +75,6 @@ class EmbeddedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
             nn.Sigmoid()
         )
 
-    def forward(self, act1: torch.Tensor, act2: torch.Tensor):
-        """
-        Kwargs:
-            act1 <torch.Tensor>: activations maps which will receive the attention
-            act2 <torch.Tensor>: activations maps employed to calculate the attention
-
-        Returns:
-            activations1_with_attention <torch.Tensor>, attention <torch.Tensor>
-        """
-        wact1 = self.w1(act1)
-        wact2 = self.w2(act2)
-        wact2 = self.resample(wact2)
-        act1_with_attention = wact2 + torch.abs(wact2 - wact1)
-        # FIXME: I cannot divide by act1 because at some point at some point
-        # the number of channels from act1_with_attention and wact1 might be different
-        # attention = self.attention_2to1(act1_with_attention/act1)
-        # If want to do this
-        attention = self.attention_2to1(act1_with_attention/wact1)
-        # I will have to replace the DAConvBlock conv_in_channels
-        # from self.filters[x]+self.UpChannels to 2*self.UpChannles
-        # from self.intra_da_hd3 and onwards (in UNet_3Plus_Intra_DA)
-        # OR FIND A BETTER SOLUTION (adding extra layers to process
-        # the results could work...)
-
-        return act1_with_attention, attention
-
     # def forward(self, act1: torch.Tensor, act2: torch.Tensor):
     #     """
     #     Kwargs:
@@ -110,9 +85,35 @@ class EmbeddedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
     #         activations1_with_attention <torch.Tensor>, attention <torch.Tensor>
     #     """
     #     wact1 = self.w1(act1)
-    #     wact2 = self.resample(self.w2(act2))
-    #     delta_act2 = wact2 + torch.abs(wact2 - wact1)
-    #     attention = self.attention_2to1(delta_act2)
-    #     act1_with_attention = act1 * attention
+    #     wact2 = self.w2(act2)
+    #     wact2 = self.resample(wact2)
+    #     act1_with_attention = wact2 + torch.abs(wact2 - wact1)
+    #     # FIXME: I cannot divide by act1 because at some point at some point
+    #     # the number of channels from act1_with_attention and wact1 might be different
+    #     # attention = self.attention_2to1(act1_with_attention/act1)
+    #     # If want to do this
+    #     attention = self.attention_2to1(act1_with_attention/wact1)
+    #     # I will have to replace the DAConvBlock conv_in_channels
+    #     # from self.filters[x]+self.UpChannels to 2*self.UpChannles
+    #     # from self.intra_da_hd3 and onwards (in UNet_3Plus_Intra_DA)
+    #     # OR FIND A BETTER SOLUTION (adding extra layers to process
+    #     # the results could work...)
 
     #     return act1_with_attention, attention
+
+    def forward(self, act1: torch.Tensor, act2: torch.Tensor):
+        """
+        Kwargs:
+            act1 <torch.Tensor>: activations maps which will receive the attention
+            act2 <torch.Tensor>: activations maps employed to calculate the attention
+
+        Returns:
+            activations1_with_attention <torch.Tensor>, attention <torch.Tensor>
+        """
+        wact1 = self.w1(act1)
+        wact2 = self.resample(self.w2(act2))
+        delta_act2 = wact2 + torch.abs(wact2 - wact1)
+        attention = self.attention_2to1(delta_act2)
+        act1_with_attention = act1 * attention
+
+        return act1_with_attention, attention
