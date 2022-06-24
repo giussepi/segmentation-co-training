@@ -55,7 +55,9 @@ class BaseDisagreementAttentionBlock(nn.Module):
         assert issubclass(batchnorm_cls, nn.modules.batchnorm._BatchNorm), type(self.batchnom_cls)
         UNet3InitMethod.validate(init_type)
 
-        self.n_channels = max(m1_act, m2_act) if n_channels == -1 else n_channels
+        self.m1_act = m1_act
+        self.m2_act = m2_act
+        self.n_channels = max(self.m1_act, self.m2_act) if n_channels == -1 else n_channels
         self.resample = resample
         self.batchnorm_cls = batchnorm_cls
         self.init_type = init_type
