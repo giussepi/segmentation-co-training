@@ -16,7 +16,7 @@ __all__ = ['AttentionBlock']
 
 class AttentionBlock(BaseDisagreementAttentionBlock):
     r"""
-    Calculates the attention and returns the act1 with the computed attention
+    Calculates the standard UNet attention and returns the act1 with the computed attention
 
     \begin{equation}
     \begin{split}
