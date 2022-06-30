@@ -529,8 +529,8 @@ def main():
     #     criterions=[
     #         # torch.nn.BCEWithLogitsLoss()
     #         # torch.nn.CrossEntropyLoss()
-    #         # loss_functions.BceDiceLoss(with_logits=True),
-    #         BceDiceLoss(),
+    #         loss_functions.BceDiceLoss(with_logits=True),
+    #         # BceDiceLoss(),
     #         loss_functions.SpecificityLoss(with_logits=True),
     #     ],
     #     mask_threshold=0.5,
@@ -555,23 +555,23 @@ def main():
 
     # model6 = dict(
     model6 = ModelMGR(
-        model=XAttentionUNet,  # AttentionUNet2, # UNet_3Plus,
-        model_kwargs=dict(da_block_cls=AttentionBlock,
-                          # da_block_config=dict(thresholds=(.25, .8), beta=0., n_channels=-1),
-                          # da_block_config=dict(n_channels=-1),
-                          # is_deconv=False,
-                          bilinear=True,  # UNet_Intra_DA only
-                          n_channels=3, n_classes=1,
-                          init_type=UNet3InitMethod.KAIMING,
-                          batchnorm_cls=get_batchnorm2d_class()
-                          ),
+        model=UNet,  # XAttentionUNet,  # AttentionUNet,  # AttentionUNet2, # XAttentionUNet, # UNet_3Plus,
+        model_kwargs=dict(  # da_block_cls=MixedEmbeddedDisagreementAttentionBlock,
+            # da_block_config=dict(thresholds=(.25, .8), beta=0., n_channels=-1),
+            # da_block_config=dict(n_channels=-1),
+            # is_deconv=False,
+            bilinear=True,  # XAttentionUNet only
+            n_channels=3, n_classes=1,
+            # init_type=UNet3InitMethod.KAIMING,
+            # batchnorm_cls=get_batchnorm2d_class()
+        ),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
         epochs=30,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
-        optimizer_kwargs=dict(lr=1e-5),  # lr=1e-3
+        optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
         sanity_checks=False,
         labels_data=BinaryCoNSeP,
         dataset=OfflineCoNSePDataset,
@@ -595,8 +595,8 @@ def main():
         criterions=[
             # torch.nn.BCEWithLogitsLoss()
             # torch.nn.CrossEntropyLoss()
-            # loss_functions.BceDiceLoss(with_logits=True),
-            BceDiceLoss(),
+            loss_functions.BceDiceLoss(with_logits=True),
+            # BceDiceLoss(),
             loss_functions.SpecificityLoss(with_logits=True),
         ],
         mask_threshold=0.5,
