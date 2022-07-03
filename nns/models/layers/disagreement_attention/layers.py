@@ -231,7 +231,7 @@ class AttentionConvBlock(torch.nn.Module):
             da, att = self.identity(decoder_x), None
         else:
             # attention to X
-            # da, att = self.dattentionblock(dx, skip_connection)
+            # da, att = self.dattentionblock(decoder_x, skip_connection)
             # attention to skip_connection
             da, att = self.dattentionblock(skip_connection, decoder_x)
 
