@@ -58,7 +58,7 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
                                   Default UNet3InitMethod.KAIMING
             thresholds   <tuple>: Tuple with the lower and upper disagreement thresholds. If not value is
                                   provided is is set to (.25, .8). Default = None
-            beta         <floar>: User-defined attention boost in range ]0,1[. Set it to a negative value
+            beta         <float>: User-defined attention boost in range ]0,1[. Set it to a negative value
                                   to not use it and set all values not included in the feature disagreement
                                   index psi2 to zero. Default -1.0
         """
@@ -115,6 +115,8 @@ class ThresholdedDisagreementAttentionBlock(BaseDisagreementAttentionBlock):
         # delta_phi2 = resampled_wact2 * torch.relu(delta_phi2)  # opt3
         delta_phi2 = resampled_wact2 + torch.relu(delta_phi2)  # opt2
         # delta_phi2 = resampled_wact2 * (torch.relu(delta_phi2)+1)  # opt1
+        # FIXME: some values were -7, 6. So to effectively apply a threshold
+        #        should I apply RElU first????
         psi2 = (torch.sigmoid(resampled_wact2) > self.thresholds[1]) * \
             (torch.sigmoid(wact1) < self.thresholds[0])
 
