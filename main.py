@@ -555,16 +555,16 @@ def main():
 
     # model6 = dict(
     model6 = ModelMGR(
-        model=UNet,  # XAttentionUNet,  # AttentionUNet,  # AttentionUNet2, # XAttentionUNet, # UNet_3Plus,
-        model_kwargs=dict(  # da_block_cls=MixedEmbeddedDisagreementAttentionBlock,
-            # da_block_config=dict(thresholds=(.25, .8), beta=0., n_channels=-1),
-            # da_block_config=dict(n_channels=-1),
-            # is_deconv=False,
-            bilinear=True,  # XAttentionUNet only
-            n_channels=3, n_classes=1,
-            # init_type=UNet3InitMethod.KAIMING,
-            # batchnorm_cls=get_batchnorm2d_class()
-        ),
+        model=XAttentionUNet,  # AttentionUNet2, # XAttentionUNet, # UNet_3Plus,
+        model_kwargs=dict(da_block_cls=AttentionBlock,
+                          # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
+                          # da_block_config=dict(n_channels=-1),
+                          # is_deconv=False,
+                          bilinear=True,  # XAttentionUNet only
+                          n_channels=3, n_classes=1,
+                          init_type=UNet3InitMethod.KAIMING,
+                          batchnorm_cls=get_batchnorm2d_class()
+                          ),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
