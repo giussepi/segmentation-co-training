@@ -83,7 +83,7 @@ class ASPP(nn.Module):
             global_feature = self.branch5_conv(global_feature)
             global_feature = self.branch5_bn(global_feature)
             global_feature = self.branch5_relu(global_feature)
-            global_feature = F.interpolate(global_feature, (row, col), None, 'bilinear', align_corners=True)
+            global_feature = F.interpolate(global_feature, (row, col), None, 'bilinear', align_corners=False)
 
             feature_cat = torch.cat([conv1x1, conv3x3_1, conv3x3_2, conv3x3_3, global_feature], dim=1)
         else:

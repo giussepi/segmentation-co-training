@@ -105,15 +105,15 @@ class Deeplabv3plus(nn.Module):
 
         feature_shallow = self.shortcut_conv(l1)
         n, c, h, w = feature_shallow.size()
-        feature_aspp = F.interpolate(feature_aspp, (h, w), mode='bilinear', align_corners=True)
+        feature_aspp = F.interpolate(feature_aspp, (h, w), mode='bilinear', align_corners=False)
         feature_cat = torch.cat([feature_aspp, feature_shallow], 1)
         feature = self.cat_conv(feature_cat)
         result = self.cls_conv(feature)
-        result = F.interpolate(result, (H, W), mode='bilinear', align_corners=True)
+        result = F.interpolate(result, (H, W), mode='bilinear', align_corners=False)
 
         if getf:
             if interpolate:
-                feature = F.interpolate(feature, (H, W), mode='bilinear', align_corners=True)
+                feature = F.interpolate(feature, (H, W), mode='bilinear', align_corners=False)
             return result, feature
 
         return result

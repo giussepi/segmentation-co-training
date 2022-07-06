@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" gtorch_utils/nns/models/segmentation/unet/model """
+""" nns/models/attention_unet2 """
 
 import torch
 
@@ -17,7 +17,7 @@ class UpConv(torch.nn.Module):
         super().__init__()
 
         self.up = torch.nn.Sequential(
-            torch.nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
+            torch.nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
             DoubleConv(in_channels, out_channels, batchnorm_cls=batchnorm_cls)
             # torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=True),
             # torch.nn.BatchNorm2d(out_channels),
