@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/test/test_embedded_disagreement """
+""" nns/models/layers/disagreement_attention/inter_class/test/test_mixed_embedded_disagreement """
 
 import unittest
 from functools import reduce
@@ -7,7 +7,7 @@ from functools import reduce
 import torch
 from torch.nn.functional import interpolate
 
-from nns.models.layers.disagreement_attention import EmbeddedDisagreementAttentionBlock
+from nns.models.layers.disagreement_attention.inter_class import MixedEmbeddedDisagreementAttentionBlock
 
 
 def downsample(x: torch.Tensor):
@@ -15,13 +15,13 @@ def downsample(x: torch.Tensor):
     return interpolate(x, scale_factor=.5, mode='bilinear', align_corners=False)
 
 
-class Test_EmbeddedDisagreementAttentionBlock(unittest.TestCase):
+class Test_MixedEmbeddedDisagreementAttentionBlock(unittest.TestCase):
 
     def test_forward(self):
         act1 = torch.randn(1, 2, 3, 3)
         act2 = torch.randn(1, 2, 3, 3)
 
-        act1_with_attention, attention = EmbeddedDisagreementAttentionBlock(
+        act1_with_attention, attention = MixedEmbeddedDisagreementAttentionBlock(
             act1.size(1), act2.size(1))(act1, act2)
 
         self.assertIsInstance(act1_with_attention, torch.Tensor)
@@ -35,7 +35,7 @@ class Test_EmbeddedDisagreementAttentionBlock(unittest.TestCase):
         act1 = torch.randn(1, 2, 3, 3)
         act2 = torch.randn(1, 2, 6, 6)
 
-        act1_with_attention, attention = EmbeddedDisagreementAttentionBlock(
+        act1_with_attention, attention = MixedEmbeddedDisagreementAttentionBlock(
             act1.size(1), act2.size(1), resample=downsample)(act1, act2)
 
         self.assertIsInstance(act1_with_attention, torch.Tensor)
@@ -50,7 +50,7 @@ class Test_EmbeddedDisagreementAttentionBlock(unittest.TestCase):
         act2 = torch.randn(1, 2, 6, 6)
 
         with self.assertRaises(RuntimeError):
-            act1_with_attention, attention = EmbeddedDisagreementAttentionBlock(
+            act1_with_attention, attention = MixedEmbeddedDisagreementAttentionBlock(
                 act1.size(1), act2.size(1))(act1, act2)
 
 

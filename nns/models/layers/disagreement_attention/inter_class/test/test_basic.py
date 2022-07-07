@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/test/test_gating_signal """
+""" nns/models/layers/disagreement_attention/inter_class/test/test_gating_signal """
 
 import unittest
 
 import torch
 
-from nns.models.layers.disagreement_attention import AttentionBlock
+from nns.models.layers.disagreement_attention.inter_class import AttentionBlock
 
 
 class Test_AttentionBlock(unittest.TestCase):

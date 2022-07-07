@@ -9,7 +9,7 @@ from gtorch_utils.nns.models.segmentation import UNet_3Plus
 from gtorch_utils.utils.images import apply_padding
 
 from nns.models.da_model import BaseDATrain
-from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock
+from nns.models.layers.disagreement_attention.inter_class import ThresholdedDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.layers import DAConvBlock
 

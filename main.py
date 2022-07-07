@@ -32,9 +32,7 @@ from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3
     UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS, UNet_3Plus_Intra_DA_GS_HDX, XAttentionUNet, UNet2D, \
     UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
     MultiAttentionBlock
-from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock, \
-    MergedDisagreementAttentionBlock, PureDisagreementAttentionBlock, EmbeddedDisagreementAttentionBlock, \
-    AttentionBlock, MixedEmbeddedDisagreementAttentionBlock
+from nns.models.layers.disagreement_attention import inter_class
 from nns.models.layers.disagreement_attention import intra_class
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
 from nns.segmentation.learning_algorithms import CoTraining, DACoTraining
@@ -421,13 +419,13 @@ def main():
         model_cls=UNet_3Plus_DA_Train,
         model_kwargs=dict(
             model1_cls=UNet_3Plus_DA,
-            kwargs1=dict(da_threshold=np.NINF, da_block_cls=ThresholdedDisagreementAttentionBlock,
+            kwargs1=dict(da_threshold=np.NINF, da_block_cls=inter_class.ThresholdedDisagreementAttentionBlock,
                          da_block_config=dict(thresholds=(.25, .8), beta=0.),
                          # da_merging_type=AttentionMergingType.MAX,
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
                          batchnorm_cls=get_batchnorm2d_class()),
             model2_cls=UNet_3Plus_DA,
-            kwargs2=dict(da_threshold=np.NINF, da_block_cls=ThresholdedDisagreementAttentionBlock,
+            kwargs2=dict(da_threshold=np.NINF, da_block_cls=inter_class.ThresholdedDisagreementAttentionBlock,
                          da_block_config=dict(thresholds=(.25, .8), beta=0.),
                          # da_merging_type=AttentionMergingType.MAX,
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,

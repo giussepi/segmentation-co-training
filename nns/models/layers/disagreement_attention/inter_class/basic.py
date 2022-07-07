@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/basic """
+""" nns/models/layers/disagreement_attention/inter_class/basic """
 
 from typing import Callable
 
