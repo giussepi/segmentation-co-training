@@ -29,10 +29,13 @@ from nns.managers import ModelMGR, DAModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
-    UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS, UNet_3Plus_Intra_DA_GS_HDX, XAttentionUNet
+    UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS, UNet_3Plus_Intra_DA_GS_HDX, XAttentionUNet, UNet2D, \
+    UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
+    MultiAttentionBlock
 from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock, \
     MergedDisagreementAttentionBlock, PureDisagreementAttentionBlock, EmbeddedDisagreementAttentionBlock, \
     AttentionBlock, MixedEmbeddedDisagreementAttentionBlock
+from nns.models.layers.disagreement_attention import intra_class
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
 from nns.segmentation.learning_algorithms import CoTraining, DACoTraining
 from nns.segmentation.utils.postprocessing import ExpandPrediction
@@ -555,13 +558,15 @@ def main():
 
     # model6 = dict(
     model6 = ModelMGR(
-        model=XAttentionUNet,  # AttentionUNet2, # XAttentionUNet, # UNet_3Plus,
-        model_kwargs=dict(da_block_cls=AttentionBlock,
+        model=XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
+        model_kwargs=dict(da_block_cls=intra_class.AttentionBlock,
                           # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
                           # da_block_config=dict(n_channels=-1),
-                          # is_deconv=False,
+                          # is_deconv=True,
+                          # feature_scale=1, is_batchnorm=True,
                           bilinear=True,  # XAttentionUNet only
                           n_channels=3, n_classes=1,
+                          # attention_block_cls=SingleAttentionBlock,
                           init_type=UNet3InitMethod.KAIMING,
                           batchnorm_cls=get_batchnorm2d_class()
                           ),

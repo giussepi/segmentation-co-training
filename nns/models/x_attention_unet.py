@@ -4,11 +4,13 @@
 from typing import Optional
 
 import torch
-from torch.nn.modules.batchnorm import _BatchNorm
-from gtorch_utils.nns.models.segmentation.unet.unet_parts import DoubleConv, Down, OutConv
+from logzero import logger
+from gtorch_utils.nns.models.segmentation.unet.unet_parts import DoubleConv, Down, OutConv,\
+    UpConcat, UnetDsv, UnetGridGatingSignal
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
+from torch.nn.modules.batchnorm import _BatchNorm
 
-from nns.models.layers.disagreement_attention import AttentionBlock
+from nns.models.layers.disagreement_attention.intra_class import AttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.layers import AttentionConvBlock
 from nns.models.mixins import InitMixin
@@ -21,7 +23,8 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
     """
     Attention UNet with a replaceable attention unit
 
-    Inspired on: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py
+    Based on: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py and
+    https://github.com/ozan-oktay/Attention-Gated-Networks/blob/master/models/networks/unet_CT_single_att_dsv_3D.py
     """
 
     def __init__(
@@ -42,9 +45,12 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
             init_type        <int>: Initialization method. Default UNet3InitMethod.KAIMING
             da_block_cls <BaseDisagreementAttentionBlock>: Attention block to be used.
                                     Default AttentionBlock (the standard attention for Unet)
-            da_block_config <dict>: Configuration for the instance to be created from da_block_cls
+            da_block_config <dict>: Configuration for the instance to be created from da_block_cls.
+                                    DO NOT PROVIDE 'n_channels' IN THIS DICTIONARY. It will be removed
+                                    because it is properly defined per AttentionConvBlock
         """
         super().__init__()
+
         # attributes initalization ############################################
         self.n_channels = n_channels
         self.n_classes = n_classes
@@ -63,12 +69,18 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
         assert isinstance(self.bilinear, bool), type(self.bilinear)
         assert issubclass(self.batchnorm_cls, _BatchNorm), type(self.batchnom_cls)
         UNet3InitMethod.validate(self.init_type)
-
         assert issubclass(self.da_block_cls, BaseDisagreementAttentionBlock), \
             f'{self.da_block_cls} is not a descendant of BaseDisagreementAttentionBlock'
+
         # adding extra configuration to da_block_config
         self.da_block_config['batchnorm_cls'] = self.batchnorm_cls
         self.da_block_config['init_type'] = self.init_type
+
+        # removing n_channels from da_block_config, because this value is already
+        # defined per AttentionConvBlock
+        if 'n_channels' in self.da_block_config:
+            logger.warning(f'n_channels: {self.da_block_config["n_channels"]} has been removed from da_block_config')
+            self.da_block_config.pop('n_channels')
 
         self.filters = [64, 128, 256, 512, 1024]
 
@@ -78,16 +90,20 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
         self.down2 = Down(self.filters[1], self.filters[2], self.batchnorm_cls)
         self.down3 = Down(self.filters[2], self.filters[3], self.batchnorm_cls)
         factor = 2 if self.bilinear else 1
-        self.down4 = Down(self.filters[3], self.filters[4] // factor, self.batchnorm_cls)
+        self.down4 = Down(self.filters[3], self.filters[4] // factor, self.batchnorm_cls)  # centre
+        self.gating = UnetGridGatingSignal(
+            self.filters[4] // factor, self.filters[4] // factor, kernel_size=1,
+            batchnorm_cls=self.batchnorm_cls
+        )
 
         # Decoder layers ######################################################
         # intra-class DA skip-con down3 & gating signal down4 -> up1
         self.up1_with_da = AttentionConvBlock(
             # attention to skip_connection
-            self.da_block_cls(self.filters[3], self.filters[4] // 2,
-                              # resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'),
+            self.da_block_cls(self.filters[3], self.filters[4] // factor,
+                              n_channels=self.filters[3],
                               **self.da_block_config),
-            2*self.filters[3],
+            self.filters[3] + (self.filters[4] // factor),
             self.filters[3] // factor,
             batchnorm_cls=self.batchnorm_cls,
             bilinear=self.bilinear
@@ -95,10 +111,10 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
         # intra-class DA skip conn. down2 & gating signal up1_with_da -> up2
         self.up2_with_da = AttentionConvBlock(
             # attention to skip_connection
-            self.da_block_cls(self.filters[2], self.filters[3] // 2,
-                              # resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'),
+            self.da_block_cls(self.filters[2], self.filters[3] // factor,
+                              n_channels=self.filters[2],
                               **self.da_block_config),
-            2*self.filters[2],
+            self.filters[2] + (self.filters[3] // factor),
             self.filters[2] // factor,
             batchnorm_cls=self.batchnorm_cls,
             bilinear=self.bilinear
@@ -106,27 +122,24 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
         # intra-class DA skip conn. down1 & gating signal up2_with_da -> up3
         self.up3_with_da = AttentionConvBlock(
             # attention to skip_connection
-            da_block_cls(self.filters[1], self.filters[2] // 2,
-                         # resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'),
+            da_block_cls(self.filters[1], self.filters[2] // factor,
+                         n_channels=self.filters[1],
                          **self.da_block_config),
-            2*self.filters[1],
+            self.filters[1] + (self.filters[2] // factor),
             self.filters[1] // factor,
             batchnorm_cls=self.batchnorm_cls,
             bilinear=self.bilinear
         )
-        # intra-class DA skip conn. inc & gating signal up_3_with_da -> up4
-        # TODO: not sure if this last DA attention block is necessary
-        self.up4_with_da = AttentionConvBlock(
-            # attention to skip_connection
-            da_block_cls(self.filters[0], self.filters[1] // 2,
-                         # resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'),
-                         **self.da_block_config),
-            2*self.filters[0],
-            self.filters[0],
-            batchnorm_cls=self.batchnorm_cls,
-            bilinear=self.bilinear
-        )
-        self.outc = OutConv(self.filters[0], n_classes)
+        self.up4 = UpConcat(self.filters[1] // factor, self.filters[0], self.bilinear, self.batchnorm_cls)
+
+        # deep supervision
+        self.dsv1 = UnetDsv(in_size=self.filters[3] // factor, out_size=self.n_classes, scale_factor=8)
+        self.dsv2 = UnetDsv(in_size=self.filters[2] // factor, out_size=self.n_classes, scale_factor=4)
+        self.dsv3 = UnetDsv(in_size=self.filters[1] // factor, out_size=self.n_classes, scale_factor=2)
+        self.dsv4 = torch.nn.Conv2d(in_channels=self.filters[0], out_channels=self.n_classes, kernel_size=1)
+
+        # self.outc = OutConv(self.filters[0], self.n_classes) original
+        self.outc = OutConv(self.n_classes*4, self.n_classes)  # using deep supervision
 
         # initializing weights ################################################
         self.initialize_weights(self.init_type, layers_cls=(torch.nn.Conv2d, self.batchnorm_cls))
@@ -138,12 +151,22 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
         x3 = self.down2(x2)
         x4 = self.down3(x3)
         x5 = self.down4(x4)
+        gating = self.gating(x5)
 
         # decoder #############################################################
-        x = self.up1_with_da(x5, x4)
-        x = self.up2_with_da(x, x3)
-        x = self.up3_with_da(x, x2)
-        x = self.up4_with_da(x, x1)
-        logits = self.outc(x)
+
+        d1 = self.up1_with_da(x5, x4, central_gating=gating)
+        d2 = self.up2_with_da(d1, x3)
+        d3 = self.up3_with_da(d2, x2)
+        d4 = self.up4(d3, x1)
+
+        # deep supervision ####################################################
+        dsv1 = self.dsv1(d1)
+        dsv2 = self.dsv2(d2)
+        dsv3 = self.dsv3(d3)
+        dsv4 = self.dsv4(d4)
+
+        # logits = self.outc(d4)  # original
+        logits = self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1))  # using deep supervision
 
         return logits

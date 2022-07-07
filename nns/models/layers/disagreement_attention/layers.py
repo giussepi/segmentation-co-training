@@ -13,7 +13,7 @@ from nns.utils import Normalizer
 
 
 __all__ = [
-    'ConvBlock', 'DAConvBlock', 'UnetDAUp', 'AttentionConvBlock', 'DAConvBlockGS', 'AttentionMerging',
+    'ConvBlock', 'DAConvBlock', 'AttentionConvBlock', 'DAConvBlockGS', 'AttentionMerging',
     'AttentionMergingBlock'
 ]
 
@@ -115,49 +115,6 @@ class DAConvBlock(torch.nn.Module):
         return x
 
 
-class UnetDAUp(torch.nn.Module):
-    """
-    Upsampling block AttentionConvBlock. Supports bilinear and standard mode
-    """
-
-    def __init__(
-            self, channels: int, bilinear: bool = True, batchnorm_cls: _BatchNorm = torch.nn.BatchNorm2d):
-        super().__init__()
-
-        assert isinstance(channels, int), type(channels)
-        assert isinstance(bilinear, bool), type(bilinear)
-        assert issubclass(batchnorm_cls, torch.nn.modules.batchnorm._BatchNorm), type(batchnorm_cls)
-
-        self.channels = channels
-        self.bilinear = bilinear
-        self.batchnorm_cls = batchnorm_cls
-
-        # if bilinear, use the normal convolutions to reduce the number of channels
-        if self.bilinear:
-            # Unet slightly modified structure
-            self.up = torch.nn.Sequential(
-                torch.nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
-                torch.nn.Conv2d(self.channels, self.channels, kernel_size=3, padding=1),
-                batchnorm_cls(self.channels),
-                torch.nn.ReLU(inplace=True),
-            )
-        else:
-            # Unet original structure
-            # initially we multiply channels times two because the provided channels parameter is
-            # already divided by two.
-            self.up = torch.nn.Sequential(
-                torch.nn.ConvTranspose2d(self.channels * 2, self.channels, kernel_size=2, stride=2),
-                torch.nn.Conv2d(self.channels, self.channels, kernel_size=3, padding=1),
-                batchnorm_cls(self.channels),
-                torch.nn.ReLU(inplace=True),
-            )
-
-    def forward(self, x):
-        x = self.up(x)
-
-        return x
-
-
 class AttentionConvBlock(torch.nn.Module):
     """
     Attention convolutional block for XAttentionUNet
@@ -179,10 +136,11 @@ class AttentionConvBlock(torch.nn.Module):
                 )
     """
 
-    def __init__(self, dablock_obj: torch.nn.Module, conv_in_channels: int, conv_out_channels: int, /, *,
-                 only_attention: bool = False, batchnorm_cls: _BatchNorm = torch.nn.BatchNorm2d,
-                 bilinear: bool = True
-                 ):
+    def __init__(
+            self, dablock_obj: torch.nn.Module, conv_in_channels: int, conv_out_channels: int, /, *,
+            only_attention: bool = False, batchnorm_cls: _BatchNorm = torch.nn.BatchNorm2d,
+            bilinear: bool = True
+    ):
         """
         Kwargs:
             dablock <torch.nn.Module>: Disagreement attention block instance.
@@ -207,16 +165,19 @@ class AttentionConvBlock(torch.nn.Module):
         self.batchnorm_cls = batchnorm_cls
         self.bilinear = bilinear
 
-        self.up = UnetDAUp(self.dattentionblock.m2_act, self.bilinear, self.batchnorm_cls)
+        self.up = torch.nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
         self.conv_block = DoubleConv(conv_in_channels, conv_out_channels, batchnorm_cls=self.batchnorm_cls)
 
-    def forward(self, x: torch.Tensor, skip_connection: torch.Tensor, /, *, disable_attention: bool = False):
+    def forward(self, x: torch.Tensor, skip_connection: torch.Tensor, /, *, disable_attention: bool = False,
+                central_gating: torch.Tensor = None):
         """
         Kwargs:
             x               <torch.Tensor>: activation/feature maps
             skip_connection <torch.Tensor>: skip connection containing activation/feature maps
             disable_attention       <bool>: When set to True, identity(x) will be used instead of
                                         dattentionblock(x, skip_connection). Default False
+            central_gating  <torch.Tensor>: Gating calculated from the last Down layer (central part of UNet).
+                                            Default None
 
         Returns:
             Union[torch.Tensor, None]
@@ -224,20 +185,27 @@ class AttentionConvBlock(torch.nn.Module):
         assert isinstance(x, torch.Tensor), type(x)
         assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
         assert isinstance(disable_attention, bool), type(disable_attention)
-
-        decoder_x = self.up(x)
+        if central_gating is not None:
+            assert isinstance(central_gating, torch.Tensor), type(central_gating)
 
         if disable_attention:
-            da, att = self.identity(decoder_x), None
+            if central_gating is not None:
+                da, att = self.identity(central_gating), None
+            else:
+                da, att = self.identity(x), None
         else:
             # attention to X
-            # da, att = self.dattentionblock(decoder_x, skip_connection)
+            # da, att = self.dattentionblock(x, skip_connection)
             # attention to skip_connection
-            da, att = self.dattentionblock(skip_connection, decoder_x)
+            if central_gating is not None:
+                da, att = self.dattentionblock(skip_connection, central_gating)
+            else:
+                da, att = self.dattentionblock(skip_connection, x)
 
         if self.only_attention:
             return att
 
+        decoder_x = self.up(x)
         decoder_x = torch.cat((da, decoder_x), dim=1)
         x = self.conv_block(decoder_x)
 
