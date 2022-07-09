@@ -185,6 +185,7 @@ class AttentionConvBlock(torch.nn.Module):
         assert isinstance(x, torch.Tensor), type(x)
         assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
         assert isinstance(disable_attention, bool), type(disable_attention)
+
         if central_gating is not None:
             assert isinstance(central_gating, torch.Tensor), type(central_gating)
 
@@ -205,7 +206,7 @@ class AttentionConvBlock(torch.nn.Module):
         if self.only_attention:
             return att
 
-        decoder_x = self.up(x)
+        decoder_x = self.up(x) if self.dattentionblock.upsample else x
         decoder_x = torch.cat((da, decoder_x), dim=1)
         x = self.conv_block(decoder_x)
 
