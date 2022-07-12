@@ -4,13 +4,17 @@
 
 import glob
 import os
+import re
+import shutil
 from typing import Union
 
 import matplotlib.pyplot as plt
 import nibabel as nib  # INSTALL nibabel
 import numpy as np
 import pydicom as dicom  # INTALL pydicom
+from gutils.decorators import timing
 from gutils.files import get_filename_and_extension
+from gutils.folders import clean_create_folder
 from mpl_toolkits.axes_grid1 import ImageGrid
 from PIL import Image
 from scipy.ndimage import zoom
@@ -117,8 +121,6 @@ class NIfTI:
         Returns:
             resized <np.ndarray>
         """
-        __import__("pdb").set_trace()
-
         assert isinstance(target, tuple), type(target)
         assert len(self.shape) == len(target), \
             'The shapes of ndarray and targets must have the same number of elements'
@@ -255,19 +257,20 @@ class DICOM:
 
 class ProNIfTI(NIfTI):
     """
-    Handles basis operations over pro.nii files created from processed DICOM files
+    Creates and provides methods for basic operations over processed NIfTI (pro.nii.gz) files created
+    from DICOM files
     """
 
     EXTENSION = 'pro.nii.gz'
 
     @staticmethod
-    def create_save(dcm_list: Union[list, tuple], processing: dict = None,
+    def create_save(dcm_list: Union[list, tuple], /, *, processing: dict = None,
                     saving_path: str = 'new_pronifti.pro.nii.gz'):
         """
         Kwargs:
             dcm_list <list, tuple>: iterable containing the DICOM paths
             processing      <dict>: dictionary with all the DICOM->methods and kwargs to be used.
-                                    e.g. dict(resize={(256,256)}). By default all methods receive
+                                    e.g. dict(resize={'target':(256,256)}). By default all methods receive
                                     inplace=True as keyword argument.
                                     Default None
             saving_path      <str>: full path to save the image. Default new_pronifti.pro.nii.gz
@@ -323,7 +326,120 @@ class ProNIfTI(NIfTI):
         raise NotImplementedError
 
 
-def test_clean_3d_ndarray():
+class CT82MGR:
+    """
+    Contains all the logic to methods to process the CT-82 and a dataset that can be consumed by a
+    model
+
+    Usage:
+        CT82MGR()()
+    """
+
+    # TODO: double-check that these folders does not exist even in other downloading links
+    SAVING_LABELS_FOLDER = 'labels'
+    SAVING_CTS_FOLDER = 'images'
+    LABEL_REGEX = r'.+label[0]*(?P<id>\d+).nii.gz'
+
+    def __init__(
+            self,
+            db_path: str = 'CT-82',
+            cts_path: str = os.path.join('manifest-1599750808610', 'Pancreas-CT'),
+            labels_path: str = 'TCIA_pancreas_labels-02-05-2017',
+            saving_path: str = 'CT-82-Pro',
+            target_size: tuple = None,
+            non_existing_ct_folders: tuple = None
+    ):
+        """
+        Initialized the object instance
+
+        Kwargs:
+            db_path     <str>: Path to the main folder containing the dataset. Default 'CT-82'
+            cts_path    <str>: path (relative to db_path) to the main folder containing the CT scans.
+                               Default 'manifest-1599750808610/Pancreas-CT'
+            labels_path <str>: path (relative to db_path) to the main folder containing the labels/masks.
+                               Default 'TCIA_pancreas_labels-02-05-2017'
+            saving_path <str>: Path to the folder where the processed labels and CTs will be stored
+                               Default CT-82-Pro
+            target_size <tuple>: target size of the 3D data height x width x slices.
+                               Default (368, 368, 96)
+            non_existing_ct_folders <tuple>: Tuple containing the id of the non existing CT folders.
+                               Default [25, 70]
+        """
+        self.db_path = db_path
+        self.cts_path = os.path.join(self.db_path, cts_path)
+        self.labels_path = os.path.join(self.db_path, labels_path)
+        self.saving_path = saving_path
+        self.target_size = target_size if target_size is not None else (368, 368, 96)
+        self.non_existing_ct_folders = \
+            non_existing_ct_folders if non_existing_ct_folders is not None else (25, 70)
+
+        assert os.path.isdir(self.db_path), self.db_path
+        assert os.path.isdir(self.cts_path), self.cts_path
+        assert os.path.isdir(self.labels_path), self.labels_path
+        assert isinstance(self.saving_path, str), type(self.saving_path)
+        assert isinstance(self.target_size, tuple), type(tuple)
+        assert len(self.target_size) == 3, len(self.target_size)
+        assert isinstance(self.non_existing_ct_folders, tuple), type(self.non_existing_ct_folders)
+
+        self.saving_labels_folder = os.path.join(self.saving_path, self.SAVING_LABELS_FOLDER)
+        self.saving_cts_folder = os.path.join(self.saving_path, self.SAVING_CTS_FOLDER,)
+        self.label_pattern = re.compile(self.LABEL_REGEX)
+
+    def __call__(self):
+        self.process()
+
+    def _process_labels_cts(self, labels_file: str, cts_folder: str, /):
+        """
+        Processes the NIfTI labels and DICOM scans provided, then results are saved two NIfTI files
+
+        Kwargs:
+            labels_file <str>: path to the NIfTI file to be processed
+            cts_folder  <str>: path to the folder containing the DICOM scans corresponding to the
+                               provided labels_file
+        """
+        labels = NIfTI(labels_file)
+        _, selected_data_idx = labels.clean_3d_ndarray(height=self.target_size[2], inplace=True)
+        # then we apply the resize over the annotated area (ROI)
+        labels.resize(self.target_size, inplace=True)
+        result = self.label_pattern.match(labels_file)
+
+        if result is None:
+            raise RuntimeError(f'The label id from {labels_file} could not be retrieved.')
+
+        label_id = int(result.groupdict()['id'])
+        labels.save_as(os.path.join(self.saving_labels_folder, f'label_{label_id:02d}.nii.gz'))
+        cts_wildcard = os.path.join(cts_folder, '**/*.dcm')
+        selected_dicoms = \
+            np.array(sorted(glob.glob(cts_wildcard, recursive=True)))[selected_data_idx].tolist()
+        ProNIfTI.create_save(
+            selected_dicoms,
+            processing={'resize': {'target': self.target_size[:2]}},
+            saving_path=os.path.join(self.saving_cts_folder, f'CT_{label_id:02}.pro.nii.gz')
+        )
+
+    @timing
+    def process(self):
+        """
+        Processes all the labels/masks and CT scans and saves the results
+        """
+        labels_wildcard = os.path.join(self.labels_path, '*.nii.gz')
+        labels_files = glob.glob(labels_wildcard)
+        labels_files.sort()
+        cts_folders = [os.path.join(self.cts_path, f'PANCREAS_{i:04d}') for i in range(1, 83)]
+        cts_folders.sort()
+
+        clean_create_folder(self.saving_labels_folder)
+        clean_create_folder(self.saving_cts_folder)
+
+        for idx in self.non_existing_ct_folders[::-1]:
+            cts_folders.pop(idx-1)
+            labels_files.pop(idx-1)
+
+        for labels_file, cts_folder in zip(labels_files, cts_folders):
+            self._process_labels_cts(labels_file, cts_folder)
+
+
+def test_NIfTI_clean_3d_ndarray():
     fist_cleaned_slice_idx = 99
     slices_with_data = 71
     path = 'label0001.nii.gz'
@@ -377,7 +493,7 @@ def test_clean_3d_ndarray():
     assert idx.sum() == slices_with_data
 
 
-def test_equalize_historgram():
+def test_DICOM_equalize_historgram():
     img = DICOM('1-001.dcm')
     equalized = img.equalize_histogram()
     assert not np.array_equal(equalized, img.ndarray)
@@ -421,11 +537,39 @@ def test_ProNIfTi_plot():
     os.remove('new_pronifti.pro.nii.gz')
 
 
-# test_clean_3d_ndarray()
-# test_equalize_historgram()
-# test_ProNIfTI_create_save()
-test_ProNIfTi_plot()
+def test_CT82MGR():
+    target_size = (160, 160, 96)
+    mgr = CT82MGR(
+        db_path=os.path.join('test_datasets', 'CT-82'),
+        cts_path='images',
+        labels_path='labels',
+        saving_path='test_CT-82-pro',
+        target_size=target_size
+    )
+    mgr.non_existing_ct_folders = []
+    mgr()
+    assert len(glob.glob(os.path.join(mgr.saving_labels_folder, r'*.nii.gz'))) == 2
+    assert len(glob.glob(os.path.join(mgr.saving_cts_folder, r'*.pro.nii.gz'))) == 2
 
+    for subject in range(1, 3):
+        labels = NIfTI(os.path.join(mgr.saving_labels_folder, f'label_{subject:02d}.nii.gz'))
+        cts = ProNIfTI(os.path.join(mgr.saving_cts_folder, f'CT_{subject:02d}.pro.nii.gz'))
+        assert labels.shape == cts.shape == target_size
+
+    shutil.rmtree(mgr.saving_path)
+
+
+# test_NIfTI_clean_3d_ndarray()
+# test_DICOM_equalize_historgram()
+# test_ProNIfTI_create_save()
+# test_ProNIfTi_plot()
+test_CT82MGR()
+
+##
+a = NIfTI('test_CT-82-pro/labels/label_01.nii.gz')
+a.plot_3d_ndarray()
+b = ProNIfTI('test_CT-82-pro/images/CT_01.pro.nii.gz')
+b.plot(9, 9)
 ##
 path = 'label0001.nii.gz'
 n = NIfTI(path, np.int16)
@@ -470,7 +614,6 @@ plt.show()
 
 ##
 # saving numpy array as NIfTI
-# hereeeee
 # data = np.arange(4*4*3, dtype=np.int16).reshape(4, 4, 3)
 data1 = np.expand_dims(DICOM('1-001.dcm').ndarray, axis=2)
 data2 = np.expand_dims(DICOM('1-002.dcm').ndarray, axis=2)
@@ -547,10 +690,32 @@ for nifti_path in glob.glob(labels_regex):
 print(f'CLEANED DICOMS PER SUBJECT: MIN {min(cleaned_dicoms_per_subject)}, MAX {max(cleaned_dicoms_per_subject)}')
 
 ##
+# creating NIfTI labels with their respective NIfTI images
+n = NIfTI('label0001.nii.gz')
+print(n.ndarray.shape)
+# fisrt we need to select the are containing all the labels
+_, selected_dat_idx = n.clean_3d_ndarray(height=96, inplace=True)
+print(n.ndarray.shape)
+# then we apply the resize over the area of interest (ROI)
+n.resize((368, 368, 96), inplace=True)
+print(n.ndarray.shape)
+n.plot_3d_ndarray()
+print(n.ndarray.shape)
+n.save_as('pro_label_0001.nii.gz')
 
-a = np.array([0, 0, 1, 2, 0]).astype(bool)
-a.nonzero()
+selected_dat_idx.shape
+selected_dat_idx.nonzero()
+dataset_path = 'CT-82'
+path_to_subject_DICOMs = os.path.join(dataset_path, 'manifest-1599750808610', 'Pancreas-CT')
+for i in range(1, 2):
+    folder_regex = os.path.join(path_to_subject_DICOMs, f'PANCREAS_{i:04d}', '**/*.dcm')
+    selected_dicoms = np.array(glob.glob(folder_regex, recursive=True))[selected_dat_idx].tolist()
+    ProNIfTI.create_save(
+        selected_dicoms,
+        processing={'resize': {'target': (256, 256)}}, saving_path=f'pro_CT_{i:02}.pro.nii.gz'
+    )
 
+##
 ###############################################################################
 #                                CT-82 dataset                                #
 ###############################################################################
