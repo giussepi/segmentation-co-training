@@ -6,6 +6,7 @@ import glob
 import os
 import re
 import shutil
+import time
 from typing import Union
 
 import matplotlib.pyplot as plt
@@ -20,6 +21,7 @@ from PIL import Image
 from scipy.ndimage import zoom
 from skimage.exposure import equalize_hist, equalize_adapthist
 from sklearn.preprocessing import MinMaxScaler
+from tqdm import tqdm
 ##
 
 
@@ -335,10 +337,12 @@ class CT82MGR:
         CT82MGR()()
     """
 
-    # TODO: double-check that these folders does not exist even in other downloading links
     SAVING_LABELS_FOLDER = 'labels'
     SAVING_CTS_FOLDER = 'images'
+    GEN_LABEL_FILENAME_TPL = 'label_{:02d}.nii.gz'
+    GEN_CT_FILENAME_TPL = 'CT_{:02}.pro.nii.gz'
     LABEL_REGEX = r'.+label[0]*(?P<id>\d+).nii.gz'
+    VERIFICATION_IMG = 'visual_verification.png'
 
     def __init__(
             self,
@@ -363,7 +367,11 @@ class CT82MGR:
             target_size <tuple>: target size of the 3D data height x width x slices.
                                Default (368, 368, 96)
             non_existing_ct_folders <tuple>: Tuple containing the id of the non existing CT folders.
-                               Default [25, 70]
+                               Default [25, 70].
+                               For the Pancreas CT-82 version 2020/09/10 the cases 25 and 70 were
+                               found to be from the same scan #2, just cropped slightly differently,
+                               so they were removed
+                               https://wiki.cancerimagingarchive.net/display/Public/Pancreas-CT#225140409ddfdf8d3b134d30a5287169935068e3
         """
         self.db_path = db_path
         self.cts_path = os.path.join(self.db_path, cts_path)
@@ -407,14 +415,14 @@ class CT82MGR:
             raise RuntimeError(f'The label id from {labels_file} could not be retrieved.')
 
         label_id = int(result.groupdict()['id'])
-        labels.save_as(os.path.join(self.saving_labels_folder, f'label_{label_id:02d}.nii.gz'))
+        labels.save_as(os.path.join(self.saving_labels_folder, self.GEN_LABEL_FILENAME_TPL.format(label_id)))
         cts_wildcard = os.path.join(cts_folder, '**/*.dcm')
         selected_dicoms = \
             np.array(sorted(glob.glob(cts_wildcard, recursive=True)))[selected_data_idx].tolist()
         ProNIfTI.create_save(
             selected_dicoms,
             processing={'resize': {'target': self.target_size[:2]}},
-            saving_path=os.path.join(self.saving_cts_folder, f'CT_{label_id:02}.pro.nii.gz')
+            saving_path=os.path.join(self.saving_cts_folder, self.GEN_CT_FILENAME_TPL.format(label_id))
         )
 
     @timing
@@ -437,6 +445,75 @@ class CT82MGR:
 
         for labels_file, cts_folder in zip(labels_files, cts_folders):
             self._process_labels_cts(labels_file, cts_folder)
+
+    def perform_visual_verification(
+            self, subject_id: int, /, *, alpha: float = .4, scans: Union[int, list] = 1, clahe: bool = False,
+            rgb_mask: tuple = None
+    ):
+        """
+        To see the changes open visual_verification.png and it will be continuosly updated with new mask data
+
+        Kwargs:
+            subject_id  <int>: chosen id, without leading zeros, from the generated labels (label_<id>.nii.gz)
+                               or CTs (CT_<id>.pro.nii.gz) to be analyzed.
+            alpha     <float>: alpha channel value in range ]0, 1]. Default 0.9
+            scans <int, list>: If set to an integer it will be the number of scans to be analyzed. If
+                               a single-element list is provided it will be the number of scans
+                               to be analyzed, if a two-element list is provided it will be the interval
+                               of slices to be analyzed. Default 1
+            clahe   <bool>: Whether or not apply Contrast Limited Adaptive Histogram Equalization (CLAHE).
+                            Default False
+            rgb_mask   <bool>: RGB colour for the mask. Default (148, 36, 36)
+        """
+        rgb_mask = rgb_mask if rgb_mask else (148, 36, 36)
+
+        assert isinstance(subject_id, int), type(subject_id)
+        assert 0 < alpha <= 1, alpha
+        assert isinstance(scans, (int, list)), type(scans)
+        if isinstance(scans, list):
+            assert len(scans) <= 2, 'scan list can have two elements at most'
+            if len(scans) == 2:
+                assert scans[0] < scans[1]
+        assert isinstance(clahe, bool), type(clahe)
+        assert isinstance(rgb_mask, tuple), type(rgb_mask)
+
+        label = NIfTI(os.path.join(self.saving_labels_folder, self.GEN_LABEL_FILENAME_TPL.format(subject_id)))
+        ct = ProNIfTI(os.path.join(self.saving_cts_folder, self.GEN_CT_FILENAME_TPL.format(subject_id)))
+
+        scans = [scans] if isinstance(scans, int) else [*range(*scans)]
+
+        for scan in scans:
+            mask = label.ndarray[..., scan] * 255
+            image = MinMaxScaler((0, 255), clip=True).fit_transform(ct.ndarray[..., scan])
+
+            if clahe:
+                image = np.asarray(Image.fromarray(np.uint8(image)).convert('L'))
+                image = equalize_adapthist(image)*255
+                image = Image.fromarray(image).convert('RGB')
+            else:
+                image = Image.fromarray(image.astype(np.uint8)).convert('RGB')
+
+            mask = Image.fromarray(mask.T.astype(np.uint8)).convert('RGBA')
+            new_data = []
+
+            # setting black as transparent
+            for item in mask.getdata():
+                if item[0] == item[1] == item[2] == 0:
+                    new_data.append((255, 255, 255, 0))
+                else:
+                    new_data.append((*rgb_mask, 255))
+
+            mask.putdata(new_data)
+            mask_trans = Image.new("RGBA", mask.size)
+            mask_trans = Image.blend(mask_trans, mask, alpha)
+            image.save(self.VERIFICATION_IMG)
+            time.sleep(1)
+            image.paste(mask_trans, (0, 0), mask_trans)
+            image.save(self.VERIFICATION_IMG)
+            time.sleep(1)
+            # plt.imshow(np.asarray(image))
+            # plt.pause(1)
+            # plt.close()
 
 
 def test_NIfTI_clean_3d_ndarray():
@@ -537,8 +614,8 @@ def test_ProNIfTi_plot():
     os.remove('new_pronifti.pro.nii.gz')
 
 
-def test_CT82MGR():
-    target_size = (160, 160, 96)
+def test_CT82MGR_process():
+    target_size = (1024, 1024, 96)  # (160, 160, 96)
     mgr = CT82MGR(
         db_path=os.path.join('test_datasets', 'CT-82'),
         cts_path='images',
@@ -559,18 +636,33 @@ def test_CT82MGR():
     shutil.rmtree(mgr.saving_path)
 
 
+def test_CT82MGR_perform_visual_verification():
+    target_size = (160, 160, 96)  # (1024, 1024, 96)
+    mgr = CT82MGR(
+        db_path=os.path.join('test_datasets', 'CT-82'),
+        cts_path='images',
+        labels_path='labels',
+        saving_path='test_CT-82-pro',
+        target_size=target_size
+    )
+    mgr.non_existing_ct_folders = []
+    mgr()
+    mgr.perform_visual_verification(1, scans=1, clahe=True)
+    # mgr.perform_visual_verification(1, scans=[72], clahe=True)
+    assert os.path.isfile(mgr.VERIFICATION_IMG)
+    os.remove(mgr.VERIFICATION_IMG)
+    shutil.rmtree(mgr.saving_path)
+
+
 # test_NIfTI_clean_3d_ndarray()
 # test_DICOM_equalize_historgram()
 # test_ProNIfTI_create_save()
 # test_ProNIfTi_plot()
-test_CT82MGR()
+# test_CT82MGR()
+test_CT82MGR_perform_visual_verification()
 
 ##
-a = NIfTI('test_CT-82-pro/labels/label_01.nii.gz')
-a.plot_3d_ndarray()
-b = ProNIfTI('test_CT-82-pro/images/CT_01.pro.nii.gz')
-b.plot(9, 9)
-##
+
 path = 'label0001.nii.gz'
 n = NIfTI(path, np.int16)
 print(n.ndarray.shape)
@@ -585,8 +677,8 @@ print(f'cleaned & resized {n.ndarray.shape}')
 print(n.ndarray.min(), n.ndarray.max())
 # plot_3d_ndarray(cleaned_n)
 n.save_as('new2.nii.gz')
-b = NIfTI('new2.nii.gz')
-b.plot_3d_ndarray()
+ct = NIfTI('new2.nii.gz')
+ct.plot_3d_ndarray()
 
 ##
 
