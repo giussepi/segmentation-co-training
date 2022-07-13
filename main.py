@@ -562,7 +562,7 @@ def main():
                           # da_block_config=dict(n_channels=-1),
                           # is_deconv=True,
                           # feature_scale=1, is_batchnorm=True,
-                          bilinear=True,  # XAttentionUNet only
+                          bilinear=False,  # XAttentionUNet only
                           n_channels=3, n_classes=1,
                           # attention_block_cls=SingleAttentionBlock,
                           init_type=UNet3InitMethod.KAIMING,
@@ -618,10 +618,10 @@ def main():
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    model6()
+    # model6()
     # model6.print_data_logger_summary()
     # model6.plot_and_save(None, 154)
-    # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
+    summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
 
     # Disagreement attention cotraining experiments ###########################
     # cot = DACoTraining(

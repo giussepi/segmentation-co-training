@@ -10,17 +10,17 @@ import time
 from typing import Union
 
 import matplotlib.pyplot as plt
-import nibabel as nib  # INSTALL nibabel
+import nibabel as nib
 import numpy as np
-import pydicom as dicom  # INTALL pydicom
+import pydicom as dicom
 from gutils.decorators import timing
 from gutils.files import get_filename_and_extension
 from gutils.folders import clean_create_folder
+from gutils.numpy_.numpy_ import scale_using_general_min_max_values
 from mpl_toolkits.axes_grid1 import ImageGrid
 from PIL import Image
 from scipy.ndimage import zoom
 from skimage.exposure import equalize_hist, equalize_adapthist
-from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 ##
 
@@ -184,10 +184,11 @@ class DICOM:
         assert isinstance(clahe, bool), type(clahe)
         assert isinstance(saving_path, str), type(saving_path)
 
-        rescaled_img = MinMaxScaler((0, 255), clip=True).fit_transform(self.ndarray)
+        rescaled_img = scale_using_general_min_max_values(self.ndarray.astype(float), feats_range=(0, 255))
         img = np.asarray(Image.fromarray(rescaled_img).convert("L"))
         img = equalize_adapthist(img) if clahe else equalize_hist(img)
         img *= 255
+        img = np.uint8(img)
 
         if saving_path:
             Image.fromarray(img).convert("L").save(saving_path)
@@ -242,7 +243,7 @@ class DICOM:
             dicom_obj.Rows, dicom_obj.Columns = self.shape
             dicom_obj.save_as(file_path)
         else:
-            rescaled = MinMaxScaler((0, 255), clip=True).fit_transform(self.ndarray)
+            rescaled = scale_using_general_min_max_values(self.ndarray.astype(float), feats_range=(0, 255))
             img = Image.fromarray(rescaled)
 
             if gray_scale and img.mode != 'L':
@@ -484,11 +485,12 @@ class CT82MGR:
 
         for scan in scans:
             mask = label.ndarray[..., scan] * 255
-            image = MinMaxScaler((0, 255), clip=True).fit_transform(ct.ndarray[..., scan])
+            image = scale_using_general_min_max_values(ct.ndarray[..., scan].astype(float), feats_range=(0, 255))
 
             if clahe:
                 image = np.asarray(Image.fromarray(np.uint8(image)).convert('L'))
                 image = equalize_adapthist(image)*255
+                image = image.astype(np.uint8)
                 image = Image.fromarray(image).convert('RGB')
             else:
                 image = Image.fromarray(image.astype(np.uint8)).convert('RGB')
@@ -577,13 +579,16 @@ def test_DICOM_equalize_historgram():
     assert equalized.shape == img.shape
     assert 0 <= equalized.min() <= 255
     assert 0 <= equalized.max() <= 255
+    assert not os.path.isfile('1-001.png')
 
-    equalized_clahe = img.equalize_histogram(clahe=True)
+    equalized_clahe = img.equalize_histogram(clahe=True, saving_path='1-001.png')
     assert not np.array_equal(equalized, equalized_clahe)
     assert not np.array_equal(equalized_clahe, img.ndarray)
     assert equalized_clahe.shape == img.shape
     assert 0 <= equalized_clahe.min() <= 255
     assert 0 <= equalized_clahe.max() <= 255
+    assert os.path.isfile('1-001.png')
+    os.remove('1-001.png')
 
 
 def test_ProNIfTI_create_save():
@@ -659,7 +664,7 @@ def test_CT82MGR_perform_visual_verification():
 # test_ProNIfTI_create_save()
 # test_ProNIfTi_plot()
 # test_CT82MGR()
-test_CT82MGR_perform_visual_verification()
+# test_CT82MGR_perform_visual_verification()
 
 ##
 
@@ -732,12 +737,13 @@ image_path2 = '/home/giussepi/Downloads/CT-82/manifest-1599750808610/Pancreas-CT
 ds2 = dicom.dcmread(image_path2)
 ##
 
-scaler = MinMaxScaler(clip=True)
+# scaler = MinMaxScaler(clip=True)
 matrix = np.stack([ds.pixel_array, ds2.pixel_array], axis=0)
 view = matrix.reshape(2, -1)
-scaler.fit(view)
+# scaler.fit(view)
 print(view.min(), view.max())
-rescaled = scaler.transform(view)
+# rescaled = scaler.transform(view)
+rescaled = scale_using_general_min_max_values(view.astype(float), feats_range=(0, 1))
 print(rescaled.min(), rescaled.max())
 print(rescaled.reshape(2, *ds.pixel_array.shape))
 
@@ -808,6 +814,7 @@ for i in range(1, 2):
     )
 
 ##
+
 ###############################################################################
 #                                CT-82 dataset                                #
 ###############################################################################
