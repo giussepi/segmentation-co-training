@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
 import pydicom as dicom
+import torch
 from gutils.decorators import timing
 from gutils.files import get_filename_and_extension
 from gutils.folders import clean_create_folder
@@ -22,7 +23,13 @@ from PIL import Image
 from scipy.ndimage import zoom
 from skimage.exposure import equalize_hist, equalize_adapthist
 from tqdm import tqdm
+
 ##
+
+# CONSTANTS
+# set them to 0 to autocalculate the values per image
+DICOM_MIN_VAL = -2048
+DICOM_MAX_VAL = 3071
 
 
 class NIfTI:
@@ -184,7 +191,8 @@ class DICOM:
         assert isinstance(clahe, bool), type(clahe)
         assert isinstance(saving_path, str), type(saving_path)
 
-        rescaled_img = scale_using_general_min_max_values(self.ndarray.astype(float), feats_range=(0, 255))
+        rescaled_img = scale_using_general_min_max_values(self.ndarray.astype(
+            float), min_val=DICOM_MIN_VAL, max_val=DICOM_MAX_VAL, feats_range=(0, 255))
         img = np.asarray(Image.fromarray(rescaled_img).convert("L"))
         img = equalize_adapthist(img) if clahe else equalize_hist(img)
         img *= 255
@@ -243,7 +251,8 @@ class DICOM:
             dicom_obj.Rows, dicom_obj.Columns = self.shape
             dicom_obj.save_as(file_path)
         else:
-            rescaled = scale_using_general_min_max_values(self.ndarray.astype(float), feats_range=(0, 255))
+            rescaled = scale_using_general_min_max_values(self.ndarray.astype(
+                float), min_val=DICOM_MIN_VAL, max_val=DICOM_MAX_VAL, feats_range=(0, 255))
             img = Image.fromarray(rescaled)
 
             if gray_scale and img.mode != 'L':
@@ -447,6 +456,26 @@ class CT82MGR:
         for labels_file, cts_folder in zip(labels_files, cts_folders):
             self._process_labels_cts(labels_file, cts_folder)
 
+    def get_min_max_values(self):
+        """
+        Browse all the dicom files to the minimum and maximum values
+
+        Returns:
+            min_, max_, dicoms_analized
+        """
+        cts_wildcard = os.path.join(self.cts_path, '**/*.dcm')
+        dicoms = glob.glob(cts_wildcard, recursive=True)
+        dicoms_analized = len(dicoms)
+        min_ = np.inf
+        max_ = np.NINF
+
+        for dicom_path in dicoms:
+            dcm = DICOM(dicom_path)
+            min_ = min(min_, dcm.ndarray.min())
+            max_ = max(max_, dcm.ndarray.max())
+
+        return min_, max_, dicoms_analized
+
     def perform_visual_verification(
             self, subject_id: int, /, *, alpha: float = .4, scans: Union[int, list] = 1, clahe: bool = False,
             rgb_mask: tuple = None
@@ -485,7 +514,8 @@ class CT82MGR:
 
         for scan in scans:
             mask = label.ndarray[..., scan] * 255
-            image = scale_using_general_min_max_values(ct.ndarray[..., scan].astype(float), feats_range=(0, 255))
+            image = scale_using_general_min_max_values(ct.ndarray[..., scan].astype(
+                float), min_val=DICOM_MIN_VAL, max_val=DICOM_MAX_VAL, feats_range=(0, 255))
 
             if clahe:
                 image = np.asarray(Image.fromarray(np.uint8(image)).convert('L'))
@@ -659,15 +689,32 @@ def test_CT82MGR_perform_visual_verification():
     shutil.rmtree(mgr.saving_path)
 
 
+def test_CT82MGR_get_min_max_values():
+    target_size = (1024, 1024, 96)  # (160, 160, 96)
+    mgr = CT82MGR(
+        db_path=os.path.join('test_datasets', 'CT-82'),
+        cts_path='images',
+        labels_path='labels',
+        saving_path='test_CT-82-pro',
+        target_size=target_size
+    )
+    mgr.non_existing_ct_folders = []
+    min_, max_, dicoms_analized = mgr.get_min_max_values()
+
+    assert dicoms_analized == 872, dicoms_analized
+    assert min_ == -1024, min_
+    assert max_ == 2421, max_
+
+
 # test_NIfTI_clean_3d_ndarray()
 # test_DICOM_equalize_historgram()
 # test_ProNIfTI_create_save()
 # test_ProNIfTi_plot()
 # test_CT82MGR()
 # test_CT82MGR_perform_visual_verification()
+# test_CT82MGR_get_min_max_values()
 
 ##
-
 path = 'label0001.nii.gz'
 n = NIfTI(path, np.int16)
 print(n.ndarray.shape)
@@ -743,7 +790,8 @@ view = matrix.reshape(2, -1)
 # scaler.fit(view)
 print(view.min(), view.max())
 # rescaled = scaler.transform(view)
-rescaled = scale_using_general_min_max_values(view.astype(float), feats_range=(0, 1))
+rescaled = scale_using_general_min_max_values(view.astype(
+    float), min_val=DICOM_MIN_VAL, max_val=DICOM_MAX_VAL, feats_range=(0, 1))
 print(rescaled.min(), rescaled.max())
 print(rescaled.reshape(2, *ds.pixel_array.shape))
 
@@ -814,12 +862,24 @@ for i in range(1, 2):
     )
 
 ##
+dcm = DICOM('new_image.dcm')
+plt.hist(dcm.ndarray.flatten())
+plt.show()
+img = dcm.equalize_histogram(saving_path='new_image.png')
+plt.hist(img.flatten())
+plt.show()
+img = dcm.equalize_histogram(clahe=True, saving_path='new_image_clahe.png')
+plt.hist(img.flatten())
+plt.show()
+##
 
 ###############################################################################
 #                                CT-82 dataset                                #
 ###############################################################################
 # DICOM files 18942
 # NIfTI labels 82
+# MIN_VAL = -2048
+# MAX_VAL = 3071
 
 # folders PANCREAS_0025 and PANCREAS_0070 are empty
 # MIN DICOMS per subject 181
@@ -864,3 +924,12 @@ for i in range(1, 2):
 # | Attention U-Net | 0.821±0.057 | 0.815±0.093 | 0.835±0.057 | 2.333±0.856  |
 
 ###############################################################################
+###############################################################################
+#                                    DICOM                                    #
+# https://towardsdatascience.com/understanding-dicoms-835cd2e57d0b
+# 16 bit DICOM images have values ranging from -32768 to 32768 while 8-bit grey-scale images
+# store values from 0 to 255.
+###############################################################################
+
+##
+##
