@@ -623,7 +623,7 @@ def main():
     # model6()
     # model6.print_data_logger_summary()
     # model6.plot_and_save(None, 154)
-    summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
+    # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
 
     # Disagreement attention cotraining experiments ###########################
     # cot = DACoTraining(
@@ -680,23 +680,19 @@ def main():
     #     pass
 
     # # visual verification of cts with high quality 1024x1024 from test_CT-82-pro_ #
-    # ##
-    # target_size = (1024, 1024, 96)
+    # target_size = (368, 368, 96)  # (1024, 1024, 96)
     # mgr = CT82MGR(
-    #     saving_path='test_CT-82-pro_',
+    #     saving_path='CT-82-Pro',
     #     target_size=target_size
     # )
     # mgr.non_existing_ct_folders = []
-    # # mgr()
     # mgr.perform_visual_verification(1, scans=[72], clahe=True)
     # # os.remove(mgr.VERIFICATION_IMG)
-    # # shutil.rmtree(mgr.saving_path)
-    # ##
+
     # # Processing CT-82 dataset ################################################
-    # ##
     # target_size = (368, 368, 96)
     # mgr = CT82MGR(target_size=target_size)
-    # # mgr()
+    # mgr()
 
     # assert len(glob.glob(os.path.join(mgr.saving_labels_folder, r'*.nii.gz'))) == 80
     # assert len(glob.glob(os.path.join(mgr.saving_cts_folder, r'*.pro.nii.gz'))) == 80
@@ -711,7 +707,6 @@ def main():
     #     assert labels.shape == cts.shape == target_size
 
     # mgr.perform_visual_verification(80, scans=[70], clahe=True)
-    # ##
 
     ###############################################################################
     #                                CT-82 dataset                                #
