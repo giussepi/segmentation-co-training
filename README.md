@@ -199,6 +199,18 @@ mgr.perform_visual_verification(1, scans=[72], clahe=True)
 # os.remove(mgr.VERIFICATION_IMG)
 ```
 
+#### Split into train, validation, test
+```python
+from ct82.processors import CT82MGR
+
+target_size = (368, 368, 96)
+mgr = CT82MGR(
+    saving_path='CT-82-Pro',
+    target_size=target_size
+)
+mgr.split_processed_dataset(.15, .2, shuffle=False)
+```
+
 ### Training, Testing and Plotting on TensorBoard
 Use the `ModelMGR` to train models and make predictions.
 

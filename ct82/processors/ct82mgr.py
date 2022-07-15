@@ -4,11 +4,15 @@
 import glob
 import os
 import re
+import shutil
 import time
-from typing import Union
+from typing import Union, Optional
 
 import numpy as np
+from gtorch_utils.constants import DB
+from gutils.datasets.utils.split import TrainValTestSplit
 from gutils.decorators import timing
+from gutils.files import get_filename_and_extension
 from gutils.folders import clean_create_folder
 from gutils.numpy_.numpy_ import scale_using_general_min_max_values
 from PIL import Image
@@ -230,3 +234,62 @@ class CT82MGR:
             # plt.imshow(np.asarray(image))
             # plt.pause(1)
             # plt.close()
+
+    def split_processed_dataset(
+            self, val_size: float = .1, test_size: float = .2, /, *, random_state: int = 42,
+            shuffle: bool = True
+    ):
+        """
+        Splits the processet CT-82 into train, validation and test subdatasets
+
+        Kwargs:
+            val_size  <float>: validation dataset size in range [0, 1].
+                               Default .1
+            test_size <float>: test dataset size in range [0, 1].
+                               Default .2
+            random_state <int>: Controls the shuffling applied to the data before applying the split.
+                               Default 42
+            shuffle    <bool>: Whether or not to shuffle the data before splitting.
+                               Default True
+        """
+        assert 0 <= val_size < 1, val_size
+        assert 0 <= test_size < 1, test_size
+        assert val_size + test_size < 1, (val_size, test_size)
+        assert isinstance(random_state, int), type(int)
+        assert isinstance(shuffle, bool), type(bool)
+
+        labels_wildcard = os.path.join(self.saving_labels_folder, '*.nii.gz')
+        labels_files = glob.glob(labels_wildcard)
+        labels_files.sort()
+        cts_wildcard = os.path.join(self.saving_cts_folder, '*.pro.nii.gz')
+        cts_files = glob.glob(cts_wildcard)
+        cts_files.sort()
+        destination_folders = [
+            os.path.join(self.saving_path, DB.TRAIN),
+            os.path.join(self.saving_path, DB.VALIDATION),
+            os.path.join(self.saving_path, DB.TEST)
+        ]
+
+        x_train, x_val, x_test, y_train, y_val, y_test = TrainValTestSplit(
+            np.array(labels_files), np.array(cts_files), val_size=val_size, test_size=test_size,
+            random_state=random_state, shuffle=shuffle
+        )()
+
+        for subdataset in destination_folders:
+            clean_create_folder(subdataset)
+
+        subdatasets = [
+            np.concatenate([x_train, y_train]),
+            np.concatenate([x_val, y_val]),
+            np.concatenate([x_test, y_test])
+        ]
+
+        for folder, filepaths in tqdm(zip(destination_folders, subdatasets)):
+            for filepath in filepaths:
+                shutil.move(
+                    filepath,
+                    os.path.join(folder, '.'.join(get_filename_and_extension(filepath)))
+                )
+
+        os.rmdir(self.saving_labels_folder)
+        os.rmdir(self.saving_cts_folder)

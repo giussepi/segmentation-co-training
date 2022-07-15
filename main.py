@@ -707,6 +707,7 @@ def main():
     #     assert labels.shape == cts.shape == target_size
 
     # mgr.perform_visual_verification(80, scans=[70], clahe=True)
+    # mgr.split_processed_dataset(.15, .2, shuffle=False)
 
     ###############################################################################
     #                                CT-82 dataset                                #
