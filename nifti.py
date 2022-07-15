@@ -269,6 +269,7 @@ class DICOM:
 
 class ProNIfTI(NIfTI):
     """
+    Processed NIfTI class
     Creates and provides methods for basic operations over processed NIfTI (pro.nii.gz) files created
     from DICOM files
     """
@@ -279,6 +280,8 @@ class ProNIfTI(NIfTI):
     def create_save(dcm_list: Union[list, tuple], /, *, processing: dict = None,
                     saving_path: str = 'new_pronifti.pro.nii.gz'):
         """
+        Saves all the DICOMs from the dcm_list as a single ProNIfTI file
+
         Kwargs:
             dcm_list <list, tuple>: iterable containing the DICOM paths
             processing      <dict>: dictionary with all the DICOM->methods and kwargs to be used.
@@ -301,10 +304,9 @@ class ProNIfTI(NIfTI):
 
         data = []
         for filepath in dcm_list:
-            # data.append(DICOM(filepath).ndarray[:, :, np.newaxis])
             dicom = DICOM(filepath)
             for method, kwargs in processing.items():
-                kwargs['inplace'] = True  # makind sure all operations are made in place
+                kwargs['inplace'] = True  # making sure all operations are made in place
                 getattr(dicom, method)(**kwargs)
             data.append(dicom.ndarray[:, :, np.newaxis])
 
@@ -922,7 +924,18 @@ plt.show()
 # |-----------------+-------------+-------------+-------------+--------------|
 # | U-Net [24]      | 0.815±0.068 | 0.815±0.105 | 0.826±0.062 | 2.576±1.180  |
 # | Attention U-Net | 0.821±0.057 | 0.815±0.093 | 0.835±0.057 | 2.333±0.856  |
-
+# model config https://github.com/ozan-oktay/Attention-Gated-Networks/blob/master/configs/config_unet_ct_dsv.json
+# "augmentation": {
+#     "acdc_sax": {
+#       "shift": [0.1,0.1],
+#       "rotate": 15.0,
+#       "scale": [0.7,1.3],
+#       "intensity": [1.0,1.0],
+#       "random_flip_prob": 0.5,
+#       "scale_size": [160,160,96],
+#       "patch_size": [160,160,96]
+#     }
+#   },
 ###############################################################################
 ###############################################################################
 #                                    DICOM                                    #
@@ -932,4 +945,18 @@ plt.show()
 ###############################################################################
 
 ##
+# Affine transformations examples: translation, scaling, homothety, similarity, reflection,
+# rotation, shear mapping and compositions of them in any combination sequence
+# torchvision transforms does not support 3D data
+# - https://stackoverflow.com/questions/51677788/data-augmentation-in-pytorch#answer-68131471
+#   fivecrop and tencrop can be used to augment the dataset number
+# http://pytorch.org/vision/main/generated/torchvision.transforms.functional.affine.html
+# https://pytorch.org/vision/stable/generated/torchvision.transforms.RandomAffine.html#torchvision.transforms.RandomAffine
+# https://github.com/ncullen93/torchsample
+#
+# https://torchio.readthedocs.io/index.html https://github.com/fepegar/torchio
+# https://github.com/Project-MONAI/MONAI/tree/dev/monai/transforms
+# https://github.com/albumentations-team/albumentations/issues/138 albumentations does not work with 3d
+# https://github.com/aleju/imgaug https://github.com/aleju/imgaug/issues/49
+#
 ##
