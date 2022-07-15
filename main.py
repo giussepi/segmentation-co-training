@@ -23,6 +23,8 @@ from consep.datasets.constants import BinaryCoNSeP
 from consep.processors.offline import CreateDataset
 from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
+from ct82.images import NIfTI, ProNIfTI
+from ct82.processors import CT82MGR
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR
@@ -676,6 +678,126 @@ def main():
     #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'chkpt_4.pth.tar'))
     # except Exception:
     #     pass
+
+    # # visual verification of cts with high quality 1024x1024 from test_CT-82-pro_ #
+    # ##
+    # target_size = (1024, 1024, 96)
+    # mgr = CT82MGR(
+    #     saving_path='test_CT-82-pro_',
+    #     target_size=target_size
+    # )
+    # mgr.non_existing_ct_folders = []
+    # # mgr()
+    # mgr.perform_visual_verification(1, scans=[72], clahe=True)
+    # # os.remove(mgr.VERIFICATION_IMG)
+    # # shutil.rmtree(mgr.saving_path)
+    # ##
+    # # Processing CT-82 dataset ################################################
+    # ##
+    # target_size = (368, 368, 96)
+    # mgr = CT82MGR(target_size=target_size)
+    # # mgr()
+
+    # assert len(glob.glob(os.path.join(mgr.saving_labels_folder, r'*.nii.gz'))) == 80
+    # assert len(glob.glob(os.path.join(mgr.saving_cts_folder, r'*.pro.nii.gz'))) == 80
+
+    # files_idx = [*range(1, 83)]
+    # for id_ in mgr.non_existing_ct_folders[::-1]:
+    #     files_idx.pop(id_-1)
+
+    # for subject in files_idx:
+    #     labels = NIfTI(os.path.join(mgr.saving_labels_folder, f'label_{subject:02d}.nii.gz'))
+    #     cts = ProNIfTI(os.path.join(mgr.saving_cts_folder, f'CT_{subject:02d}.pro.nii.gz'))
+    #     assert labels.shape == cts.shape == target_size
+
+    # mgr.perform_visual_verification(80, scans=[70], clahe=True)
+    # ##
+
+    ###############################################################################
+    #                                CT-82 dataset                                #
+    ###############################################################################
+    # DICOM files 18942
+    # NIfTI labels 82
+    # MIN_VAL = -2048
+    # MAX_VAL = 3071
+
+    # folders PANCREAS_0025 and PANCREAS_0070 are empty
+    # MIN DICOMS per subject 181
+    # MAX DICOMS per subject 466
+    # DICOMS with data (cleaned) per subject: MIN 46, MAX 145
+    ###############################################################################
+    #                                     dpis                                    #
+    # https://www.iprintfromhome.com/mso/understandingdpi.pdf very good explanantion of dpi
+    # dpi = dim px / size inches
+    # width = height = 512px
+    # print size = 7.1111111... inches
+    # dpi = 72 / 25.4 = 2.8346 pixel/mm
+
+    # target = isotropic 2.00 pixel/mm  = 2*25.4 = 50.8 dpi or pixel/in
+    # print size = 7.111111.. inches
+    # widh = height = 50.8 * 7.11111 = 361.2443 px
+
+    # 361.2443 % 16 != 0 so to avoid any padding or resize when using UNet
+    # we can use 352x352[49.50 dpi or 1.9488 px/in] or 368x368 [51.75 dpi 2.0374 px/in]
+
+    # using width = height = 160
+    # dpi = 22.500 = 0.8858 px/in
+
+    ###############################################################################
+    ###############################################################################
+    #                                 UNEt details                                #
+    # 3D model
+    # small batches 2 - 4
+    # standard data-augmentation techniques (affine transformations, axial flips, random crops)
+    # Intensity values are linearly scaled to obtain a normal distribution N (0, 1)
+    # Sorensen-Dice loss
+    # CT-150 train 120 testing 30
+    # The results on pancreas predictions demonstrate that attention gates (AGs)
+    # increase recall values (p = .005) by improving the model’s expression power as it relies
+    # on AGs to localise foreground pixels.
+    # inference timeused 160x160x96 tensors
+    # CT-80 (TCIA Pancreas-CT Dataset) train 61, test 21
+    # #+caption: models from scratch
+    # | Method          | Dice        | Precision   | Recall      | S2S dist(mm) |
+    # |-----------------+-------------+-------------+-------------+--------------|
+    # | U-Net [24]      | 0.815±0.068 | 0.815±0.105 | 0.826±0.062 | 2.576±1.180  |
+    # | Attention U-Net | 0.821±0.057 | 0.815±0.093 | 0.835±0.057 | 2.333±0.856  |
+    # model config https://github.com/ozan-oktay/Attention-Gated-Networks/blob/master/configs/config_unet_ct_dsv.json
+    # "augmentation": {
+    #     "acdc_sax": {
+    #       "shift": [0.1,0.1],
+    #       "rotate": 15.0,
+    #       "scale": [0.7,1.3],
+    #       "intensity": [1.0,1.0],
+    #       "random_flip_prob": 0.5,
+    #       "scale_size": [160,160,96],
+    #       "patch_size": [160,160,96]
+    #     }
+    #   },
+    ###############################################################################
+    ###############################################################################
+    #                                    DICOM                                    #
+    # https://towardsdatascience.com/understanding-dicoms-835cd2e57d0b
+    # 16 bit DICOM images have values ranging from -32768 to 32768 while 8-bit grey-scale images
+    # store values from 0 to 255.
+    ###############################################################################
+
+    ##
+    # Affine transformations examples: translation, scaling, homothety, similarity, reflection,
+    # rotation, shear mapping and compositions of them in any combination sequence
+    # torchvision transforms does not support 3D data
+    # - https://stackoverflow.com/questions/51677788/data-augmentation-in-pytorch#answer-68131471
+    #   fivecrop and tencrop can be used to augment the dataset number
+    # http://pytorch.org/vision/main/generated/torchvision.transforms.functional.affine.html
+    # https://pytorch.org/vision/stable/generated/torchvision.transforms.RandomAffine.html#torchvision.transforms.RandomAffine
+    # https://github.com/ncullen93/torchsample
+    #
+    # https://torchio.readthedocs.io/index.html https://github.com/fepegar/torchio
+    # https://github.com/Project-MONAI/MONAI/tree/dev/monai/transforms
+    # https://github.com/albumentations-team/albumentations/issues/138 albumentations does not work with 3d
+    # https://github.com/aleju/imgaug https://github.com/aleju/imgaug/issues/49
+    #
+    ##
 
 
 if __name__ == '__main__':
