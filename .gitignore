@@ -5,6 +5,7 @@ checkpoints/
 !nns/mixins/checkpoints
 plots/
 dataset*
+!ct82/datasets.py
 consep_dataset*
 /settings.py
 runs*
