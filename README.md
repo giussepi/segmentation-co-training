@@ -211,6 +211,38 @@ mgr = CT82MGR(
 mgr.split_processed_dataset(.15, .2, shuffle=False)
 ```
 
+#### Load and verify train, val and test subdatasets
+``` python
+import matplotlib.pyplot as plt
+import numpy as np
+from ct82.datasets import CT82Dataset
+
+train, val, test = CT82Dataset.get_subdatasets(
+    train_path='CT-82-Pro/train', val_path='CT-82-Pro/val', test_path='CT-82-Pro/test'
+)
+for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
+    print(f'{db_name}: {len(dataset)}')
+    data = dataset[0]
+    print(data['image'].shape, data['mask'].shape)
+    print(data['label'], data['label_name'], data['updated_mask_path'], data['original_mask'])
+
+    print(data['image'].min(), data['image'].max())
+    print(data['mask'].min(), data['mask'].max())
+
+    img_id = np.random.randint(0, 72)
+    if len(data['image'].shape) == 4:
+        fig, axis = plt.subplots(1, 2)
+        axis[0].imshow(data['image'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+        axis[1].imshow(data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+        plt.show()
+    else:
+        fig, axis = plt.subplots(2, 4)
+        for idx, i, m in zip([*range(4)], data['image'], data['mask']):
+            axis[0, idx].imshow(i.detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+            axis[1, idx].imshow(m.detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+        plt.show()
+```
+
 ### Training, Testing and Plotting on TensorBoard
 Use the `ModelMGR` to train models and make predictions.
 

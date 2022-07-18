@@ -3,14 +3,17 @@
 
 import os
 import re
+from collections import defaultdict
 
 import numpy as np
 import torch
 from gtorch_utils.datasets.segmentation import DatasetTemplate
 from gutils.numpy_.numpy_ import scale_using_general_min_max_values
+from logzero import logger
 
 from ct82.constants import DICOM_MAX_VAL, DICOM_MIN_VAL
 from ct82.images import NIfTI, ProNIfTI
+from ct82.settings import TRANSFORMS
 
 
 __all__ = ['CT82Dataset']
@@ -36,8 +39,6 @@ class CT82Dataset(DatasetTemplate):
     )
     """
 
-    NUM_CLASSES = 1
-
     def __init__(self, **kwargs):
         """
         Initializes the object instance
@@ -54,6 +55,8 @@ class CT82Dataset(DatasetTemplate):
             original_masks    <bool>: If original_masks == cotraining_mask == True, then both the original
                                       and cotraining masks are returned.
                                       Default False
+            transform <callable, None>: Data augmentation transforms. See ct82.settings.
+                                      Defaullt None
         """
         self.images_masks_path = kwargs.get('images_masks_path')
         self.filename_reg = kwargs.get('filename_reg', r'^CT\_(?P<id>[\d]+).pro.nii.gz$')
@@ -61,6 +64,7 @@ class CT82Dataset(DatasetTemplate):
         self.cot_mask_name_tpl = kwargs.get('cot_mask_name_tpl', 'label_{}.cot.nii.gz')
         self.cotraining = kwargs.get('cotraining', False)
         self.original_masks = kwargs.get('original_masks', False)
+        self.transform = kwargs.get('transform', None)
 
         assert isinstance(self.images_masks_path, str), type(self.images_masks_path)
         assert os.path.isdir(self.images_masks_path), self.images_masks_path
@@ -70,8 +74,12 @@ class CT82Dataset(DatasetTemplate):
         assert isinstance(self.cotraining, bool), type(self.cotraining)
         assert isinstance(self.original_masks, bool), type(self.original_masks)
 
+        if self.transform is not None:
+            assert callable(self.transform)
+
         self.pattern = re.compile(self.filename_reg)
-        self.image_list = [file_ for file_ in os.listdir(self.images_masks_path) if bool(self.pattern.fullmatch(file_))]
+        self.image_list = \
+            [file_ for file_ in os.listdir(self.images_masks_path) if bool(self.pattern.fullmatch(file_))]
 
     def __len__(self):
         return len(self.image_list)
@@ -138,44 +146,39 @@ class CT82Dataset(DatasetTemplate):
             (f'Image and mask {idx} should be the same shape, but they are {image.shape} and ',
              f'{mask.shape} respectively')
 
-        image = image.ndarray
-        mask = mask.ndarray
-
-        target_mask = np.zeros((*mask.shape, self.NUM_CLASSES), dtype=np.float32)
-        target_mask[..., 0] = (mask == 1).astype(np.float32)
+        image = image.ndarray.copy()
+        mask = mask.ndarray.copy().transpose([1, 0, 2])
+        # TODO: review if this is correct
+        target_mask = mask.astype(np.float32)
 
         if isinstance(original_mask, NIfTI):
-            original_mask = original_mask.ndarray
-            original_target_mask = np.zeros((*original_mask.shape, self.NUM_CLASSES), dtype=np.float32)
-            original_target_mask[..., 0] = (original_mask == 1).astype(np.float32)
+            original_mask = original_mask.ndarray.copy().transpose([1, 0, 2])
 
         return image, target_mask, '', '', cot_mask_path, original_target_mask
 
     @staticmethod
-    def preprocess(img):
+    def preprocess(img: np.ndarray = None, mask: np.ndarray = None):
         """
-        Preprocess the image and returns it
+        Preprocess the image and mask and returns them
 
-        Args:
-            img <np.ndarray>:
+        Kwargs:
+            img  <np.ndarray, None>: 3D CT Scan in numpy format [height, width, channels]
+            mask <np.ndarray, None>: 3D label in numpy format [height, width, channels]
+
         Returns:
-            image <np.ndarray>
+            image <np.ndarray, None>, mask <np.ndarray, None>
         """
-        assert isinstance(img, np.ndarray), type(img)
-
-        if len(img.shape) == 3:
-            # working with 3D CT, Rows*Cols*Slice to Slice*Rows*Cols
-            img = img.transpose(2, 0, 1)
+        if img is not None:
+            assert isinstance(img, np.ndarray), type(img)
+            img = img.transpose(2, 0, 1)[np.newaxis, ...]
+            # TODO: maybe I shouldn't be using DICOM min and max values....
             img = scale_using_general_min_max_values(
                 img, min_val=DICOM_MIN_VAL, max_val=DICOM_MAX_VAL, feats_range=(0, 1))
-        else:
-            # working with 3D mask, Rows*Cols*Slice*Class to Class*Slice*Rows*Cols*
-            img = img.transpose(3, 2, 0, 1)
+        if mask is not None:
+            assert isinstance(mask, np.ndarray), type(mask)
+            mask = mask.transpose(2, 0, 1)[np.newaxis, ...]
 
-        # the transforms should happen here
-        # transforms = {'train': ..., 'valtest': ...}
-
-        return img
+        return img, mask
 
     def __getitem__(self, idx):
         """
@@ -193,16 +196,36 @@ class CT82Dataset(DatasetTemplate):
         assert isinstance(idx, int), type(idx)
 
         image, mask, label, label_name, updated_mask_path, original_mask = self.get_image_and_mask_files(idx)
-        image = self.preprocess(image)
-        mask = self.preprocess(mask)
+        image, mask = self.preprocess(image, mask)
+
+        # FIXME: I'm not sure applying online data augmentation will be compatible with
+        #        cotraining. Maybe it will if for validation I only apply ToTensor and TypeCast
+        #        double-check when and how co-training is applied
+        if self.transform:
+            results = self.transform(dict(img=image, mask=mask))
+
+            if isinstance(results, dict):
+                # when using RandSpatialCropd
+                image, mask = results['img'], results['mask']
+            else:
+                # when using RandCropByPosNegLabeld
+                img_list, masks_list = [], []
+
+                for result in results:
+                    img_list.append(result['img'])
+                    masks_list.append(result['mask'])
+
+                image, mask = torch.stack(img_list), torch.stack(masks_list)
 
         if isinstance(original_mask, np.ndarray):
-            original_mask = self.preprocess(original_mask)
+            # TODO: I'm not applying the transforms to the original_mask so
+            # this will be a issue when applying co-training
+            original_mask = self.preprocess(mask=original_mask)
             original_mask = torch.from_numpy(original_mask).type(torch.FloatTensor)
 
         return {
-            'image': torch.from_numpy(image).type(torch.FloatTensor),
-            'mask': torch.from_numpy(mask).type(torch.FloatTensor),
+            'image': image,
+            'mask': mask,
             'label': label,
             'label_name': label_name,
             'updated_mask_path': updated_mask_path,
@@ -210,34 +233,53 @@ class CT82Dataset(DatasetTemplate):
         }
 
     @classmethod
-    def get_subdatasets(cls, **kwargs):
+    def get_subdatasets(
+            cls, train_path: str = 'CT-82-Pro/train', val_path: str = 'CT-82-Pro/val',
+            test_path: str = 'CT-82-Pro/test', ** kwargs
+    ):
         """
         Creates and returns train, validation and test subdatasets to be used with DataLoaders
 
         Kwargs:
-            train_path         <str>: path to the folder for containing training images and masks
+            train_path         <str>: path to the folder for containing training images and masks.
+                                      Default 'CT-82-Pro/train'
             val_path           <str>: path to the folder for containing validation images and masks
-            test_path          <str>: path to the folder for containing testing images and masks. Default ''
+                                      Default 'CT-82-Pro/val'
+            test_path          <str>: path to the folder for containing testing images and masks.
+                                      Default 'CT-82-Pro/test'
             filename_reg       <str>: regular expression to get the index id from the crop filename.
-                                      Default r'(?P<filename>\d+).ann.tiff'
-            image_extension    <str>: image extension. Default '.ann.tiff'
-            mask_extension     <str>: mask extension. Default '.mask.png'
-            cot_mask_extension <str>: co-traning mask extension. Default '.cot.mask.png'
+                                      Default r'^CT\_(?P<id>[\d]+).pro.nii.gz$'
+            mask_name_tpl      <str>: Template to build the label name using the id. Default 'label_{}.nii.gz'
+            cot_mask_name_tpl  <str>: Template to build the co-training label name using the id.
+                                      Default 'label_{}.cot.nii.gz'
             cotraining        <bool>: If True the co-training masks are be returned; otherwise, returns
-                                      ground truth masks. Default False
+                                      ground truth masks. Default False,
+            original_masks    <bool>: If original_masks == cotraining_mask == True, then both the original
+                                      and cotraining masks are returned.
+                                      Default False
         Returns:
-           train <OfflineCoNSePDataset>, validation <OfflineCoNSePDataset>, test <OfflineCoNSePDataset or None>
+           train <CT82Dataset>, validation <CT82Dataset>, test <CT82Dataset, None>
         """
-        train_path = kwargs.pop('train_path')
-        val_path = kwargs.pop('val_path')
-        test_path = kwargs.pop('test_path', '')
-
         # making sure this keyword argument is not passed when creating the instances
         if 'images_masks_path' in kwargs:
             kwargs.pop('images_masks_path')
+            logger.warning('The key images_masks_path has been removed from the kwargs')
 
-        train_dataset = cls(images_masks_path=train_path, **kwargs)
-        val_dataset = cls(images_masks_path=val_path, **kwargs)
-        test_dataset = cls(images_masks_path=test_path, **kwargs) if test_path else None
+        if 'transform' in kwargs:
+            kwargs.pop('transform')
+            logger.warning('The key transform has been removed from the kwargs')
+
+        if TRANSFORMS is not None:
+            assert isinstance(TRANSFORMS, dict), type(TRANSFORMS)
+            assert 'train' in TRANSFORMS, 'TRANSFORMS does not have the key "train"'
+            assert 'valtest' in TRANSFORMS, 'TRANSFORMS does not have the key "valtest"'
+            transforms = TRANSFORMS
+        else:
+            transforms = defaultdict(lambda: None)
+
+        train_dataset = cls(images_masks_path=train_path, transform=transforms['train'], **kwargs)
+        val_dataset = cls(images_masks_path=val_path, transform=transforms['valtest'], **kwargs)
+        test_dataset = cls(images_masks_path=test_path,
+                           transform=transforms['valtest'], **kwargs) if test_path else None
 
         return train_dataset, val_dataset, test_dataset

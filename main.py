@@ -5,6 +5,7 @@ import glob
 import os
 
 import logzero
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from gtorch_utils.constants import DB
@@ -23,8 +24,10 @@ from consep.datasets.constants import BinaryCoNSeP
 from consep.processors.offline import CreateDataset
 from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
+from ct82.datasets import CT82Dataset
 from ct82.images import NIfTI, ProNIfTI
 from ct82.processors import CT82MGR
+from ct82.settings import TRANSFORMS
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR
@@ -712,6 +715,32 @@ def main():
     ###############################################################################
     #                                CT-82 dataset                                #
     ###############################################################################
+    # # getting subdatasets and plotting some crops
+    # train, val, test = CT82Dataset.get_subdatasets()
+    # for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
+    #     print(f'{db_name}: {len(dataset)}')
+    #     data = dataset[0]
+    #     print(data['image'].shape, data['mask'].shape)
+    #     print(data['label'], data['label_name'], data['updated_mask_path'], data['original_mask'])
+
+    #     print(data['image'].min(), data['image'].max())
+    #     print(data['mask'].min(), data['mask'].max())
+
+    #     img_id = np.random.randint(0, 72)
+    #     if len(data['image'].shape) == 4:
+    #         fig, axis = plt.subplots(1, 2)
+    #         axis[0].imshow(data['image'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #         axis[1].imshow(data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #         plt.show()
+    #     else:
+    #         fig, axis = plt.subplots(2, 4)
+    #         for idx, i, m in zip([*range(4)], data['image'], data['mask']):
+    #             axis[0, idx].imshow(i.detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #             axis[1, idx].imshow(m.detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #         plt.show()
+    ###############################################################################
+    #                                CT-82 dataset                                #
+    ###############################################################################
     # DICOM files 18942
     # NIfTI labels 82
     # MIN_VAL = -2048
@@ -746,7 +775,9 @@ def main():
     # small batches 2 - 4
     # standard data-augmentation techniques (affine transformations, axial flips, random crops)
     # Intensity values are linearly scaled to obtain a normal distribution N (0, 1)
-    # Sorensen-Dice loss
+    # https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/configs/config_unet_ct_dsv.json
+    # Sorensen-Dice loss https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/models/layers/loss.py#L29
+    # Adam https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/models/utils.py#L23
     # CT-150 train 120 testing 30
     # The results on pancreas predictions demonstrate that attention gates (AGs)
     # increase recall values (p = .005) by improving the model’s expression power as it relies
@@ -781,18 +812,6 @@ def main():
     ##
     # Affine transformations examples: translation, scaling, homothety, similarity, reflection,
     # rotation, shear mapping and compositions of them in any combination sequence
-    # torchvision transforms does not support 3D data
-    # - https://stackoverflow.com/questions/51677788/data-augmentation-in-pytorch#answer-68131471
-    #   fivecrop and tencrop can be used to augment the dataset number
-    # http://pytorch.org/vision/main/generated/torchvision.transforms.functional.affine.html
-    # https://pytorch.org/vision/stable/generated/torchvision.transforms.RandomAffine.html#torchvision.transforms.RandomAffine
-    # https://github.com/ncullen93/torchsample
-    #
-    # https://torchio.readthedocs.io/index.html https://github.com/fepegar/torchio
-    # https://github.com/Project-MONAI/MONAI/tree/dev/monai/transforms
-    # https://github.com/albumentations-team/albumentations/issues/138 albumentations does not work with 3d
-    # https://github.com/aleju/imgaug https://github.com/aleju/imgaug/issues/49
-    #
     ##
 
 
