@@ -144,25 +144,52 @@ class CT82MGR:
         for labels_file, cts_folder in tqdm(zip(labels_files, cts_folders)):
             self._process_labels_cts(labels_file, cts_folder)
 
-    def get_min_max_values(self):
+    def get_insights(self):
         """
-        Browse all the dicom files to the minimum and maximum values
+        Browse all the ct82 DICOM and NIfTI files and returns the min/max DICOM values,
+        total DICOMs analized, min/max number of NIfTI slices with data/masks, total NIfTIs analyzed,
+        min/max DICOMs per subject
 
         Returns:
-            min_, max_, dicoms_analized
+            min_dicom_val<int>, max_dicom_val<int>, dicoms_analized<int>,
+            min_slices_with_data<int>, max_slices_with_data<int>, nifties_analyzed<int>,
+            min_dicoms_per_subject<int>, max_dicoms_per_subject
         """
         cts_wildcard = os.path.join(self.cts_path, '**/*.dcm')
         dicoms = glob.glob(cts_wildcard, recursive=True)
         dicoms_analized = len(dicoms)
-        min_ = np.inf
-        max_ = np.NINF
+        min_dicom_val = min_slices_with_data = min_dicoms_per_subject = np.inf
+        max_dicom_val = max_slices_with_data = max_dicoms_per_subject = np.NINF
 
-        for dicom_path in dicoms:
+        for dicom_path in tqdm(dicoms, unit='DICOMs'):
             dcm = DICOM(dicom_path)
-            min_ = min(min_, dcm.ndarray.min())
-            max_ = max(max_, dcm.ndarray.max())
+            min_dicom_val = min(min_dicom_val, dcm.ndarray.min())
+            max_dicom_val = max(max_dicom_val, dcm.ndarray.max())
 
-        return min_, max_, dicoms_analized
+        nifti_wildcard = os.path.join(self.labels_path, '*.nii.gz')
+        niftis = glob.glob(nifti_wildcard)
+        niftis_analyzed = len(niftis)
+
+        for nifti_path in tqdm(glob.glob(nifti_wildcard), unit="NIfTIs"):
+            nifti = NIfTI(nifti_path)
+            nifti.clean_3d_ndarray(inplace=True)
+            min_slices_with_data = min(min_slices_with_data, nifti.shape[2])
+            max_slices_with_data = max(max_slices_with_data, nifti.shape[2])
+
+        # heree
+        cts_folders = [os.path.join(self.cts_path, f'PANCREAS_{i:04d}') for i in range(1, 83)]
+        cts_folders.sort()
+
+        for idx in self.non_existing_ct_folders[::-1]:
+            cts_folders.pop(idx-1)
+
+        for subject_dicoms_folder in tqdm(cts_folders, unit='DICOMs'):
+            subject_dicoms = len(glob.glob(os.path.join(subject_dicoms_folder, '**/*.dcm'), recursive=True))
+            min_dicoms_per_subject = min(min_dicoms_per_subject, subject_dicoms)
+            max_dicoms_per_subject = max(max_dicoms_per_subject, subject_dicoms)
+
+        return min_dicom_val, max_dicom_val, dicoms_analized, min_slices_with_data, max_slices_with_data, \
+            niftis_analyzed, min_dicoms_per_subject, max_dicoms_per_subject
 
     def perform_visual_verification(
             self, subject_id: int, /, *, alpha: float = .4, scans: Union[int, list] = 1, clahe: bool = False,

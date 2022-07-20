@@ -5,10 +5,12 @@ import glob
 import os
 import shutil
 import unittest
+from unittest.mock import patch
+
+from gutils.mock import notqdm
 
 from ct82.images import NIfTI, ProNIfTI
 from ct82.processors import CT82MGR
-
 from ct82.constants import TEST_DATASET_PATH
 
 
@@ -46,12 +48,19 @@ class Test_CT82MGR(unittest.TestCase):
         self.assertTrue(os.path.isfile(self.mgr.VERIFICATION_IMG))
         os.remove(self.mgr.VERIFICATION_IMG)
 
-    def test_get_min_max_values(self):
-        min_, max_, dicoms_analized = self.mgr.get_min_max_values()
+    @patch('ct82.processors.ct82mgr.tqdm', notqdm)
+    def test_get_insights(self):
+        min_, max_, dicoms_analized, min_slices, max_slices, nifties_analyzed, min_dicoms, max_dicoms = \
+            self.mgr.get_insights()
 
         self.assertEqual(dicoms_analized, 435, dicoms_analized)
         self.assertTrue(min_ >= -1024, min_)
         self.assertTrue(max_ <= 2421, max_)
+        self.assertTrue(min_slices >= 46, min_slices)
+        self.assertTrue(max_slices <= 145, max_slices)
+        self.assertEqual(nifties_analyzed, 2, nifties_analyzed)
+        self.assertEqual(min_dicoms >= 181, min_dicoms)
+        self.assertTrue(max_dicoms <= 466, max_dicoms)
 
 
 if __name__ == '__main__':
