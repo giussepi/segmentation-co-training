@@ -971,7 +971,7 @@ If true it track the loss values, else it tracks the metric values.
 
         _, metric, _ = self.validation(dataloader=self.test_loader, testing=True, **kwargs)
 
-        logger.info(f'Testing Metric: {metric}')
+        logger.info(f'Testing Metric: {metric["val_DiceCoefficient"].item()}')
 
     def predict_step(self, patch):
         """

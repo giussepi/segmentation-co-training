@@ -640,7 +640,7 @@ def main():
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=5,  # 20
+        epochs=50,  # 30
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
