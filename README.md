@@ -579,17 +579,18 @@ This application is using [logzero](https://logzero.readthedocs.io/en/latest/). 
 
 
 ## TODO
+- [ ] Modify UNet3D to support tensorboard when using 3D data
 - [x] Review issue about passing the skip connections (in all DA models)
-- [ ] Update all DA models to use batchnorm_cls and init_type properly (like UNet_3Plus_Intra_DA)
-- [ ] Review that AttentionBlock is properly used everywhere!!!
-- [ ] Select onlyohe attention unet and remove the other one
+- [x] Update all DA models to use batchnorm_cls and init_type properly (like UNet_3Plus_Intra_DA)
+- [x] Review that AttentionBlock is properly used everywhere!!!
+- [ ] Select only the attention unet and remove the other one
 - [ ] AttentionMergingBlock.forward think how it should work to make the models separable
 - [ ] AttentionMergingBlock: if there's time. Implement the other ways of merging the attentions
 - [ ] DAModelMGR: Pass training metrics to forward pass when using DAModelManagers
   For now I'm passing zeroes as metrics [self.model(imgs, 0., 0.)] and using
   da_threshold=np.NINF to have always apply DA
 - [ ] UNet_3Plus_DA_Train, UNet_3Plus_DA2_Train, UNet_3Plus_DA2ext_Train: fix x1_, x2 issue in the forward pass
-- [ ] Attention UNet: add batchnorm_cls and init_type
+- [x ] Attention UNet: add batchnorm_cls and init_type
 
 
 [^1]: Holger R. Roth, Amal Farag, Evrim B. Turkbey, Le Lu, Jiamin Liu, and Ronald M. Summers. (2016). Data From Pancreas-CT. The Cancer Imaging Archive. [https://doi.org/10.7937/K9/TCIA.2016.tNB1kqBU](https://doi.org/10.7937/K9/TCIA.2016.tNB1kqBU)
