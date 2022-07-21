@@ -203,7 +203,9 @@ mgr.perform_visual_verification(1, scans=[72], clahe=True)
 ```python
 from ct82.processors import CT82MGR
 
-target_size = (368, 368, 96)
+target_size = (368, 368, 96)  # fixed num of scans/depth
+target_size = (368, 368, -1)  # different depth per subject containing only scans with data
+
 mgr = CT82MGR(
     saving_path='CT-82-Pro',
     target_size=target_size
