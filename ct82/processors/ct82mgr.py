@@ -62,7 +62,9 @@ class CT82MGR:
                                Default 'TCIA_pancreas_labels-02-05-2017'
             saving_path <str>: Path to the folder where the processed labels and CTs will be stored
                                Default CT-82-Pro
-            target_size <tuple>: target size of the 3D data height x width x slices.
+            target_size <tuple>: target size of the 3D data height x width x slices. If the value of the
+                               third dimension is -1, the target size per subject will be
+                               (height, width, num_slices_with_data).
                                Default (368, 368, 96)
             non_existing_ct_folders <tuple>: Tuple containing the id of the non existing CT folders.
                                Default [25, 70].
@@ -106,7 +108,10 @@ class CT82MGR:
         labels = NIfTI(labels_file)
         _, selected_data_idx = labels.clean_3d_ndarray(height=self.target_size[2], inplace=True)
         # then we apply the resize over the annotated area (ROI)
-        labels.resize(self.target_size, inplace=True)
+        if self.target_size[2] == -1:
+            labels.resize((*self.target_size[:2], labels.shape[2]), inplace=True)
+        else:
+            labels.resize(self.target_size, inplace=True)
         result = self.label_pattern.match(labels_file)
 
         if result is None:
@@ -176,7 +181,6 @@ class CT82MGR:
             min_slices_with_data = min(min_slices_with_data, nifti.shape[2])
             max_slices_with_data = max(max_slices_with_data, nifti.shape[2])
 
-        # heree
         cts_folders = [os.path.join(self.cts_path, f'PANCREAS_{i:04d}') for i in range(1, 83)]
         cts_folders.sort()
 
