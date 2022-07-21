@@ -24,7 +24,7 @@ from consep.datasets.constants import BinaryCoNSeP
 from consep.processors.offline import CreateDataset
 from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
-from ct82.datasets import CT82Dataset
+from ct82.datasets import CT82Dataset, CT82Labels
 from ct82.images import NIfTI, ProNIfTI
 from ct82.processors import CT82MGR
 from ct82.settings import TRANSFORMS
@@ -36,7 +36,7 @@ from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
     UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS, UNet_3Plus_Intra_DA_GS_HDX, XAttentionUNet, UNet2D, \
     UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
-    MultiAttentionBlock
+    MultiAttentionBlock, UNet3D
 from nns.models.layers.disagreement_attention import inter_class
 from nns.models.layers.disagreement_attention import intra_class
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
@@ -560,33 +560,98 @@ def main():
     # model5.plot_and_save(None, 154)
 
     # model6 = dict(
-    model6 = ModelMGR(
-        model=XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
-        model_kwargs=dict(da_block_cls=intra_class.AttentionBlock,
-                          # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
-                          # da_block_config=dict(n_channels=-1),
-                          # is_deconv=True,
-                          # feature_scale=1, is_batchnorm=True,
-                          bilinear=False,  # XAttentionUNet only
-                          n_channels=3, n_classes=1,
-                          # attention_block_cls=SingleAttentionBlock,
-                          init_type=UNet3InitMethod.KAIMING,
-                          batchnorm_cls=get_batchnorm2d_class()
-                          ),
+    # model6 = ModelMGR(
+    #     model=XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
+    #     model_kwargs=dict(da_block_cls=intra_class.AttentionBlock,
+    #                       # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
+    #                       # da_block_config=dict(n_channels=-1),
+    #                       # is_deconv=True,
+    #                       # feature_scale=1, is_batchnorm=True,
+    #                       bilinear=False,  # XAttentionUNet only
+    #                       n_channels=3, n_classes=1,
+    #                       # attention_block_cls=SingleAttentionBlock,
+    #                       init_type=UNet3InitMethod.KAIMING,
+    #                       batchnorm_cls=get_batchnorm2d_class()
+    #                       ),
+    #     cuda=settings.CUDA,
+    #     multigpus=settings.MULTIGPUS,
+    #     patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+    #     epochs=30,  # 20
+    #     intrain_val=2,  # 2
+    #     optimizer=torch.optim.Adam,
+    #     optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
+    #     sanity_checks=False,
+    #     labels_data=BinaryCoNSeP,
+    #     dataset=OfflineCoNSePDataset,
+    #     dataset_kwargs={
+    #         'train_path': settings.CONSEP_TRAIN_PATH,
+    #         'val_path': settings.CONSEP_VAL_PATH,
+    #         'test_path': settings.CONSEP_TEST_PATH,
+    #         'cotraining': settings.COTRAINING,
+    #     },
+    #     train_dataloader_kwargs={
+    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+    #     },
+    #     testval_dataloader_kwargs={
+    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+    #     },
+    #     lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+    #     # TODO: the mode can change based on the quantity monitored
+    #     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+    #     lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
+    #     lr_scheduler_track=LrShedulerTrack.LOSS,
+    #     criterions=[
+    #         # torch.nn.BCEWithLogitsLoss()
+    #         # torch.nn.CrossEntropyLoss()
+    #         loss_functions.BceDiceLoss(with_logits=True),
+    #         # BceDiceLoss(),
+    #         loss_functions.SpecificityLoss(with_logits=True),
+    #     ],
+    #     mask_threshold=0.5,
+    #     metrics=settings.METRICS,
+    #     metric_mode=MetricEvaluatorMode.MAX,
+    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+    #     checkpoint_interval=0,
+    #     train_eval_chkpt=False,
+    #     last_checkpoint=True,
+    #     ini_checkpoint='',
+    #     dir_checkpoints=os.path.join(
+    #         settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'unet_3plus_intra_da'),
+    #     tensorboard=False,
+    #     # TODO: there a bug that appeared once when plotting to disk after a long training
+    #     # anyway I can always plot from the checkpoints :)
+    #     plot_to_disk=False,
+    #     plot_dir=settings.PLOT_DIRECTORY
+    # )
+    # model6()
+    # model6.print_data_logger_summary()
+    # model6.plot_and_save(None, 154)
+    # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
+
+    ##
+    ###########################################################################
+    #                                  UNet3D                                 #
+    ###########################################################################
+    # heree
+    m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
+    model7 = ModelMGR(
+        model=UNet3D,
+        model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=30,  # 20
+        epochs=5,  # 20
         intrain_val=2,  # 2
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
         sanity_checks=False,
-        labels_data=BinaryCoNSeP,
-        dataset=OfflineCoNSePDataset,
+        labels_data=CT82Labels,
+        data_dimensions=3,
+        dataset=CT82Dataset,
         dataset_kwargs={
-            'train_path': settings.CONSEP_TRAIN_PATH,
-            'val_path': settings.CONSEP_VAL_PATH,
-            'test_path': settings.CONSEP_TEST_PATH,
+            'train_path': settings.CT82_TRAIN_PATH,
+            'val_path': settings.CT82_VAL_PATH,
+            'test_path': settings.CT82_TEST_PATH,
             'cotraining': settings.COTRAINING,
         },
         train_dataloader_kwargs={
@@ -605,7 +670,7 @@ def main():
             # torch.nn.CrossEntropyLoss()
             loss_functions.BceDiceLoss(with_logits=True),
             # BceDiceLoss(),
-            loss_functions.SpecificityLoss(with_logits=True),
+            # loss_functions.SpecificityLoss(with_logits=True),
         ],
         mask_threshold=0.5,
         metrics=settings.METRICS,
@@ -616,18 +681,22 @@ def main():
         last_checkpoint=True,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'unet_3plus_intra_da'),
+            settings.DIR_CHECKPOINTS, 'ct82',  'unet3d', 'exp1'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    # model6()
-    # model6.print_data_logger_summary()
-    # model6.plot_and_save(None, 154)
+    model7()
+    # model7.print_data_logger_summary()
+    # model7.plot_and_save(None, 154)
     # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
+    # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
+    # summary(model7.module, (1, 1, *settings.CT82_CROP_SHAPE), depth=1, verbose=1)
+    ##
 
+    ###########################################################################
     # Disagreement attention cotraining experiments ###########################
     # cot = DACoTraining(
     #     model_mgr_kwargs=model4,
@@ -682,18 +751,13 @@ def main():
     # except Exception:
     #     pass
 
-    # # visual verification of cts with high quality 1024x1024 from test_CT-82-pro_ #
-    # target_size = (368, 368, 96)  # (1024, 1024, 96)
-    # mgr = CT82MGR(
-    #     saving_path='CT-82-Pro',
-    #     target_size=target_size
-    # )
-    # mgr.non_existing_ct_folders = []
-    # mgr.perform_visual_verification(1, scans=[72], clahe=True)
-    # # os.remove(mgr.VERIFICATION_IMG)
+    ###############################################################################
+    #                                CT-82 dataset                                #
+    ###############################################################################
 
     # # Processing CT-82 dataset ################################################
     # target_size = (368, 368, 96)
+    # target_size = (368, 368, -1)
     # mgr = CT82MGR(target_size=target_size)
     # mgr()
 
@@ -712,10 +776,17 @@ def main():
     # mgr.perform_visual_verification(80, scans=[70], clahe=True)
     # mgr.split_processed_dataset(.15, .2, shuffle=False)
 
-    ###############################################################################
-    #                                CT-82 dataset                                #
-    ###############################################################################
-    # # getting subdatasets and plotting some crops
+    # visual verification of cts ##############################################
+    # target_size = (368, 368, 96)  # (1024, 1024, 96)
+    # mgr = CT82MGR(
+    #     saving_path='CT-82-Pro',
+    #     target_size=target_size
+    # )
+    # mgr.non_existing_ct_folders = []
+    # mgr.perform_visual_verification(1, scans=[72], clahe=True)
+    # # os.remove(mgr.VERIFICATION_IMG)
+
+    # getting subdatasets and plotting some crops #############################
     # train, val, test = CT82Dataset.get_subdatasets()
     # for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
     #     print(f'{db_name}: {len(dataset)}')
@@ -741,15 +812,16 @@ def main():
     ###############################################################################
     #                                CT-82 dataset                                #
     ###############################################################################
+    # print(CT82MGR().get_insights())
     # DICOM files 18942
     # NIfTI labels 82
     # MIN_VAL = -2048
     # MAX_VAL = 3071
-
+    # MIN_NIFTI_SLICES_WITH_DATA = 46
+    # MAX_NIFTI_SLICES_WITH_DATA = 145
     # folders PANCREAS_0025 and PANCREAS_0070 are empty
     # MIN DICOMS per subject 181
     # MAX DICOMS per subject 466
-    # DICOMS with data (cleaned) per subject: MIN 46, MAX 145
     ###############################################################################
     #                                     dpis                                    #
     # https://www.iprintfromhome.com/mso/understandingdpi.pdf very good explanantion of dpi
@@ -783,7 +855,7 @@ def main():
     # increase recall values (p = .005) by improving the model’s expression power as it relies
     # on AGs to localise foreground pixels.
     # inference timeused 160x160x96 tensors
-    # CT-80 (TCIA Pancreas-CT Dataset) train 61, test 21
+    # CT-80 (TCIA Pancreas-CT Dataset) train 61 (74.39%), test 21 (25.6%)
     # #+caption: models from scratch
     # | Method          | Dice        | Precision   | Recall      | S2S dist(mm) |
     # |-----------------+-------------+-------------+-------------+--------------|
@@ -801,6 +873,7 @@ def main():
     #       "patch_size": [160,160,96]
     #     }
     #   },
+    # epochs >= 150 (1000)
     ###############################################################################
     ###############################################################################
     #                                    DICOM                                    #
