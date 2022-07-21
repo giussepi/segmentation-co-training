@@ -10,4 +10,4 @@
 
 from .batchnorm import SynchronizedBatchNorm1d, SynchronizedBatchNorm2d, SynchronizedBatchNorm3d
 from .replicate import DataParallelWithCallback, patch_replication_callback
-from .utils import get_batchnorm2d_class
+from .utils import get_batchnormxd_class

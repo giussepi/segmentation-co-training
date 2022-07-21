@@ -357,13 +357,13 @@ Currently, this implementation only support two models for the binary case
     from nns.models import Deeplabv3plus
     from nns.segmentation.learning_algorithms import CoTraining
     from nns.segmentation.utils.postprocessing import ExpandPrediction
-    from nns.utils.sync_batchnorm import get_batchnorm2d_class
+    from nns.utils.sync_batchnorm import get_batchnormxd_class
 
 
     model1 = dict(
         model=UNet_3Plus,
         model_kwargs=dict(n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
-                          batchnorm_cls=get_batchnorm2d_class()),
+                          batchnorm_cls=get_batchnormxd_class()),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
@@ -414,7 +414,7 @@ Currently, this implementation only support two models for the binary case
                      model_num_classes=1,
                      model_freezebn=False,
                      model_channels=3),
-            batchnorm=get_batchnorm2d_class(), backbone=xception, backbone_pretrained=True,
+            batchnorm=get_batchnormxd_class(), backbone=xception, backbone_pretrained=True,
             dilated=True, multi_grid=False, deep_base=True
         ),
         cuda=settings.CUDA,

@@ -42,7 +42,7 @@ from nns.models.layers.disagreement_attention import intra_class
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
 from nns.segmentation.learning_algorithms import CoTraining, DACoTraining
 from nns.segmentation.utils.postprocessing import ExpandPrediction
-from nns.utils.sync_batchnorm import get_batchnorm2d_class
+from nns.utils.sync_batchnorm import get_batchnormxd_class
 
 
 logzero.loglevel(settings.LOG_LEVEL)
@@ -192,7 +192,7 @@ def main():
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
         model=UNet_3Plus,
         model_kwargs=dict(n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
-                          batchnorm_cls=get_batchnorm2d_class()),
+                          batchnorm_cls=get_batchnormxd_class()),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
@@ -248,7 +248,7 @@ def main():
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
         model=UNet_3Plus,
         model_kwargs=dict(n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
-                          batchnorm_cls=get_batchnorm2d_class()),
+                          batchnorm_cls=get_batchnormxd_class()),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
@@ -310,7 +310,7 @@ def main():
                      model_num_classes=1,
                      model_freezebn=False,
                      model_channels=3),
-            batchnorm=get_batchnorm2d_class(), backbone=xception, backbone_pretrained=True,
+            batchnorm=get_batchnormxd_class(), backbone=xception, backbone_pretrained=True,
             dilated=True, multi_grid=False, deep_base=True
         ),
         cuda=settings.CUDA,
@@ -428,13 +428,13 @@ def main():
                          da_block_config=dict(thresholds=(.25, .8), beta=0.),
                          # da_merging_type=AttentionMergingType.MAX,
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
-                         batchnorm_cls=get_batchnorm2d_class()),
+                         batchnorm_cls=get_batchnormxd_class()),
             model2_cls=UNet_3Plus_DA,
             kwargs2=dict(da_threshold=np.NINF, da_block_cls=inter_class.ThresholdedDisagreementAttentionBlock,
                          da_block_config=dict(thresholds=(.25, .8), beta=0.),
                          # da_merging_type=AttentionMergingType.MAX,
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
-                         batchnorm_cls=get_batchnorm2d_class()),
+                         batchnorm_cls=get_batchnormxd_class()),
         ),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
@@ -505,7 +505,7 @@ def main():
     #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
     #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
     #     model=AttentionUNet2,
-    #     model_kwargs=dict(n_channels=3, n_classes=1, batchnorm_cls=get_batchnorm2d_class()),
+    #     model_kwargs=dict(n_channels=3, n_classes=1, batchnorm_cls=get_batchnormxd_class()),
     #     cuda=settings.CUDA,
     #     multigpus=settings.MULTIGPUS,
     #     patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
@@ -571,7 +571,7 @@ def main():
     #                       n_channels=3, n_classes=1,
     #                       # attention_block_cls=SingleAttentionBlock,
     #                       init_type=UNet3InitMethod.KAIMING,
-    #                       batchnorm_cls=get_batchnorm2d_class()
+    #                       batchnorm_cls=get_batchnormxd_class()
     #                       ),
     #     cuda=settings.CUDA,
     #     multigpus=settings.MULTIGPUS,
@@ -675,7 +675,7 @@ def main():
         mask_threshold=0.5,
         metrics=settings.METRICS,
         metric_mode=MetricEvaluatorMode.MAX,
-        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),  # patience=10
         checkpoint_interval=0,
         train_eval_chkpt=False,
         last_checkpoint=True,
@@ -856,6 +856,7 @@ def main():
     # on AGs to localise foreground pixels.
     # inference timeused 160x160x96 tensors
     # CT-80 (TCIA Pancreas-CT Dataset) train 61 (74.39%), test 21 (25.6%)
+    # 5-fold cross-validation
     # #+caption: models from scratch
     # | Method          | Dice        | Precision   | Recall      | S2S dist(mm) |
     # |-----------------+-------------+-------------+-------------+--------------|
