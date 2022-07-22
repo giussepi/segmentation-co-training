@@ -29,7 +29,7 @@ class Deeplabv3plus(nn.Module):
                  model_num_classes=1,
                  model_freezebn=False,
                  model_channels=3),
-            batchnorm=get_batchnormxd_class(settings.NUM_GPUS), backbone=resnet101,  backbone_pretrained=True,
+            batchnorm=get_batchnormxd_class(), backbone=resnet101,  backbone_pretrained=True,
             dilated=True, multi_grid=False, deep_base=True
         )
     """
