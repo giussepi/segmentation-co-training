@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ nns/models/layers/disagreement_attention/layers """
 
-from typing import Union
+from typing import Union, Optional
 
 import torch
 from torch.nn.modules.batchnorm import _BatchNorm
@@ -132,14 +132,13 @@ class AttentionConvBlock(torch.nn.Module):
                     2*self.filters[3],
                     self.filters[3] // factor,
                     batchnorm_cls=self.batchnorm_cls,
-                    bilinear=self.bilinear
                 )
     """
 
     def __init__(
             self, dablock_obj: torch.nn.Module, conv_in_channels: int, conv_out_channels: int, /, *,
-            only_attention: bool = False, batchnorm_cls: _BatchNorm = torch.nn.BatchNorm2d,
-            bilinear: bool = True
+            only_attention: bool = False, batchnorm_cls: Optional[_BatchNorm] = None,
+            data_dimensions: int = 2
     ):
         """
         Kwargs:
@@ -149,24 +148,38 @@ class AttentionConvBlock(torch.nn.Module):
             conv_out_channels   <int>: conv_block out channels
             only_attention     <bool>: If true returns only the attention; otherwise, returns the
                                        activation maps with attention. Default False
+            batchnom_cls <_BatchNorm>: Batch normalization class. Default torch.nn.BatchNorm2d or
+                                       torch.nn.BatchNorm3d
+            data_dimensions <int>: Number of dimensions of the data. 2 for 2D [bacth, channel, height, width],
+                                       3 for 3D [batch, channel, depth, height, width]. This argument will
+                                       determine to use conv2d or conv3d.
+                                       Default 2
         """
         super().__init__()
+        self.dattentionblock = dablock_obj
+        self.identity = torch.nn.Identity()
+        self.only_attention = only_attention
+        self.batchnorm_cls = batchnorm_cls
+        self.data_dimensions = data_dimensions
+
+        if self.batchnorm_cls is None:
+            self.batchnorm_cls = torch.nn.BatchNorm2d if self.data_dimensions == 2 else torch.nn.BatchNorm3d
+
         assert isinstance(dablock_obj, torch.nn.Module), \
             'The provided dablock_obj is not an instance of torch.nn.Module'
         assert isinstance(conv_in_channels, int), type(conv_in_channels)
         assert isinstance(conv_out_channels, int), type(conv_out_channels)
         assert isinstance(only_attention, bool), type(only_attention)
         assert issubclass(batchnorm_cls, _BatchNorm), type(batchnorm_cls)
-        assert isinstance(bilinear, bool), type(bilinear)
+        assert self.data_dimensions in (2, 3), 'only 2d and 3d data is supported'
 
-        self.dattentionblock = dablock_obj
-        self.identity = torch.nn.Identity()
-        self.only_attention = only_attention
-        self.batchnorm_cls = batchnorm_cls
-        self.bilinear = bilinear
+        mode = 'bilinear' if self.data_dimensions == 2 else 'trilinear'
 
-        self.up = torch.nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False)
-        self.conv_block = DoubleConv(conv_in_channels, conv_out_channels, batchnorm_cls=self.batchnorm_cls)
+        self.up = torch.nn.Upsample(scale_factor=2, mode=mode, align_corners=False)
+        self.conv_block = DoubleConv(
+            conv_in_channels, conv_out_channels, batchnorm_cls=self.batchnorm_cls,
+            data_dimensions=self.data_dimensions
+        )
 
     def forward(self, x: torch.Tensor, skip_connection: torch.Tensor, /, *, disable_attention: bool = False,
                 central_gating: torch.Tensor = None):

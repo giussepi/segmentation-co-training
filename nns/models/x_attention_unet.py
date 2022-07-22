@@ -29,7 +29,8 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
 
     def __init__(
             self, n_channels: int, n_classes: int, bilinear: bool = True,
-            batchnorm_cls: _BatchNorm = torch.nn.BatchNorm2d, init_type=UNet3InitMethod.KAIMING,
+            batchnorm_cls: Optional[_BatchNorm] = None, init_type=UNet3InitMethod.KAIMING,
+            data_dimensions: int = 2,
             da_block_cls: BaseDisagreementAttentionBlock = AttentionBlock,
             da_block_config: Optional[dict] = None
     ):
@@ -41,13 +42,18 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
             n_classes        <int>: number of classes. Use n_classes=1 for classes <= 2, for the rest or cases
                                     use n_classes = classes
             bilinear        <bool>: Whether or not use the bilinear mode
-            batchnorm_cls <_BatchNorm>: batch normalization class
+            data_dimensions  <int>: Number of dimensions of the data. 2 for 2D [bacth, channel, height, width],
+                                    3 for 3D [batch, channel, depth, height, width].
+                                    Default 2
+            batchnom_cls <_BatchNorm>: Batch normalization class. Default torch.nn.BatchNorm2d or
+                                       torch.nn.BatchNorm3d
             init_type        <int>: Initialization method. Default UNet3InitMethod.KAIMING
             da_block_cls <BaseDisagreementAttentionBlock>: Attention block to be used.
                                     Default AttentionBlock (the standard attention for Unet)
             da_block_config <dict>: Configuration for the instance to be created from da_block_cls.
-                                    DO NOT PROVIDE 'n_channels' IN THIS DICTIONARY. It will be removed
-                                    because it is properly defined per AttentionConvBlock
+                                    DO NOT PROVIDE 'n_channels' or 'data_dimensions' IN THIS DICTIONARY.
+                                    They will be removed because they are properly defined per
+                                    AttentionConvBlock. Default None
         """
         super().__init__()
 
@@ -55,18 +61,24 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
+        self.data_dimensions = data_dimensions
         self.batchnorm_cls = batchnorm_cls
         self.init_type = init_type
         self.da_block_cls = da_block_cls
+
         if da_block_config:
             assert isinstance(da_block_config, dict), type(da_block_config)
             self.da_block_config = da_block_config
         else:
             self.da_block_config = {}
 
+        if self.batchnorm_cls is None:
+            self.batchnorm_cls = torch.nn.BatchNorm2d if self.data_dimensions == 2 else torch.nn.BatchNorm3d
+
         assert isinstance(self.n_channels, int), type(self.n_channels)
         assert isinstance(self.n_classes, int), type(self.n_classes)
         assert isinstance(self.bilinear, bool), type(self.bilinear)
+        assert self.data_dimensions in (2, 3), 'only 2d and 3d data is supported'
         assert issubclass(self.batchnorm_cls, _BatchNorm), type(self.batchnom_cls)
         UNet3InitMethod.validate(self.init_type)
         assert issubclass(self.da_block_cls, BaseDisagreementAttentionBlock), \
@@ -79,21 +91,35 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
         # removing n_channels from da_block_config, because this value is already
         # defined per AttentionConvBlock
         if 'n_channels' in self.da_block_config:
-            logger.warning(f'n_channels: {self.da_block_config["n_channels"]} has been removed from da_block_config')
+            logger.warning(
+                f'n_channels: {self.da_block_config["n_channels"]} has been removed from '
+                'da_block_config'
+            )
             self.da_block_config.pop('n_channels')
+
+        if 'data_dimensions' in self.da_block_config:
+            logger.warning(
+                f'data_dimensions: {self.da_block_config["data_dimensions"]} has been removed from '
+                'da_block_config'
+            )
+            self.da_block_config.pop('data_dimensions')
 
         self.filters = [64, 128, 256, 512, 1024]
 
         # Encoder layers ######################################################
-        self.inc = DoubleConv(n_channels, self.filters[0], batchnorm_cls=self.batchnorm_cls)
-        self.down1 = Down(self.filters[0], self.filters[1], self.batchnorm_cls)
-        self.down2 = Down(self.filters[1], self.filters[2], self.batchnorm_cls)
-        self.down3 = Down(self.filters[2], self.filters[3], self.batchnorm_cls)
+        self.inc = DoubleConv(
+            n_channels, self.filters[0], batchnorm_cls=self.batchnorm_cls,
+            data_dimensions=self.data_dimensions
+        )
+        self.down1 = Down(self.filters[0], self.filters[1], self.batchnorm_cls, self.data_dimensions)
+        self.down2 = Down(self.filters[1], self.filters[2], self.batchnorm_cls, self.data_dimensions)
+        self.down3 = Down(self.filters[2], self.filters[3], self.batchnorm_cls, self.data_dimensions)
         factor = 2 if self.bilinear else 1
-        self.down4 = Down(self.filters[3], self.filters[4] // factor, self.batchnorm_cls)  # centre
+        self.down4 = Down(
+            self.filters[3], self.filters[4] // factor, self.batchnorm_cls, self.data_dimensions)  # centre
         self.gating = UnetGridGatingSignal(
             self.filters[4] // factor, self.filters[4] // factor, kernel_size=1,
-            batchnorm_cls=self.batchnorm_cls
+            batchnorm_cls=self.batchnorm_cls, data_dimensions=self.data_dimensions
         )
 
         # Decoder layers ######################################################
@@ -102,47 +128,64 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
             # attention to skip_connection
             self.da_block_cls(self.filters[3], self.filters[4] // factor,
                               n_channels=self.filters[3],
+                              data_dimensions=self.data_dimensions,
                               **self.da_block_config),
             self.filters[3] + (self.filters[4] // factor),
             self.filters[3] // factor,
             batchnorm_cls=self.batchnorm_cls,
-            bilinear=self.bilinear
+            data_dimensions=self.data_dimensions,
         )
         # intra-class DA skip conn. down2 & gating signal up1_with_da -> up2
         self.up2_with_da = AttentionConvBlock(
             # attention to skip_connection
             self.da_block_cls(self.filters[2], self.filters[3] // factor,
                               n_channels=self.filters[2],
+                              data_dimensions=self.data_dimensions,
                               **self.da_block_config),
             self.filters[2] + (self.filters[3] // factor),
             self.filters[2] // factor,
             batchnorm_cls=self.batchnorm_cls,
-            bilinear=self.bilinear
+            data_dimensions=self.data_dimensions,
         )
         # intra-class DA skip conn. down1 & gating signal up2_with_da -> up3
         self.up3_with_da = AttentionConvBlock(
             # attention to skip_connection
-            da_block_cls(self.filters[1], self.filters[2] // factor,
-                         n_channels=self.filters[1],
-                         **self.da_block_config),
+            self.da_block_cls(self.filters[1], self.filters[2] // factor,
+                              n_channels=self.filters[1],
+                              data_dimensions=self.data_dimensions,
+                              **self.da_block_config),
             self.filters[1] + (self.filters[2] // factor),
             self.filters[1] // factor,
             batchnorm_cls=self.batchnorm_cls,
-            bilinear=self.bilinear
+            data_dimensions=self.data_dimensions,
         )
-        self.up4 = UpConcat(self.filters[1] // factor, self.filters[0], self.bilinear, self.batchnorm_cls)
+        self.up4 = UpConcat(
+            self.filters[1] // factor, self.filters[0], self.bilinear, self.batchnorm_cls,
+            self.data_dimensions
+        )
 
         # deep supervision
-        self.dsv1 = UnetDsv(in_size=self.filters[3] // factor, out_size=self.n_classes, scale_factor=8)
-        self.dsv2 = UnetDsv(in_size=self.filters[2] // factor, out_size=self.n_classes, scale_factor=4)
-        self.dsv3 = UnetDsv(in_size=self.filters[1] // factor, out_size=self.n_classes, scale_factor=2)
-        self.dsv4 = torch.nn.Conv2d(in_channels=self.filters[0], out_channels=self.n_classes, kernel_size=1)
+        self.dsv1 = UnetDsv(
+            in_size=self.filters[3] // factor, out_size=self.n_classes, scale_factor=8,
+            data_dimensions=self.data_dimensions
+        )
+        self.dsv2 = UnetDsv(
+            in_size=self.filters[2] // factor, out_size=self.n_classes, scale_factor=4,
+            data_dimensions=self.data_dimensions
+        )
+        self.dsv3 = UnetDsv(
+            in_size=self.filters[1] // factor, out_size=self.n_classes, scale_factor=2,
+            data_dimensions=self.data_dimensions
+        )
+
+        convxd = torch.nn.Conv2d if self.data_dimensions == 2 else torch.nn.Conv3d
+        self.dsv4 = convxd(in_channels=self.filters[0], out_channels=self.n_classes, kernel_size=1)
 
         # self.outc = OutConv(self.filters[0], self.n_classes) original
-        self.outc = OutConv(self.n_classes*4, self.n_classes)  # using deep supervision
+        self.outc = OutConv(self.n_classes*4, self.n_classes, self.data_dimensions)  # deep supervision
 
         # initializing weights ################################################
-        self.initialize_weights(self.init_type, layers_cls=(torch.nn.Conv2d, self.batchnorm_cls))
+        self.initialize_weights(self.init_type, layers_cls=(convxd, self.batchnorm_cls))
 
     def forward(self, x):
         # encoder #############################################################
