@@ -16,8 +16,6 @@ def get_batchnormxd_class():
     """
     assert settings.DATA_DIMENSIONS in (1, 2, 3), 'Only 1D, 2D and 3D data is supported'
 
-    # TODO: decide if the value from settings should be parameters or just imported
-    # from the settings module (like it is working right now)
     if settings.CUDA == settings.MULTIGPUS == settings.PATCH_REPLICATION_CALLBACK == True and \
        torch.cuda.is_available() and torch.cuda.device_count() > 1:
         if settings.DATA_DIMENSIONS == 1:
