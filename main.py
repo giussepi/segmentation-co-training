@@ -634,20 +634,28 @@ def main():
     ###########################################################################
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
     model7 = ModelMGR(
-        model=XAttentionUNet,  # UNet3D,
+        model=UNet_Att_DSV,  # UNet_Grid_Attention,,  # XAttentionUNet,  # UNet3D,
+        # UNet3D
         # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
-        model_kwargs=dict(da_block_cls=intra_class.AttentionBlock,
-                          # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
-                          # da_block_config=dict(n_channels=-1),
-                          # is_deconv=True,
-                          # feature_scale=1, is_batchnorm=True,
-                          bilinear=False,  # XAttentionUNet only
-                          n_channels=1, n_classes=1,
-                          # attention_block_cls=SingleAttentionBlock,
-                          init_type=UNet3InitMethod.KAIMING,
-                          batchnorm_cls=get_batchnormxd_class(),
-                          data_dimensions=settings.DATA_DIMENSIONS
-                          ),
+        # XAttentionUNet
+        # model_kwargs=dict(da_block_cls=intra_class.AttentionBlock,
+        #                   # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
+        #                   # da_block_config=dict(n_channels=-1),
+        #                   # is_deconv=True,
+        #                   # feature_scale=1, is_batchnorm=True,
+        #                   bilinear=False,  # XAttentionUNet only
+        #                   n_channels=1, n_classes=1,
+        #                   # attention_block_cls=SingleAttentionBlock,
+        #                   init_type=UNet3InitMethod.KAIMING,
+        #                   batchnorm_cls=get_batchnormxd_class(),
+        #                   data_dimensions=settings.DATA_DIMENSIONS
+        #                   ),
+        # UNet_Att_DSV
+        model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
+                          attention_block_cls=SingleAttentionBlock, data_dimensions=settings.DATA_DIMENSIONS),
+        # UNet_Grid_Attention
+        # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
+        #                   data_dimensions=settings.DATA_DIMENSIONS),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,

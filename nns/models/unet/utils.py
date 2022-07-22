@@ -13,31 +13,40 @@ from nns.models.unet.network_others import init_weights
 
 
 __all__ = [
-    'unetConv2', 'UnetGridGatingSignal',  'unetUp', 'UnetUp_CT', 'UnetDsv', 'UnetConv3',
+    'unetConvX', 'UnetGridGatingSignal',  'unetUp', 'UnetUp_CT', 'UnetDsv', 'UnetConv3',
     'UnetUp3_CT'
 ]
 
 
-class unetConv2(nn.Module):
-    def __init__(self, in_size, out_size, is_batchnorm, n=2, kernel_size=3, stride=1, padding=1):
+class unetConvX(nn.Module):
+    def __init__(
+            self, in_size, out_size, is_batchnorm, n=2, kernel_size=3, stride=1, padding=1,
+            data_dimensions: int = 2):
         super().__init__()
+
         self.n = n
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
+        self.data_dimensions = data_dimensions
+
+        assert self.data_dimensions in (2, 3), 'only 2d and 3d data is supported'
+
+        convxd = nn.Conv2d if data_dimensions == 2 else nn.Conv3d
+        batchnorm = nn.BatchNorm2d if data_dimensions == 2 else nn.BatchNorm3d
+
         s = stride
         p = padding
         if is_batchnorm:
             for i in range(1, n+1):
-                conv = nn.Sequential(nn.Conv2d(in_size, out_size, kernel_size, s, p),
-                                     nn.BatchNorm2d(out_size),
+                conv = nn.Sequential(convxd(in_size, out_size, kernel_size, s, p),
+                                     batchnorm(out_size),
                                      nn.ReLU(inplace=True),)
                 setattr(self, 'conv%d' % i, conv)
                 in_size = out_size
-
         else:
             for i in range(1, n+1):
-                conv = nn.Sequential(nn.Conv2d(in_size, out_size, kernel_size, s, p),
+                conv = nn.Sequential(convxd(in_size, out_size, kernel_size, s, p),
                                      nn.ReLU(inplace=True),)
                 setattr(self, 'conv%d' % i, conv)
                 in_size = out_size
@@ -56,16 +65,21 @@ class unetConv2(nn.Module):
 
 
 class UnetGridGatingSignal(nn.Module):
-    def __init__(self, in_size, out_size, kernel_size=1, is_batchnorm=True):
+    def __init__(self, in_size, out_size, kernel_size=1, is_batchnorm=True, data_dimensions: int = 2):
         super().__init__()
 
+        assert data_dimensions in (2, 3), 'only 2d and 3d data is supported'
+
+        convxd = nn.Conv2d if data_dimensions == 2 else nn.Conv3d
+        batchnorm = nn.BatchNorm2d if data_dimensions == 2 else nn.BatchNorm3d
+
         if is_batchnorm:
-            self.conv1 = nn.Sequential(nn.Conv2d(in_size, out_size, kernel_size, stride=1, padding=0),
-                                       nn.BatchNorm2d(out_size),
+            self.conv1 = nn.Sequential(convxd(in_size, out_size, kernel_size, stride=1, padding=0),
+                                       batchnorm(out_size),
                                        nn.ReLU(inplace=True),
                                        )
         else:
-            self.conv1 = nn.Sequential(nn.Conv2d(in_size, out_size, kernel_size, stride=1, padding=0),
+            self.conv1 = nn.Sequential(convxd(in_size, out_size, kernel_size, stride=1, padding=0),
                                        nn.ReLU(inplace=True),
                                        )
 
@@ -79,19 +93,27 @@ class UnetGridGatingSignal(nn.Module):
 
 
 class unetUp(nn.Module):
-    def __init__(self, in_size, out_size, is_deconv, is_batchnorm=True):
+    def __init__(self, in_size, out_size, is_deconv, is_batchnorm=True, data_dimensions: int = 2):
         super().__init__()
+
+        assert data_dimensions in (2, 3), 'only 2d and 3d data is supported'
+
         # self.conv = unetConv2(in_size, out_size, False)  # original
-        self.conv = unetConv2(in_size, out_size, is_batchnorm)  # modified following unetup3
+        self.conv = unetConvX(in_size, out_size, is_batchnorm,
+                              data_dimensions=data_dimensions)  # modified following unetup3
 
         if is_deconv:
-            self.up = nn.ConvTranspose2d(in_size, out_size, kernel_size=4, stride=2, padding=1)
+            convtransposexd = nn.ConvTranspose2d if data_dimensions == 2 else nn.ConvTranspose3d
+            self.up = convtransposexd(in_size, out_size, kernel_size=4, stride=2, padding=1)
         else:
-            self.up = nn.UpsamplingBilinear2d(scale_factor=2)
+            if data_dimensions == 2:
+                self.up = nn.UpsamplingBilinear2d(scale_factor=2)
+            else:
+                self.up = nn.Upsample(scale_factor=2, mode='trilinear')
 
         # initialise the blocks
         for m in self.children():
-            if m.__class__.__name__.find('unetConv2') != -1:
+            if m.__class__.__name__.find('unetConvX') != -1:
                 continue
             init_weights(m, init_type='kaiming')
 
@@ -104,14 +126,21 @@ class unetUp(nn.Module):
 
 
 class UnetUp_CT(nn.Module):
-    def __init__(self, in_size, out_size, is_batchnorm=True):
+    def __init__(self, in_size, out_size, is_batchnorm=True, data_dimensions: int = 2):
         super().__init__()
-        self.conv = unetConv2(in_size + out_size, out_size, is_batchnorm, kernel_size=3, padding=1)
-        self.up = nn.Upsample(scale_factor=2, mode='bilinear')
+
+        assert data_dimensions in (2, 3), 'only 2d and 3d data is supported'
+
+        self.conv = unetConvX(
+            in_size + out_size, out_size, is_batchnorm, kernel_size=3, padding=1,
+            data_dimensions=data_dimensions
+        )
+        mode = 'bilinear' if data_dimensions == 2 else 'trilinear'
+        self.up = nn.Upsample(scale_factor=2, mode=mode)
 
         # initialise the blocks
         for m in self.children():
-            if m.__class__.__name__.find('unetConv2') != -1:
+            if m.__class__.__name__.find('unetConvX') != -1:
                 continue
             init_weights(m, init_type='kaiming')
 
@@ -124,10 +153,15 @@ class UnetUp_CT(nn.Module):
 
 
 class UnetDsv(nn.Module):
-    def __init__(self, in_size, out_size, scale_factor):
+    def __init__(self, in_size, out_size, scale_factor, data_dimensions: int = 2):
         super().__init__()
-        self.dsv = nn.Sequential(nn.Conv2d(in_size, out_size, kernel_size=1, stride=1, padding=0),
-                                 nn.Upsample(scale_factor=scale_factor, mode='bilinear'), )
+
+        assert data_dimensions in (2, 3), 'only 2d and 3d data is supported'
+
+        convxd = nn.Conv2d if data_dimensions == 2 else nn.Conv3d
+        mode = 'bilinear' if data_dimensions == 2 else 'trilinear'
+        self.dsv = nn.Sequential(convxd(in_size, out_size, kernel_size=1, stride=1, padding=0),
+                                 nn.Upsample(scale_factor=scale_factor, mode=mode))
 
     def forward(self, x):
         return self.dsv(x)

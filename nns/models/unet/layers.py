@@ -15,9 +15,8 @@ from nns.models.unet.network_others import init_weights
 class _GridAttentionBlockND(nn.Module):
 
     def __init__(self, in_channels, gating_channels, inter_channels=None, dimension=3, mode='concatenation',
-                 sub_sample_factor=(2, 2, 2)):
+                 sub_sample_factor=2):
         super().__init__()
-
         assert dimension in [2, 3]
         assert mode in ['concatenation', 'concatenation_debug', 'concatenation_residual']
 
@@ -170,12 +169,14 @@ class _GridAttentionBlockND(nn.Module):
         return W_y, sigm_psi_f
 
 
-class GridAttentionBlock2D(_GridAttentionBlockND):
+class GridAttentionBlockxD(_GridAttentionBlockND):
     def __init__(self, in_channels, gating_channels, inter_channels=None, mode='concatenation',
-                 sub_sample_factor=(2, 2)):
+                 sub_sample_factor=2, data_dimensions=2):
+        assert data_dimensions in (2, 3), 'only 2d and 3d data is supported'
+
         super().__init__(in_channels,
                          inter_channels=inter_channels,
                          gating_channels=gating_channels,
-                         dimension=2, mode=mode,
+                         dimension=data_dimensions, mode=mode,
                          sub_sample_factor=sub_sample_factor,
                          )

@@ -7,8 +7,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from nns.models.unet.layers import GridAttentionBlock2D
-from nns.models.unet.utils import unetConv2, UnetUp_CT, UnetGridGatingSignal, UnetDsv
+from nns.models.unet.layers import GridAttentionBlockxD
+from nns.models.unet.utils import unetConvX, UnetUp_CT, UnetGridGatingSignal, UnetDsv
 from nns.models.unet.network_others import init_weights
 
 
@@ -21,13 +21,22 @@ class SingleAttentionBlock(nn.Module):
     Source: https://github.com/ozan-oktay/Attention-Gated-Networks/blob/master/models/networks/unet_CT_single_att_dsv_3D.py#L113
     """
 
-    def __init__(self, in_size, gate_size, inter_size, nonlocal_mode, sub_sample_factor):
+    def __init__(
+            self, in_size, gate_size, inter_size, nonlocal_mode, sub_sample_factor, data_dimensions: int = 2):
         super().__init__()
-        self.gate_block_1 = GridAttentionBlock2D(in_channels=in_size, gating_channels=gate_size,
+        assert data_dimensions in (2, 3), 'only 2d and 3d data is supported'
+
+        self.gate_block_1 = GridAttentionBlockxD(in_channels=in_size, gating_channels=gate_size,
                                                  inter_channels=inter_size, mode=nonlocal_mode,
-                                                 sub_sample_factor=sub_sample_factor)
-        self.combine_gates = nn.Sequential(nn.Conv2d(in_size, in_size, kernel_size=1, stride=1, padding=0),
-                                           nn.BatchNorm2d(in_size),
+                                                 sub_sample_factor=sub_sample_factor,
+                                                 data_dimensions=data_dimensions
+                                                 )
+
+        convxd = nn.Conv2d if data_dimensions == 2 else nn.Conv3d
+        batchnomxd = nn.BatchNorm2d if data_dimensions == 2 else nn.BatchNorm3d
+
+        self.combine_gates = nn.Sequential(convxd(in_size, in_size, kernel_size=1, stride=1, padding=0),
+                                           batchnomxd(in_size),
                                            nn.ReLU(inplace=True)
                                            )
 
@@ -49,18 +58,28 @@ class MultiAttentionBlock(nn.Module):
     Source: https://github.com/ozan-oktay/Attention-Gated-Networks/blob/master/models/networks/unet_CT_multi_att_dsv_3D.py#L113
     """
 
-    def __init__(self, in_size, gate_size, inter_size, nonlocal_mode, sub_sample_factor):
+    def __init__(
+            self, in_size, gate_size, inter_size, nonlocal_mode, sub_sample_factor, data_dimensions: int = 2):
         super().__init__()
 
-        self.gate_block_1 = GridAttentionBlock2D(in_channels=in_size, gating_channels=gate_size,
+        assert data_dimensions in (2, 3), 'only 2d and 3d data is supported'
+        self.gate_block_1 = GridAttentionBlockxD(in_channels=in_size, gating_channels=gate_size,
                                                  inter_channels=inter_size, mode=nonlocal_mode,
-                                                 sub_sample_factor=sub_sample_factor)
-        self.gate_block_2 = GridAttentionBlock2D(in_channels=in_size, gating_channels=gate_size,
+                                                 sub_sample_factor=sub_sample_factor,
+                                                 data_dimensions=data_dimensions
+                                                 )
+        self.gate_block_2 = GridAttentionBlockxD(in_channels=in_size, gating_channels=gate_size,
                                                  inter_channels=inter_size, mode=nonlocal_mode,
-                                                 sub_sample_factor=sub_sample_factor)
+                                                 sub_sample_factor=sub_sample_factor,
+                                                 data_dimensions=data_dimensions
+                                                 )
+
+        convxd = nn.Conv2d if data_dimensions == 2 else nn.Conv3d
+        batchnomxd = nn.BatchNorm2d if data_dimensions == 2 else nn.BatchNorm3d
+
         self.combine_gates = nn.Sequential(
-            nn.Conv2d(in_size*2, in_size, kernel_size=1, stride=1, padding=0),
-            nn.BatchNorm2d(in_size),
+            convxd(in_size*2, in_size, kernel_size=1, stride=1, padding=0),
+            batchnomxd(in_size),
             nn.ReLU(inplace=True)
         )
 
@@ -84,8 +103,8 @@ class UNet_Att_DSV(nn.Module):
     """
 
     def __init__(self, feature_scale=4, n_classes=21, is_deconv=True, n_channels=3,
-                 nonlocal_mode='concatenation', attention_dsample=(2, 2), is_batchnorm=True,
-                 attention_block_cls=SingleAttentionBlock):
+                 nonlocal_mode='concatenation', attention_dsample=2, is_batchnorm=True,
+                 attention_block_cls=SingleAttentionBlock, data_dimensions: int = 2):
         super().__init__()
         self.is_deconv = is_deconv
         self.n_classes = n_classes
@@ -93,60 +112,76 @@ class UNet_Att_DSV(nn.Module):
         self.is_batchnorm = is_batchnorm
         self.feature_scale = feature_scale
         self.attention_block_cls = attention_block_cls
+        self.data_dimensions = data_dimensions
+
+        assert self.data_dimensions in (2, 3), 'only 2d and 3d data is supported'
 
         filters = [64, 128, 256, 512, 1024]
         filters = [int(x / self.feature_scale) for x in filters]
 
         # downsampling
-        self.conv1 = unetConv2(self.n_channels, filters[0], self.is_batchnorm,
-                               kernel_size=3, padding=1)
-        self.maxpool1 = nn.MaxPool2d(kernel_size=2)
+        maxpool = nn.MaxPool2d if self.data_dimensions == 2 else nn.MaxPool3d
+        self.conv1 = unetConvX(self.n_channels, filters[0], self.is_batchnorm,
+                               kernel_size=3, padding=1, data_dimensions=self.data_dimensions)
+        self.maxpool1 = maxpool(kernel_size=2)
 
-        self.conv2 = unetConv2(filters[0], filters[1], self.is_batchnorm, kernel_size=3, padding=1)
-        self.maxpool2 = nn.MaxPool2d(kernel_size=2)
+        self.conv2 = unetConvX(filters[0], filters[1], self.is_batchnorm, kernel_size=3, padding=1,
+                               data_dimensions=self.data_dimensions)
+        self.maxpool2 = maxpool(kernel_size=2)
 
-        self.conv3 = unetConv2(filters[1], filters[2], self.is_batchnorm, kernel_size=3, padding=1)
-        self.maxpool3 = nn.MaxPool2d(kernel_size=2)
+        self.conv3 = unetConvX(filters[1], filters[2], self.is_batchnorm, kernel_size=3, padding=1,
+                               data_dimensions=self.data_dimensions)
+        self.maxpool3 = maxpool(kernel_size=2)
 
-        self.conv4 = unetConv2(filters[2], filters[3], self.is_batchnorm, kernel_size=3, padding=1)
-        self.maxpool4 = nn.MaxPool2d(kernel_size=2)
+        self.conv4 = unetConvX(filters[2], filters[3], self.is_batchnorm, kernel_size=3, padding=1,
+                               data_dimensions=self.data_dimensions)
+        self.maxpool4 = maxpool(kernel_size=2)
 
-        self.center = unetConv2(filters[3], filters[4], self.is_batchnorm, kernel_size=3, padding=1)
+        self.center = unetConvX(filters[3], filters[4], self.is_batchnorm, kernel_size=3, padding=1,
+                                data_dimensions=self.data_dimensions)
         self.gating = UnetGridGatingSignal(
-            filters[4], filters[4], kernel_size=1, is_batchnorm=self.is_batchnorm)
+            filters[4], filters[4], kernel_size=1, is_batchnorm=self.is_batchnorm,
+            data_dimensions=self.data_dimensions)
 
         # attention blocks
         self.attentionblock2 = self.attention_block_cls(
             in_size=filters[1], gate_size=filters[2], inter_size=filters[1],
-            nonlocal_mode=nonlocal_mode, sub_sample_factor=attention_dsample)
+            nonlocal_mode=nonlocal_mode, sub_sample_factor=attention_dsample, data_dimensions=self.data_dimensions)
         self.attentionblock3 = self.attention_block_cls(
             in_size=filters[2], gate_size=filters[3], inter_size=filters[2],
-            nonlocal_mode=nonlocal_mode, sub_sample_factor=attention_dsample)
+            nonlocal_mode=nonlocal_mode, sub_sample_factor=attention_dsample, data_dimensions=self.data_dimensions)
         self.attentionblock4 = self.attention_block_cls(
             in_size=filters[3], gate_size=filters[4], inter_size=filters[3],
-            nonlocal_mode=nonlocal_mode, sub_sample_factor=attention_dsample)
+            nonlocal_mode=nonlocal_mode, sub_sample_factor=attention_dsample, data_dimensions=self.data_dimensions)
 
         # upsampling
-        self.up_concat4 = UnetUp_CT(filters[4], filters[3], is_batchnorm)
-        self.up_concat3 = UnetUp_CT(filters[3], filters[2], is_batchnorm)
-        self.up_concat2 = UnetUp_CT(filters[2], filters[1], is_batchnorm)
-        self.up_concat1 = UnetUp_CT(filters[1], filters[0], is_batchnorm)
+        self.up_concat4 = UnetUp_CT(filters[4], filters[3], is_batchnorm, data_dimensions=self.data_dimensions)
+        self.up_concat3 = UnetUp_CT(filters[3], filters[2], is_batchnorm, data_dimensions=self.data_dimensions)
+        self.up_concat2 = UnetUp_CT(filters[2], filters[1], is_batchnorm, data_dimensions=self.data_dimensions)
+        self.up_concat1 = UnetUp_CT(filters[1], filters[0], is_batchnorm, data_dimensions=self.data_dimensions)
 
         # deep supervision
-        self.dsv4 = UnetDsv(in_size=filters[3], out_size=n_classes, scale_factor=8)  # tweak 2: scale=2
-        self.dsv3 = UnetDsv(in_size=filters[2], out_size=n_classes, scale_factor=4)  # tweak 2: scale=2
-        self.dsv2 = UnetDsv(in_size=filters[1], out_size=n_classes, scale_factor=2)
-        self.dsv1 = nn.Conv2d(in_channels=filters[0], out_channels=n_classes, kernel_size=1)
+        self.dsv4 = UnetDsv(in_size=filters[3], out_size=n_classes, scale_factor=8,
+                            data_dimensions=self.data_dimensions)  # tweak 2: scale=2
+        self.dsv3 = UnetDsv(in_size=filters[2], out_size=n_classes, scale_factor=4,
+                            data_dimensions=self.data_dimensions)  # tweak 2: scale=2
+        self.dsv2 = UnetDsv(in_size=filters[1], out_size=n_classes, scale_factor=2,
+                            data_dimensions=self.data_dimensions)
+
+        convxd = nn.Conv2d if self.data_dimensions == 2 else nn.Conv3d
+        self.dsv1 = convxd(in_channels=filters[0], out_channels=n_classes, kernel_size=1)
 
         # final conv (without any concat)
-        self.final = nn.Conv2d(n_classes*4, n_classes, 1)  # original
+        self.final = convxd(n_classes*4, n_classes, 1)  # original
         # self.final = nn.Conv2d(n_classes, n_classes, 1)   # tweak for 1 & 2
+
+        batchnorm = nn.BatchNorm2d if self.data_dimensions == 2 else nn.BatchNorm3d
 
         # initialise weights
         for m in self.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, convxd):
                 init_weights(m, init_type='kaiming')
-            elif isinstance(m, nn.BatchNorm2d):
+            elif isinstance(m, batchnorm):
                 init_weights(m, init_type='kaiming')
 
     def forward(self, inputs):

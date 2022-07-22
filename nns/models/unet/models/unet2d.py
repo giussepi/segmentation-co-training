@@ -5,7 +5,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from nns.models.unet.network_others import init_weights
-from nns.models.unet.utils import unetConv2, unetUp
+from nns.models.unet.utils import unetConvX, unetUp
 
 
 __all__ = ['UNet2D']
@@ -30,19 +30,19 @@ class UNet2D(nn.Module):
         filters = [int(x / self.feature_scale) for x in filters]
 
         # downsampling
-        self.conv1 = unetConv2(self.n_channels, filters[0], self.is_batchnorm)
+        self.conv1 = unetConvX(self.n_channels, filters[0], self.is_batchnorm)
         self.maxpool1 = nn.MaxPool2d(kernel_size=2)
 
-        self.conv2 = unetConv2(filters[0], filters[1], self.is_batchnorm)
+        self.conv2 = unetConvX(filters[0], filters[1], self.is_batchnorm)
         self.maxpool2 = nn.MaxPool2d(kernel_size=2)
 
-        self.conv3 = unetConv2(filters[1], filters[2], self.is_batchnorm)
+        self.conv3 = unetConvX(filters[1], filters[2], self.is_batchnorm)
         self.maxpool3 = nn.MaxPool2d(kernel_size=2)
 
-        self.conv4 = unetConv2(filters[2], filters[3], self.is_batchnorm)
+        self.conv4 = unetConvX(filters[2], filters[3], self.is_batchnorm)
         self.maxpool4 = nn.MaxPool2d(kernel_size=2)
 
-        self.center = unetConv2(filters[3], filters[4], self.is_batchnorm)
+        self.center = unetConvX(filters[3], filters[4], self.is_batchnorm)
 
         # upsampling
         # NOTE: originally, unetUp did not use batchnorm for UNet2D. However, after some
