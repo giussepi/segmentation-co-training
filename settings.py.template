@@ -45,6 +45,7 @@ else:
 BATCH_SIZE = 16
 TOTAL_BATCH_SIZE = BATCH_SIZE * NUM_GPUS
 NUM_WORKERS = 16  # set it to 0 when debugging the dataset
+DB_CACHE = False  # The dataset should receive it as argument
 
 ###############################################################################
 #                            utils/sync_batchnorm/                             #

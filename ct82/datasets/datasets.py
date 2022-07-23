@@ -57,6 +57,7 @@ class CT82Dataset(DatasetTemplate):
                                       Default False
             transform <callable, None>: Data augmentation transforms. See ct82.settings.
                                       Defaullt None
+            cache             <bool>: If True all the images will be cached. Default False
         """
         self.images_masks_path = kwargs.get('images_masks_path')
         self.filename_reg = kwargs.get('filename_reg', r'^CT\_(?P<id>[\d]+).pro.nii.gz$')
@@ -65,6 +66,7 @@ class CT82Dataset(DatasetTemplate):
         self.cotraining = kwargs.get('cotraining', False)
         self.original_masks = kwargs.get('original_masks', False)
         self.transform = kwargs.get('transform', None)
+        self.cache = kwargs.get('cache', False)
 
         assert isinstance(self.images_masks_path, str), type(self.images_masks_path)
         assert os.path.isdir(self.images_masks_path), self.images_masks_path
@@ -73,6 +75,7 @@ class CT82Dataset(DatasetTemplate):
         assert isinstance(self.cot_mask_name_tpl, str), type(self.cot_mask_name_tpl)
         assert isinstance(self.cotraining, bool), type(self.cotraining)
         assert isinstance(self.original_masks, bool), type(self.original_masks)
+        assert isinstance(self.cache, bool), type(self.cache)
 
         if self.transform is not None:
             assert callable(self.transform)
@@ -80,6 +83,8 @@ class CT82Dataset(DatasetTemplate):
         self.pattern = re.compile(self.filename_reg)
         self.image_list = \
             [file_ for file_ in os.listdir(self.images_masks_path) if bool(self.pattern.fullmatch(file_))]
+
+        self.cached = {}
 
     def __len__(self):
         return len(self.image_list)
@@ -120,6 +125,9 @@ class CT82Dataset(DatasetTemplate):
         """
         assert isinstance(idx, int), type(idx)
 
+        if self.cache and idx in self.cached:
+            return self.cached[idx]
+
         image = ProNIfTI(os.path.join(self.images_masks_path, self.image_list[idx]))
         cot_mask_path = original_mask = original_target_mask = ''
 
@@ -153,6 +161,9 @@ class CT82Dataset(DatasetTemplate):
 
         if isinstance(original_mask, NIfTI):
             original_mask = original_mask.ndarray.copy().transpose([1, 0, 2])
+
+        if self.cache:
+            self.cached[idx] = (image, target_mask, '', '', cot_mask_path, original_target_mask)
 
         return image, target_mask, '', '', cot_mask_path, original_target_mask
 
