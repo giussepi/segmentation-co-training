@@ -659,10 +659,10 @@ def main():
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=50,  # 30
-        intrain_val=2,  # 2
+        epochs=150,  # 1000
+        intrain_val=2,
         optimizer=torch.optim.Adam,
-        optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
+        optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
         sanity_checks=False,
         labels_data=CT82Labels,
         data_dimensions=settings.DATA_DIMENSIONS,
@@ -672,6 +672,7 @@ def main():
             'val_path': settings.CT82_VAL_PATH,
             'test_path': settings.CT82_TEST_PATH,
             'cotraining': settings.COTRAINING,
+            'cache': settings.DB_CACHE,
         },
         train_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
@@ -679,11 +680,11 @@ def main():
         testval_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
         },
-        lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+        lr_scheduler=torch.optim.lr_scheduler.StepLR,
+        lr_scheduler_kwargs={'step_size': 250, 'gamma': 0.5},
         # TODO: the mode can change based on the quantity monitored
         # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
-        lr_scheduler_track=LrShedulerTrack.LOSS,
+        lr_scheduler_track=LrShedulerTrack.NO_ARGS,
         criterions=[
             # torch.nn.BCEWithLogitsLoss()
             # torch.nn.CrossEntropyLoss()
@@ -867,6 +868,8 @@ def main():
     # standard data-augmentation techniques (affine transformations, axial flips, random crops)
     # Intensity values are linearly scaled to obtain a normal distribution N (0, 1)
     # https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/configs/config_unet_ct_dsv.json
+    # lr_scheduler https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/models/networks_other.py#L101
+    #
     # Sorensen-Dice loss https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/models/layers/loss.py#L29
     # Adam https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/models/utils.py#L23
     # CT-150 train 120 testing 30
