@@ -3,3 +3,4 @@
 
 from nns.models.layers.disagreement_attention.intra_class.standard import AttentionBlock
 from nns.models.layers.disagreement_attention.intra_class.combined import CombinedDABlock
+from nns.models.layers.disagreement_attention.intra_class.embedded import EmbeddedDABlock
