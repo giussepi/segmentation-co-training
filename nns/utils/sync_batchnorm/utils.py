@@ -1,23 +1,35 @@
 # -*- coding: utf-8 -*-
-""" nns/utils/sync_batchnorm/utils """
+""" nns/utils/sync_batchnorm/utils.py """
 
 import torch
 
-import settings
-from .batchnorm import SynchronizedBatchNorm2d
+from . import settings
+from .batchnorm import SynchronizedBatchNorm1d, SynchronizedBatchNorm2d, SynchronizedBatchNorm3d
 
 
-def get_batchnorm2d_class():
+def get_batchnormxd_class():
     """
-    Returns the right BatchNorm2d based on the number of GPUS
+    Returns the right BatchNorm based on the number of GPUS
 
     Returns:
-        torch.nn.BatchNorm2d or SynchronizedBatchNorm2d
+        torch.nn.BatchNorm<1|2|3>d or SynchronizedBatchNorm<1|2|3>d
     """
-    # TODO: decide if the value from settings should be parameters or just imported
-    # from the settings module (like it is working right now)
+    assert settings.DATA_DIMENSIONS in (1, 2, 3), 'Only 1D, 2D and 3D data is supported'
+
     if settings.CUDA == settings.MULTIGPUS == settings.PATCH_REPLICATION_CALLBACK == True and \
        torch.cuda.is_available() and torch.cuda.device_count() > 1:
-        return SynchronizedBatchNorm2d
+        if settings.DATA_DIMENSIONS == 1:
+            return SynchronizedBatchNorm1d
 
-    return torch.nn.BatchNorm2d
+        if settings.DATA_DIMENSIONS == 2:
+            return SynchronizedBatchNorm2d
+
+        return SynchronizedBatchNorm3d
+
+    if settings.DATA_DIMENSIONS == 1:
+        return torch.nn.BatchNorm1d
+
+    if settings.DATA_DIMENSIONS == 2:
+        return torch.nn.BatchNorm2d
+
+    return torch.nn.BatchNorm3d

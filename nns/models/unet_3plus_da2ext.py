@@ -7,7 +7,7 @@ import torch
 from gtorch_utils.utils.images import apply_padding
 
 from nns.models.da_model import BaseDATrain
-from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock, \
+from nns.models.layers.disagreement_attention.inter_class import ThresholdedDisagreementAttentionBlock, \
     AttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType

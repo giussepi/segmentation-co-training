@@ -5,6 +5,7 @@ import glob
 import os
 
 import logzero
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from gtorch_utils.constants import DB
@@ -23,20 +24,25 @@ from consep.datasets.constants import BinaryCoNSeP
 from consep.processors.offline import CreateDataset
 from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
+from ct82.datasets import CT82Dataset, CT82Labels
+from ct82.images import NIfTI, ProNIfTI
+from ct82.processors import CT82MGR
+from ct82.settings import TRANSFORMS
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
-    UNet_3Plus_Intra_DA
-from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock, \
-    MergedDisagreementAttentionBlock, PureDisagreementAttentionBlock, EmbeddedDisagreementAttentionBlock, \
-    AttentionBlock
+    UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS, UNet_3Plus_Intra_DA_GS_HDX, XAttentionUNet, UNet2D, \
+    UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
+    MultiAttentionBlock, UNet3D
+from nns.models.layers.disagreement_attention import inter_class
+from nns.models.layers.disagreement_attention import intra_class
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
 from nns.segmentation.learning_algorithms import CoTraining, DACoTraining
 from nns.segmentation.utils.postprocessing import ExpandPrediction
-from nns.utils.sync_batchnorm import get_batchnorm2d_class
+from nns.utils.sync_batchnorm import get_batchnormxd_class
 
 
 logzero.loglevel(settings.LOG_LEVEL)
@@ -186,7 +192,7 @@ def main():
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
         model=UNet_3Plus,
         model_kwargs=dict(n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
-                          batchnorm_cls=get_batchnorm2d_class()),
+                          batchnorm_cls=get_batchnormxd_class()),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
@@ -227,7 +233,7 @@ def main():
         train_eval_chkpt=False,
         last_checkpoint=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'unet3_plus_1'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'unet3_plus_1'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -242,7 +248,7 @@ def main():
         # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
         model=UNet_3Plus,
         model_kwargs=dict(n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
-                          batchnorm_cls=get_batchnorm2d_class()),
+                          batchnorm_cls=get_batchnormxd_class()),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
@@ -283,7 +289,7 @@ def main():
         train_eval_chkpt=False,
         last_checkpoint=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'unet3_plus_2'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'unet3_plus_2'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -304,7 +310,7 @@ def main():
                      model_num_classes=1,
                      model_freezebn=False,
                      model_channels=3),
-            batchnorm=get_batchnorm2d_class(), backbone=xception, backbone_pretrained=True,
+            batchnorm=get_batchnormxd_class(), backbone=xception, backbone_pretrained=True,
             dilated=True, multi_grid=False, deep_base=True
         ),
         cuda=settings.CUDA,
@@ -348,7 +354,7 @@ def main():
         last_checkpoint=True,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'deeplabv3plus_xception'),
+            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'deeplabv3plus_xception'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -371,7 +377,7 @@ def main():
     #     earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
     #     warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
     #     overall_best_models=False,  # True
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108'),
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109'),
     #     # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
     #     thresholds=dict(disagreement=(.25, .8)),
     #     plots_saving_path=settings.PLOT_DIRECTORY,
@@ -399,15 +405,15 @@ def main():
 
     # try:
     #     cot.print_data_logger_summary(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'chkpt_4.pth.tar'))
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'chkpt_4.pth.tar'))
 
     #     cot.plot_and_save(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'chkpt_4.pth.tar'),
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'chkpt_4.pth.tar'),
     #         save=True, show=False, dpi=300.
     #     )
 
     #     cot.print_data_logger_details(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'chkpt_4.pth.tar'))
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'chkpt_4.pth.tar'))
     # except:
     #     pass
 
@@ -418,17 +424,17 @@ def main():
         model_cls=UNet_3Plus_DA_Train,
         model_kwargs=dict(
             model1_cls=UNet_3Plus_DA,
-            kwargs1=dict(da_threshold=np.NINF, da_block_cls=ThresholdedDisagreementAttentionBlock,
+            kwargs1=dict(da_threshold=np.NINF, da_block_cls=inter_class.ThresholdedDisagreementAttentionBlock,
                          da_block_config=dict(thresholds=(.25, .8), beta=0.),
                          # da_merging_type=AttentionMergingType.MAX,
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.XAVIER,
-                         batchnorm_cls=get_batchnorm2d_class()),
+                         batchnorm_cls=get_batchnormxd_class()),
             model2_cls=UNet_3Plus_DA,
-            kwargs2=dict(da_threshold=np.NINF, da_block_cls=ThresholdedDisagreementAttentionBlock,
+            kwargs2=dict(da_threshold=np.NINF, da_block_cls=inter_class.ThresholdedDisagreementAttentionBlock,
                          da_block_config=dict(thresholds=(.25, .8), beta=0.),
                          # da_merging_type=AttentionMergingType.MAX,
                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
-                         batchnorm_cls=get_batchnorm2d_class()),
+                         batchnorm_cls=get_batchnormxd_class()),
         ),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
@@ -477,7 +483,7 @@ def main():
         train_eval_chkpt=False,
         last_checkpoint=True,
         ini_checkpoint='',
-        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'unet3_plus_DA'),
+        dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'unet3_plus_DA'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
@@ -499,7 +505,7 @@ def main():
     #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup_CGM(n_channels=3, n_classes=1, is_deconv=False)),
     #     # model=torch.nn.DataParallel(UNet_3Plus_DeepSup(n_channels=3, n_classes=1, is_deconv=False)),
     #     model=AttentionUNet2,
-    #     model_kwargs=dict(n_channels=3, n_classes=1, batchnorm_cls=get_batchnorm2d_class()),
+    #     model_kwargs=dict(n_channels=3, n_classes=1, batchnorm_cls=get_batchnormxd_class()),
     #     cuda=settings.CUDA,
     #     multigpus=settings.MULTIGPUS,
     #     patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
@@ -529,8 +535,8 @@ def main():
     #     criterions=[
     #         # torch.nn.BCEWithLogitsLoss()
     #         # torch.nn.CrossEntropyLoss()
-    #         # loss_functions.BceDiceLoss(with_logits=True),
-    #         BceDiceLoss(),
+    #         loss_functions.BceDiceLoss(with_logits=True),
+    #         # BceDiceLoss(),
     #         loss_functions.SpecificityLoss(with_logits=True),
     #     ],
     #     mask_threshold=0.5,
@@ -541,7 +547,7 @@ def main():
     #     train_eval_chkpt=False,
     #     last_checkpoint=True,
     #     ini_checkpoint='',
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'unet3_plus_2'),
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'unet3_plus_2'),
     #     tensorboard=False,
     #     # TODO: there a bug that appeared once when plotting to disk after a long training
     #     # anyway I can always plot from the checkpoints :)
@@ -554,28 +560,117 @@ def main():
     # model5.plot_and_save(None, 154)
 
     # model6 = dict(
-    model6 = ModelMGR(
-        model=UNet_3Plus_Intra_DA,
-        model_kwargs=dict(da_block_cls=EmbeddedDisagreementAttentionBlock,
-                          # da_block_config=dict(thresholds=(.25, .8), beta=0., n_channels=-1),
-                          da_block_config=dict(n_channels=-1),
-                          n_channels=3, n_classes=1, is_deconv=False, init_type=UNet3InitMethod.KAIMING,
-                          batchnorm_cls=get_batchnorm2d_class()),
+    # model6 = ModelMGR(
+    #     model=XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
+    #     model_kwargs=dict(da_block_cls=intra_class.AttentionBlock,
+    #                       # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
+    #                       # da_block_config=dict(n_channels=-1),
+    #                       # is_deconv=True,
+    #                       # feature_scale=1, is_batchnorm=True,
+    #                       bilinear=False,  # XAttentionUNet only
+    #                       n_channels=3, n_classes=1,
+    #                       # attention_block_cls=SingleAttentionBlock,
+    #                       init_type=UNet3InitMethod.KAIMING,
+    #                       batchnorm_cls=get_batchnormxd_class()
+    #                       ),
+    #     cuda=settings.CUDA,
+    #     multigpus=settings.MULTIGPUS,
+    #     patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+    #     epochs=30,  # 20
+    #     intrain_val=2,  # 2
+    #     optimizer=torch.optim.Adam,
+    #     optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
+    #     sanity_checks=False,
+    #     labels_data=BinaryCoNSeP,
+    #     dataset=OfflineCoNSePDataset,
+    #     dataset_kwargs={
+    #         'train_path': settings.CONSEP_TRAIN_PATH,
+    #         'val_path': settings.CONSEP_VAL_PATH,
+    #         'test_path': settings.CONSEP_TEST_PATH,
+    #         'cotraining': settings.COTRAINING,
+    #     },
+    #     train_dataloader_kwargs={
+    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+    #     },
+    #     testval_dataloader_kwargs={
+    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+    #     },
+    #     lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+    #     # TODO: the mode can change based on the quantity monitored
+    #     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+    #     lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
+    #     lr_scheduler_track=LrShedulerTrack.LOSS,
+    #     criterions=[
+    #         # torch.nn.BCEWithLogitsLoss()
+    #         # torch.nn.CrossEntropyLoss()
+    #         loss_functions.BceDiceLoss(with_logits=True),
+    #         # BceDiceLoss(),
+    #         loss_functions.SpecificityLoss(with_logits=True),
+    #     ],
+    #     mask_threshold=0.5,
+    #     metrics=settings.METRICS,
+    #     metric_mode=MetricEvaluatorMode.MAX,
+    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+    #     checkpoint_interval=0,
+    #     train_eval_chkpt=False,
+    #     last_checkpoint=True,
+    #     ini_checkpoint='',
+    #     dir_checkpoints=os.path.join(
+    #         settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'unet_3plus_intra_da'),
+    #     tensorboard=False,
+    #     # TODO: there a bug that appeared once when plotting to disk after a long training
+    #     # anyway I can always plot from the checkpoints :)
+    #     plot_to_disk=False,
+    #     plot_dir=settings.PLOT_DIRECTORY
+    # )
+    # model6()
+    # model6.print_data_logger_summary()
+    # model6.plot_and_save(None, 154)
+    # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
+
+    ##
+    ###########################################################################
+    #                           Working with 3D data                          #
+    ###########################################################################
+    # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
+    model7 = ModelMGR(
+        model=XAttentionUNet,  # UNet_Att_DSV,  # UNet_Grid_Attention,,  # XAttentionUNet,  # UNet3D,
+        # UNet3D
+        # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
+        # XAttentionUNet
+        model_kwargs=dict(
+            n_channels=1, n_classes=1,
+            bilinear=False,
+            batchnorm_cls=get_batchnormxd_class(),
+            init_type=UNet3InitMethod.KAIMING,
+            data_dimensions=settings.DATA_DIMENSIONS,
+            da_block_cls=intra_class.ThresholdedDABlock,
+            # da_block_config={'xi': 1.}
+            da_block_config={'thresholds': (.25, .8), 'beta': -1}
+        ),
+        # UNet_Att_DSV
+        # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
+        #                   attention_block_cls=SingleAttentionBlock, data_dimensions=settings.DATA_DIMENSIONS),
+        # UNet_Grid_Attention
+        # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
+        #                   data_dimensions=settings.DATA_DIMENSIONS),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=30,  # 20
-        intrain_val=2,  # 2
+        epochs=150,  # 1000
+        intrain_val=2,
         optimizer=torch.optim.Adam,
-        optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
+        optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
         sanity_checks=False,
-        labels_data=BinaryCoNSeP,
-        dataset=OfflineCoNSePDataset,
+        labels_data=CT82Labels,
+        data_dimensions=settings.DATA_DIMENSIONS,
+        dataset=CT82Dataset,
         dataset_kwargs={
-            'train_path': settings.CONSEP_TRAIN_PATH,
-            'val_path': settings.CONSEP_VAL_PATH,
-            'test_path': settings.CONSEP_TEST_PATH,
+            'train_path': settings.CT82_TRAIN_PATH,
+            'val_path': settings.CT82_VAL_PATH,
+            'test_path': settings.CT82_TEST_PATH,
             'cotraining': settings.COTRAINING,
+            'cache': settings.DB_CACHE,
         },
         train_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
@@ -583,38 +678,43 @@ def main():
         testval_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
         },
-        lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+        lr_scheduler=torch.optim.lr_scheduler.StepLR,
+        lr_scheduler_kwargs={'step_size': 250, 'gamma': 0.5},
         # TODO: the mode can change based on the quantity monitored
         # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
-        lr_scheduler_track=LrShedulerTrack.LOSS,
+        lr_scheduler_track=LrShedulerTrack.NO_ARGS,
         criterions=[
             # torch.nn.BCEWithLogitsLoss()
             # torch.nn.CrossEntropyLoss()
-            # loss_functions.BceDiceLoss(with_logits=True),
-            BceDiceLoss(),
-            loss_functions.SpecificityLoss(with_logits=True),
+            loss_functions.BceDiceLoss(with_logits=True),
+            # BceDiceLoss(),
+            # loss_functions.SpecificityLoss(with_logits=True),
         ],
         mask_threshold=0.5,
         metrics=settings.METRICS,
         metric_mode=MetricEvaluatorMode.MAX,
-        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),  # patience=10
         checkpoint_interval=0,
         train_eval_chkpt=False,
         last_checkpoint=True,
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'unet_3plus_intra_da'),
+            settings.DIR_CHECKPOINTS, 'ct82',  'unet3d', 'exp1'),
         tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    model6()
-    # model6.print_data_logger_summary()
-    # model6.plot_and_save(None, 154)
+    model7()
+    # model7.print_data_logger_summary()
+    # model7.plot_and_save(None, 154)
+    # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
+    # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
+    # summary(model7.module, (1, 1, *settings.CT82_CROP_SHAPE), depth=1, verbose=1)
+    ##
 
+    ###########################################################################
     # Disagreement attention cotraining experiments ###########################
     # cot = DACoTraining(
     #     model_mgr_kwargs=model4,
@@ -629,7 +729,7 @@ def main():
     #     earlystopping_kwargs=dict(min_delta=1e-3, patience=2),
     #     warm_start=None,  # dict(lamda=.0, sigma=.0),  # dict(lamda=.5, sigma=.01),
     #     overall_best_models=True,
-    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108'),
+    #     dir_checkpoints=os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109'),
     #     # thresholds=dict(agreement=.65, disagreement=(.25, .7)),  # dict(agreement=.8, disagreement=(.25, .8))
     #     thresholds=dict(agreement=.8),
     #     plots_saving_path=settings.PLOT_DIRECTORY,
@@ -657,17 +757,156 @@ def main():
 
     # try:
     #     cot.print_data_logger_summary(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'chkpt_4.pth.tar'))
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'chkpt_4.pth.tar'))
 
     #     cot.plot_and_save(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'chkpt_4.pth.tar'),
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'chkpt_4.pth.tar'),
     #         save=True, show=False, dpi=300.
     #     )
 
     #     cot.print_data_logger_details(
-    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp108', 'chkpt_4.pth.tar'))
+    #         os.path.join(settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'chkpt_4.pth.tar'))
     # except Exception:
     #     pass
+
+    ###############################################################################
+    #                                CT-82 dataset                                #
+    ###############################################################################
+
+    # # Processing CT-82 dataset ################################################
+    # target_size = (368, 368, 96)
+    # target_size = (368, 368, -1)
+    # mgr = CT82MGR(target_size=target_size)
+    # mgr()
+
+    # assert len(glob.glob(os.path.join(mgr.saving_labels_folder, r'*.nii.gz'))) == 80
+    # assert len(glob.glob(os.path.join(mgr.saving_cts_folder, r'*.pro.nii.gz'))) == 80
+
+    # files_idx = [*range(1, 83)]
+    # for id_ in mgr.non_existing_ct_folders[::-1]:
+    #     files_idx.pop(id_-1)
+
+    # for subject in files_idx:
+    #     labels = NIfTI(os.path.join(mgr.saving_labels_folder, f'label_{subject:02d}.nii.gz'))
+    #     cts = ProNIfTI(os.path.join(mgr.saving_cts_folder, f'CT_{subject:02d}.pro.nii.gz'))
+    #     assert labels.shape == cts.shape == target_size
+
+    # mgr.perform_visual_verification(80, scans=[70], clahe=True)
+    # mgr.split_processed_dataset(.15, .2, shuffle=False)
+
+    # visual verification of cts ##############################################
+    # target_size = (368, 368, 96)  # (1024, 1024, 96)
+    # mgr = CT82MGR(
+    #     saving_path='CT-82-Pro',
+    #     target_size=target_size
+    # )
+    # mgr.non_existing_ct_folders = []
+    # mgr.perform_visual_verification(1, scans=[72], clahe=True)
+    # # os.remove(mgr.VERIFICATION_IMG)
+
+    # getting subdatasets and plotting some crops #############################
+    # train, val, test = CT82Dataset.get_subdatasets()
+    # for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
+    #     print(f'{db_name}: {len(dataset)}')
+    #     data = dataset[0]
+    #     print(data['image'].shape, data['mask'].shape)
+    #     print(data['label'], data['label_name'], data['updated_mask_path'], data['original_mask'])
+
+    #     print(data['image'].min(), data['image'].max())
+    #     print(data['mask'].min(), data['mask'].max())
+
+    #     img_id = np.random.randint(0, 72)
+    #     if len(data['image'].shape) == 4:
+    #         fig, axis = plt.subplots(1, 2)
+    #         axis[0].imshow(data['image'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #         axis[1].imshow(data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #         plt.show()
+    #     else:
+    #         fig, axis = plt.subplots(2, 4)
+    #         for idx, i, m in zip([*range(4)], data['image'], data['mask']):
+    #             axis[0, idx].imshow(i.detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #             axis[1, idx].imshow(m.detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #         plt.show()
+    ###############################################################################
+    #                                CT-82 dataset                                #
+    ###############################################################################
+    # print(CT82MGR().get_insights())
+    # DICOM files 18942
+    # NIfTI labels 82
+    # MIN_VAL = -2048
+    # MAX_VAL = 3071
+    # MIN_NIFTI_SLICES_WITH_DATA = 46
+    # MAX_NIFTI_SLICES_WITH_DATA = 145
+    # folders PANCREAS_0025 and PANCREAS_0070 are empty
+    # MIN DICOMS per subject 181
+    # MAX DICOMS per subject 466
+    ###############################################################################
+    #                                     dpis                                    #
+    # https://www.iprintfromhome.com/mso/understandingdpi.pdf very good explanantion of dpi
+    # dpi = dim px / size inches
+    # width = height = 512px
+    # print size = 7.1111111... inches
+    # dpi = 72 / 25.4 = 2.8346 pixel/mm
+
+    # target = isotropic 2.00 pixel/mm  = 2*25.4 = 50.8 dpi or pixel/in
+    # print size = 7.111111.. inches
+    # widh = height = 50.8 * 7.11111 = 361.2443 px
+
+    # 361.2443 % 16 != 0 so to avoid any padding or resize when using UNet
+    # we can use 352x352[49.50 dpi or 1.9488 px/in] or 368x368 [51.75 dpi 2.0374 px/in]
+
+    # using width = height = 160
+    # dpi = 22.500 = 0.8858 px/in
+
+    ###############################################################################
+    ###############################################################################
+    #                                 UNEt details                                #
+    # 3D model
+    # small batches 2 - 4
+    # standard data-augmentation techniques (affine transformations, axial flips, random crops)
+    # Intensity values are linearly scaled to obtain a normal distribution N (0, 1)
+    # https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/configs/config_unet_ct_dsv.json
+    # lr_scheduler https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/models/networks_other.py#L101
+    #
+    # Sorensen-Dice loss https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/models/layers/loss.py#L29
+    # Adam https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/models/utils.py#L23
+    # CT-150 train 120 testing 30
+    # The results on pancreas predictions demonstrate that attention gates (AGs)
+    # increase recall values (p = .005) by improving the model’s expression power as it relies
+    # on AGs to localise foreground pixels.
+    # inference timeused 160x160x96 tensors
+    # CT-80 (TCIA Pancreas-CT Dataset) train 61 (74.39%), test 21 (25.6%)
+    # 5-fold cross-validation
+    # #+caption: models from scratch
+    # | Method          | Dice        | Precision   | Recall      | S2S dist(mm) |
+    # |-----------------+-------------+-------------+-------------+--------------|
+    # | U-Net [24]      | 0.815±0.068 | 0.815±0.105 | 0.826±0.062 | 2.576±1.180  |
+    # | Attention U-Net | 0.821±0.057 | 0.815±0.093 | 0.835±0.057 | 2.333±0.856  |
+    # model config https://github.com/ozan-oktay/Attention-Gated-Networks/blob/master/configs/config_unet_ct_dsv.json
+    # "augmentation": {
+    #     "acdc_sax": {
+    #       "shift": [0.1,0.1],
+    #       "rotate": 15.0,
+    #       "scale": [0.7,1.3],
+    #       "intensity": [1.0,1.0],
+    #       "random_flip_prob": 0.5,
+    #       "scale_size": [160,160,96],
+    #       "patch_size": [160,160,96]
+    #     }
+    #   },
+    # epochs >= 150 (1000)
+    ###############################################################################
+    ###############################################################################
+    #                                    DICOM                                    #
+    # https://towardsdatascience.com/understanding-dicoms-835cd2e57d0b
+    # 16 bit DICOM images have values ranging from -32768 to 32768 while 8-bit grey-scale images
+    # store values from 0 to 255.
+    ###############################################################################
+
+    ##
+    # Affine transformations examples: translation, scaling, homothety, similarity, reflection,
+    # rotation, shear mapping and compositions of them in any combination sequence
+    ##
 
 
 if __name__ == '__main__':

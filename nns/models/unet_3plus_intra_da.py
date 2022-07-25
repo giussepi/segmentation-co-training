@@ -7,7 +7,7 @@ import torch
 from gtorch_utils.nns.models.segmentation import UNet_3Plus
 from gtorch_utils.utils.images import apply_padding
 
-from nns.models.layers.disagreement_attention import ThresholdedDisagreementAttentionBlock
+from nns.models.layers.disagreement_attention.inter_class import ThresholdedDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.layers import DAConvBlock
 from nns.models.mixins import InitMixin
@@ -59,8 +59,8 @@ class UNet_3Plus_Intra_DA(UNet_3Plus, InitMixin):
         self.intra_da_hd3 = DAConvBlock(
             # attention to skip_connection
             da_block_cls(self.filters[2], self.UpChannels, **self.da_block_config),
-            2*self.UpChannels,  # for EmbeddedDisagreementAttentionBlock
-            # self.filters[2]+self.UpChannels,  # for the rest of attentions
+            # 2*self.UpChannels,  # for old EmbeddedDisagreementAttentionBlock
+            self.filters[2]+self.UpChannels,  # for the rest of attentions
             # atttention to X
             # da_block_cls(self.UpChannels, self.filters[2], **self.da_block_config), 2*self.UpChannels,
             self.UpChannels
@@ -69,8 +69,8 @@ class UNet_3Plus_Intra_DA(UNet_3Plus, InitMixin):
         self.intra_da_hd2 = DAConvBlock(
             # attention to skip_connection
             da_block_cls(self.filters[1], self.UpChannels, **self.da_block_config),
-            2*self.UpChannels,  # for EmbeddedDisagreementAttentionBlock
-            # self.filters[1]+self.UpChannels,  # for the rest of attentions
+            # 2*self.UpChannels,  # for old EmbeddedDisagreementAttentionBlock
+            self.filters[1]+self.UpChannels,  # for the rest of attentions
             # atttention to X
             # da_block_cls(self.UpChannels, self.filters[1], **self.da_block_config), 2*self.UpChannels,
             self.UpChannels
@@ -79,8 +79,8 @@ class UNet_3Plus_Intra_DA(UNet_3Plus, InitMixin):
         self.intra_da_hd1 = DAConvBlock(
             # attention to skip_connection
             da_block_cls(self.filters[0], self.UpChannels, **self.da_block_config),
-            2*self.UpChannels,  # for EmbeddedDisagreementAttentionBlock
-            # self.filters[0]+self.UpChannels,  # for the rest of attentions
+            # 2*self.UpChannels,  # for old EmbeddedDisagreementAttentionBlock
+            self.filters[0]+self.UpChannels,  # for the rest of attentions
             # atttention to X
             # da_block_cls(self.UpChannels, self.filters[0], **self.da_block_config), 2*self.UpChannels,
             self.UpChannels

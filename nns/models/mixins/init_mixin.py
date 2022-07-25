@@ -32,7 +32,8 @@ class InitMixin:
                              see gtorch_utils.nns.models.segmentation.unet3_plus.constants.UNet3InitMethod
                              Default UNet3InitMethod.KAIMING
             layers_cls <tuple>: Tuple containing the layers classes to be initialized.
-                             When not provided, it is set to (torch.nn.Conv2d, torch.nn.BatchNorm2d)
+                             When not provided, it is set to (torch.nn.Conv1d, torch.nn.BatchNorm1d,
+                             torch.nn.Conv2d, torch.nn.BatchNorm2d, torch.nn.Conv3d, torch.nn.BatchNorm3d)
                              Default None
         """
         UNet3InitMethod.validate(init_type)
@@ -41,7 +42,11 @@ class InitMixin:
             assert isinstance(layers_cls, tuple), type(layers_cls)
             assert len(layers_cls) > 0, 'layers_cls cannot be empty'
         else:
-            layers_cls = (torch.nn.Conv2d, torch.nn.BatchNorm2d)
+            layers_cls = (
+                torch.nn.Conv1d, torch.nn.BatchNorm1d,
+                torch.nn.Conv2d, torch.nn.BatchNorm2d,
+                torch.nn.Conv3d, torch.nn.BatchNorm3d
+            )
 
         for module in self.modules():
             if isinstance(module, layers_cls):
