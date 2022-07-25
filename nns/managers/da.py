@@ -57,7 +57,11 @@ class DAModelMGR(DAModelMGRMixin):
         true_masks = true_masks.to(device=self.device, dtype=torch.float32)
 
         with torch.no_grad():
-            masks_pred1, masks_pred2 = self.model(imgs)
+            # TODO: add the metricssssssssssssssssssssssssssssssssssssss!!!!!!!!!!!!!!!!!11
+            #       I think these should be validation metrics to make sure the model
+            #       is still performing well and also because we cannot run the validation
+            #       all the time or the training will last forever
+            masks_pred1, masks_pred2 = self.model(imgs, 0., 0.)
 
         # NOTE: UNet_3Plus_DeepSup returns a tuple of tensor masks
         # so if we have a tensor then we just put it inside a tuple
@@ -258,7 +262,12 @@ class DAModelMGR(DAModelMGRMixin):
         true_masks = true_masks.to(device=self.device, dtype=torch.float32)
 
         with torch.cuda.amp.autocast(enabled=USE_AMP):
-            masks_pred1, masks_pred2 = self.model(imgs)
+            # hereee
+            # TODO: add the metricssssssssssssssssssssssssssssssssssssss!!!!!!!!!!!!!!!!!11
+            #       I think these should be validation metrics to make sure the model
+            #       is still performing well and also because we cannot run the validation
+            #       all the time or the training will last forever
+            masks_pred1, masks_pred2 = self.model(imgs, 0., 0.)
 
             # NOTE: UNet_3Plus_DeepSup returns a tuple of tensor masks
             # so if we have a tensor then we just put it inside a tuple
@@ -301,7 +310,11 @@ class DAModelMGR(DAModelMGRMixin):
 
         with torch.no_grad():
             with torch.cuda.amp.autocast(enabled=USE_AMP):
-                preds1, preds2 = self.model(patch)
+                # TODO: add the metricssssssssssssssssssssssssssssssssssssss!!!!!!!!!!!!!!!!!11
+                #       I think these should be validation metrics to make sure the model
+                #       is still performing well and also because we cannot run the validation
+                #       all the time or the training will last forever
+                preds1, preds2 = self.model(patch, 0., 0.)
 
         predictions = []
 

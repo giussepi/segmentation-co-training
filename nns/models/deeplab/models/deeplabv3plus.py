@@ -29,7 +29,7 @@ class Deeplabv3plus(nn.Module):
                  model_num_classes=1,
                  model_freezebn=False,
                  model_channels=3),
-            batchnorm=get_batchnorm2d_class(settings.NUM_GPUS), backbone=resnet101,  backbone_pretrained=True,
+            batchnorm=get_batchnormxd_class(), backbone=resnet101,  backbone_pretrained=True,
             dilated=True, multi_grid=False, deep_base=True
         )
     """
@@ -105,15 +105,15 @@ class Deeplabv3plus(nn.Module):
 
         feature_shallow = self.shortcut_conv(l1)
         n, c, h, w = feature_shallow.size()
-        feature_aspp = F.interpolate(feature_aspp, (h, w), mode='bilinear', align_corners=True)
+        feature_aspp = F.interpolate(feature_aspp, (h, w), mode='bilinear', align_corners=False)
         feature_cat = torch.cat([feature_aspp, feature_shallow], 1)
         feature = self.cat_conv(feature_cat)
         result = self.cls_conv(feature)
-        result = F.interpolate(result, (H, W), mode='bilinear', align_corners=True)
+        result = F.interpolate(result, (H, W), mode='bilinear', align_corners=False)
 
         if getf:
             if interpolate:
-                feature = F.interpolate(feature, (H, W), mode='bilinear', align_corners=True)
+                feature = F.interpolate(feature, (H, W), mode='bilinear', align_corners=False)
             return result, feature
 
         return result

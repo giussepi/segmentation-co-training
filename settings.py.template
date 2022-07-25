@@ -6,6 +6,7 @@ import logging
 
 import torch
 from gtorch_utils.segmentation import torchmetrics
+from monai import transforms as ts
 
 from nns.utils.metrics import MetricItem
 
@@ -36,6 +37,22 @@ METRICS = [
 ]
 DISABLE_PROGRESS_BAR = False
 
+if CUDA == MULTIGPUS == True and torch.cuda.is_available():
+    NUM_GPUS = torch.cuda.device_count()
+else:
+    NUM_GPUS = 1  # When working with only 1 GPU or CPU
+
+BATCH_SIZE = 16
+TOTAL_BATCH_SIZE = BATCH_SIZE * NUM_GPUS
+NUM_WORKERS = 16  # set it to 0 when debugging the dataset
+DB_CACHE = False  # The dataset should receive it as argument
+
+###############################################################################
+#                            utils/sync_batchnorm/                             #
+###############################################################################
+
+DATA_DIMENSIONS = 3
+
 ###############################################################################
 #                                     NNS                                     #
 ###############################################################################
@@ -46,29 +63,78 @@ PLOT_DIRECTORY = os.path.join(PROJECT_PATH, 'plots')
 ###############################################################################
 #                                    CONSEP                                    #
 ###############################################################################
-if CUDA == MULTIGPUS == True and torch.cuda.is_available():
-    NUM_GPUS = torch.cuda.device_count()
-else:
-    NUM_GPUS = 1  # When working with only 1 GPU or CPU
 
 PATCH_SIZE = (540, 540)
 PATCH_STEP_SIZE = (164, 164)
 # crops are extracted from the patches
-CROP_IMG_SHAPE = (270, 270)
-CROP_MASK_SHAPE = (270, 270)  # (80, 80)
-BATCH_SIZE = 16
-TOTAL_BATCH_SIZE = BATCH_SIZE * NUM_GPUS
-NUM_WORKERS = 16  # set it to 0 when debugging the dataset
+CROP_IMG_SHAPE = (256, 256)
+CROP_MASK_SHAPE = (256, 256)  # (80, 80)
 CREATEDATASET_SAVING_PATH = 'consep_dataset'
-
-###############################################################################
-#                                   DATASETS                                  #
-###############################################################################
-
 # CoNSeP (dataset created after running consep.processors.offline.CreateDataset)
 CONSEP_TRAIN_PATH = os.path.join(PROJECT_PATH, CREATEDATASET_SAVING_PATH, 'train')
 CONSEP_VAL_PATH = os.path.join(PROJECT_PATH, CREATEDATASET_SAVING_PATH, 'val')
 CONSEP_TEST_PATH = ''
+
+###############################################################################
+#                                     ct82                                    #
+###############################################################################
+
+QUICK_TESTS = True
+
+CT82_CROP_SHAPE = [32, 80, 80]  # [46, 80, 80] [96, 160, 160]
+CT82_NUM_CROPS = 3
+
+TRANSFORMS = {
+    'train': ts.Compose([
+        ts.ToTensord(keys=['img', 'mask']),
+        # ts.AsChannelFirstd(keys=['img', 'mask'], channel_dim=-1),
+        # ts.AddChanneld(keys=['img', 'mask']),
+        ts.CropForegroundd(keys=['img', 'mask'], source_key='img', select_fn=lambda x: x > 0),
+        ts.RandAxisFlipd(keys=['img', 'mask'], prob=.5),
+        ts.RandAffined(
+            keys=['img', 'mask'],
+            prob=1.,
+            rotate_range=0.261799,  # 15 degrees
+            translate_range=[0.1*368, 0.1*368, 0.1*368],  # 368 is the image width|height
+            scale_range=((-0.3,  0.3), (-0.3, 0.3), (-0.3, 0.3)),
+            mode=["bilinear", "nearest"]
+        ),
+        ts.RandCropByPosNegLabeld(
+            keys=['img', 'mask'],
+            label_key='mask',
+            spatial_size=CT82_CROP_SHAPE,
+            pos=1,
+            neg=0,
+            num_samples=CT82_NUM_CROPS,
+        ),
+        # ts.RandSpatialCropd(
+        #     keys=['img', 'mask'], roi_size=CT82_CROP_SHAPE, random_center=True, random_size=False)
+        # ts.AsChannelLastd(keys=['img', 'mask'], channel_dim=1),
+        # ts.SqueezeDimd(keys=['img', 'mask'])
+    ]),
+    'valtest': ts.Compose([
+        ts.ToTensord(keys=['img', 'mask']),
+        # ts.AsChannelFirstd(keys=['img', 'mask'], channel_dim=-1),
+        # ts.AddChanneld(keys=['img', 'mask']),
+        ts.CropForegroundd(keys=['img', 'mask'], source_key='img', select_fn=lambda x: x > 0),
+        ts.RandCropByPosNegLabeld(
+            keys=['img', 'mask'],
+            label_key='mask',
+            spatial_size=CT82_CROP_SHAPE,
+            pos=1,
+            neg=0,
+            num_samples=CT82_NUM_CROPS,
+        ),
+        # ts.RandSpatialCropd(
+        #     keys=['img', 'mask'], roi_size=CT82_CROP_SHAPE, random_center=False, random_size=False)
+        # ts.AsChannelLastd(keys=['img', 'mask'], channel_dim=1),
+        # ts.SqueezeDimd(keys=['img', 'mask'])
+    ])
+}
+
+CT82_TRAIN_PATH = os.path.join(PROJECT_PATH, 'CT-82-Pro', 'train')
+CT82_VAL_PATH = os.path.join(PROJECT_PATH, 'CT-82-Pro', 'val')
+CT82_TEST_PATH = os.path.join(PROJECT_PATH, 'CT-82-Pro', 'test')
 
 ###############################################################################
 #                                  BACKBONES                                  #

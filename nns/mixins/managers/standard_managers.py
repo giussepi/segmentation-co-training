@@ -3,6 +3,7 @@
 
 import os
 import sys
+from typing import Union, Optional
 from unittest.mock import MagicMock
 
 import matplotlib.pyplot as plt
@@ -27,6 +28,7 @@ from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.checkpoints import CheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
+from nns.mixins.sanity_checks import SanityChecksMixin
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
 from nns.mixins.subdatasets import SubDatasetsMixin
 from nns.utils.sync_batchnorm import patch_replication_callback
@@ -35,7 +37,7 @@ from nns.utils.sync_batchnorm import patch_replication_callback
 __all__ = ['ModelMGRMixin']
 
 
-class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
+class ModelMGRMixin(SanityChecksMixin, CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
     """
     General segmentation model manager
 
@@ -53,7 +55,9 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
             intrain_val=2,
             optimizer=torch.optim.Adam,
             optimizer_kwargs=dict(lr=1e-3),
+            sanity_checks=True,
             labels_data=MyLabelClass,
+            data_dimensions=2,
             ###################################################################
             #                         SubDatasetsMixin                         #
             ###################################################################
@@ -122,8 +126,11 @@ class ModelMGRMixin(CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
                                the learning rate. Default 10
             optimizer: optimizer class from torch.optim
             optimizer_kwargs: optimizer keyword arguments
+            sanity_checks <bool>: Whether or not run model sanity checks. Default False
             labels_data <object>: class containing all the details of the classes/labels. See
                                    nns.callbacks.plotters.masks.MaskPlotter definition
+            data_dimensions <int>: Number of dimension of the data. Currently 2D and 3D supported.
+                                   Default 2.
             ###################################################################
             #                         SubDatasetsMixin                        #
             ###################################################################
@@ -190,7 +197,9 @@ If true it track the loss values, else it tracks the metric values.
         self.intrain_val = kwargs.get('intrain_val', 10)
         self.optimizer = kwargs.get('optimizer', torch.optim.RMSprop)
         self.optimizer_kwargs = kwargs.get('optimizer_kwargs', dict(lr=1e-4, weight_decay=1e-8, momentum=.9))
+        self.sanity_checks = kwargs.get('sanity_checks', False)
         self.labels_data = kwargs['labels_data']
+        self.data_dimensions = kwargs.get('data_dimensions', 2)
         self.dataset = kwargs['dataset']
 
         self.lr_scheduler = kwargs.get('lr_scheduler', None)
@@ -227,6 +236,8 @@ If true it track the loss values, else it tracks the metric values.
         assert isinstance(self.intrain_val, int), type(self.intrain_val)
         assert self.intrain_val >= 1, self.intrain_val
         assert isinstance(self.optimizer_kwargs, dict), type(self.optimizer_kwargs)
+        assert isinstance(self.data_dimensions, int), type(self.data_dimensions)
+        assert self.data_dimensions in (2, 3), 'Only 2D and 3D data is supported'
         assert isinstance(self.lr_scheduler_kwargs, dict), type(self.lr_scheduler_kwargs)
         LrShedulerTrack.validate(self.lr_scheduler_track)
         assert isinstance(self.criterions, list), type(self.criterions)
@@ -326,33 +337,118 @@ If true it track the loss values, else it tracks the metric values.
 
         return self.model
 
-    @staticmethod
-    def reshape_data(imgs, labels, true_masks=None, filepaths=None):
+    def reshape_data(
+            self, imgs: torch.Tensor, labels: Union[torch.Tensor, list],
+            true_masks: Optional[torch.Tensor] = None,
+            filepaths: Optional[Union[torch.Tensor, list]] = None
+    ):
         """
-        Reshapes the tensors to be properly used
+        Reshapes tensors with 2D and 3D data to be properly used
+        """
+        if self.data_dimensions == 3:
+            return self.reshape_3D_data(imgs, labels, true_masks, filepaths)
+
+        return self.reshape_2D_data(imgs, labels, true_masks, filepaths)
+
+    @staticmethod
+    def reshape_2D_data(
+            imgs: torch.Tensor, labels: Union[torch.Tensor, list],
+            true_masks: Optional[torch.Tensor] = None,
+            filepaths: Optional[Union[torch.Tensor, list]] = None
+    ):
+        """
+        Reshapes tensors with 2D data to be properly used
 
         Args:
-            imgs       <Tensor>: Tensor containing the images
-            labels     <Tensor>: Tensor containing the labels
-            true_masks <Tensor>: Tensor containing the ground truth masks
-            filepaths  <Tensor>: Tensor containing the filepaths
+            imgs             <Tensor>: Tensor containing the images with shape
+                                       [batches, crops, channels, height, width] or
+                                       [batches, channels, height, width]
+            labels     <Tensor, list>: Tensor or list containing the labels
+            true_masks       <Tensor>: Tensor containing the ground truth masks with same shape as imgs
+            filepaths  <Tensor, list>: Tensor or list containing the filepaths
 
         Returns:
-            imgs, labels, true_masks, filepaths
+            imgs <torch.Tensor>, labels<torch.Tensor, list>, true_masks<torch.Tensor, None>,
+            filepaths<torch.Tensor, list, None>
         """
         assert torch.is_tensor(imgs)
-        assert torch.is_tensor(labels)
+        assert isinstance(labels, (torch.Tensor, list))
+        assert len(imgs.shape) in (5, 4), (
+            '2D imgs tensor must be [batches, crops, channels, height, width] or'
+            '[batches, channels, height, width]'
+        )
 
         if true_masks is not None:
             assert torch.is_tensor(true_masks)
-            true_masks = true_masks.reshape((-1, *true_masks.shape[2:]))
+            assert true_masks.shape == imgs.shape, 'true_masks and imgs must have the same shape'
 
+            if len(true_masks.shape) == 5:  # [batches, crops, channels, height, width]
+                true_masks = true_masks.reshape((-1, *true_masks.shape[2:]))
+
+        if len(imgs.shape) == 5:  # [batches, crops, channels, height, width]
+            imgs = imgs.reshape((-1, *imgs.shape[2:]))
+
+        # TODO: determine how to reshape filepaths
         if filepaths is not None:
-            assert torch.is_tensor(filepaths)
-            filepaths = filepaths.squeeze()
+            assert torch.is_tensor(filepaths) or isinstance(filepaths, list)
 
-        imgs = imgs.reshape((-1, *imgs.shape[2:]))
-        labels = labels.squeeze()
+            if torch.is_tensor(filepaths):
+                filepaths = filepaths.squeeze()
+
+        # TODO: determine how to reshape labels
+        if torch.is_tensor(labels):
+            labels = labels.squeeze()
+
+        return imgs, labels, true_masks, filepaths
+
+    @staticmethod
+    def reshape_3D_data(
+            imgs: torch.Tensor, labels: Union[torch.Tensor, list],
+            true_masks: Optional[torch.Tensor] = None,
+            filepaths: Optional[Union[torch.Tensor, list]] = None
+    ):
+        """
+        Reshapes the tensors with 3D data to be properly used
+
+        Args:
+            imgs             <Tensor>: Tensor containing the images with shape
+                                       [batches, crops, channels, depth, height, width] or
+                                       [batches, channels, depth, height, width]
+            labels     <Tensor, list>: Tensor or list containing the labels
+            true_masks       <Tensor>: Tensor containing the ground truth masks with same shape as imgs
+            filepaths  <Tensor, list>: Tensor or list containing the filepaths
+
+        Returns:
+            imgs <torch.Tensor>, labels<torch.Tensor, list>, true_masks<torch.Tensor, None>,
+            filepaths<torch.Tensor, list, None>
+        """
+        assert torch.is_tensor(imgs)
+        assert isinstance(labels, (torch.Tensor, list))
+        assert len(imgs.shape) in (6, 5), (
+            '3D imgs tensor must be [batches, crops, channels, depth, height, width] or'
+            '[batches, channels, depth, height, width]'
+        )
+
+        if true_masks is not None:
+            assert torch.is_tensor(true_masks)
+            assert true_masks.shape == imgs.shape, 'imgs and true_masks must have the same shape'
+
+            if len(true_masks.shape) == 6:  # [batches, crops, channels, depth, height, width]
+                true_masks = true_masks.reshape((-1, *true_masks.shape[2:]))
+
+        if len(imgs.shape) == 6:  # [batches, crops, channels, depth, height, width]
+            imgs = imgs.reshape((-1, *imgs.shape[2:]))
+
+        # TODO: determine how to reshape filepaths
+        if filepaths is not None:
+            assert torch.is_tensor(filepaths) or isinstance(filepaths, list)
+
+            if torch.is_tensor(filepaths):
+                filepaths = filepaths.squeeze()
+
+        # TODO: determine how to reshape labels
+        if torch.is_tensor(labels):
+            labels = labels.squeeze()
 
         return imgs, labels, true_masks, filepaths
 
@@ -543,6 +639,9 @@ If true it track the loss values, else it tracks the metric values.
             mask_plotter = None
 
         self.model.eval()
+
+        if self.sanity_checks:
+            self.disable_sanity_checks()
         n_val = len(dataloader)  # the number of batchs
         loss = imgs_counter = 0
         # the folowing variables will store extra data from the last validation batch
@@ -566,6 +665,9 @@ If true it track the loss values, else it tracks the metric values.
             func_plot_palette(os.path.join(saving_dir, 'label_palette.png'))
 
         self.model.train()
+
+        if self.sanity_checks:
+            self.enable_sanity_checks()
 
         return loss / n_val, metrics, extra_data
 
@@ -648,6 +750,9 @@ If true it track the loss values, else it tracks the metric values.
         step_divider = self.n_train // (self.intrain_val * self.train_dataloader_kwargs['batch_size'])
         optimizer = self.optimizer(self.model.parameters(), **self.optimizer_kwargs)
 
+        if self.sanity_checks:
+            self.add_sanity_checks(optimizer)
+
         if self.cuda:
             scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
 
@@ -664,6 +769,7 @@ If true it track the loss values, else it tracks the metric values.
         )
         best_metric = np.NINF
         val_loss_min = np.inf
+        train_batches = len(self.train_loader)
 
         # If a checkpoint file is provided, then load it
         if self.ini_checkpoint:
@@ -688,25 +794,25 @@ If true it track the loss values, else it tracks the metric values.
 
         for epoch in range(start_epoch, self.epochs):
             self.model.train()
-            train_loss = 0
+            epoch_train_loss = 0
+            intrain_chkpt_counter = 0
+            intrain_val_counter = 0
 
             with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img',
                       disable=DISABLE_PROGRESS_BAR) as pbar:
-                intrain_chkpt_counter = 0
-                intrain_val_counter = 0
-
                 for batch in self.train_loader:
-                    pred, true_masks, imgs, loss, metrics, labels, label_names = self.training_step(batch)
-                    train_loss += loss.item()
+                    pred, true_masks, imgs, batch_train_loss, metrics, labels, label_names = \
+                        self.training_step(batch)
+                    epoch_train_loss += batch_train_loss.item()
                     optimizer.zero_grad()
 
                     if self.cuda:
-                        scaler.scale(loss).backward(retain_graph=True)
+                        scaler.scale(batch_train_loss).backward(retain_graph=True)
                         nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                         scaler.step(optimizer)
                         scaler.update()
                     else:
-                        loss.backward(retain_graph=True)
+                        batch_train_loss.backward(retain_graph=True)
                         nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                         optimizer.step()
 
@@ -716,13 +822,17 @@ If true it track the loss values, else it tracks the metric values.
                     if global_step % step_divider == 0:
                         validation_step += 1
                         intrain_val_counter += 1
+                        # dividing the epoch accummulated train loss by
+                        # the number of batches processed so far in the current epoch
+                        current_epoch_train_loss = torch.tensor(
+                            epoch_train_loss/(intrain_val_counter*step_divider))
                         val_loss, val_metrics, val_extra_data = self.validation(dataloader=self.val_loader)
 
                         # maybe if there's no scheduler then the lr shouldn't be plotted
                         writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], validation_step)
                         data_logger['lr'].append(optimizer.param_groups[0]['lr'])
-                        writer.add_scalar('Loss/train', loss.item(), validation_step)
-                        data_logger['train_loss'].append(loss.item())
+                        writer.add_scalar('Loss/train', current_epoch_train_loss.item(), validation_step)
+                        data_logger['train_loss'].append(current_epoch_train_loss.item())
 
                         for metric_, value_ in metrics.items():
                             writer.add_scalar(f'{metric_}', value_.item(), validation_step)
@@ -737,7 +847,8 @@ If true it track the loss values, else it tracks the metric values.
                         data_logger['val_metric'].append(self.prepare_to_save(val_metrics))
 
                         self.print_validation_summary(
-                            global_step=global_step, validation_step=validation_step, loss=loss,
+                            global_step=global_step, validation_step=validation_step,
+                            loss=current_epoch_train_loss,
                             metrics=metrics, val_loss=val_loss, val_metrics=val_metrics
                         )
                         self.validation_post(
@@ -783,9 +894,7 @@ If true it track the loss values, else it tracks the metric values.
 
             # computing epoch statistiscs #####################################
             data_logger['epoch_lr'].append(optimizer.param_groups[0]['lr'])
-
-            train_batches = len(self.train_loader)
-            data_logger['epoch_train_losses'].append(train_loss / train_batches)
+            data_logger['epoch_train_losses'].append(epoch_train_loss / train_batches)
             # total metrics over all training batches
             data_logger['epoch_train_metrics'].append(self.prepare_to_save(self.train_metrics.compute()))
             # reset metrics states after each epoch
@@ -860,9 +969,9 @@ If true it track the loss values, else it tracks the metric values.
         else:
             self.load()
 
-        _, metric = self.validation(dataloader=self.test_loader, testing=True, **kwargs)
+        _, metric, _ = self.validation(dataloader=self.test_loader, testing=True, **kwargs)
 
-        logger.info(f'Testing Metric: {metric}')
+        logger.info(f'Testing Metric: {metric["val_DiceCoefficient"].item()}')
 
     def predict_step(self, patch):
         """

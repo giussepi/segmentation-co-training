@@ -26,7 +26,8 @@ class ModelMGR(ModelMGRMixin):
             batch <dict>: Dictionary contaning batch data
 
         Returns:
-            imgs<torch.Tensor>, true_masks<torch.Tensor>, masks_pred<tuple of torch.Tensors>, labels<list>, label_names<list>
+            imgs<torch.Tensor>, true_masks<torch.Tensor>, masks_pred<tuple of torch.Tensors>, labels<list>,
+            label_names<list>, num_crops <int>
         """
         assert isinstance(batch, dict)
         assert len(batch) > 0, 'the provided batch is empty'
@@ -42,9 +43,13 @@ class ModelMGR(ModelMGRMixin):
         # for i in range(labels.shape[0]):
         #     assert true_masks[i][labels[i]].max() == 1, labels[i].item()
 
-        if len(imgs.shape) == 5:
-            # TODO: see how to use and process label_names
-            imgs, labels, true_masks, _ = self.reshape_data(imgs, labels, true_masks)
+        num_crops = 1
+
+        # TODO: see how to use and process label_names
+        imgs, labels, true_masks, _ = self.reshape_data(imgs, labels, true_masks)
+
+        if imgs.shape[1] != self.module.n_channels:
+            raise ModelMGRImageChannelsError(self.module.n_channels, imgs.shape[1])
 
         imgs = imgs.to(device=self.device, dtype=torch.float32)
         # changing this becaue of the error
@@ -61,7 +66,7 @@ class ModelMGR(ModelMGRMixin):
         # to not break the workflow
         masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
 
-        return imgs, true_masks, masks_pred, labels, label_names
+        return imgs, true_masks, masks_pred, labels, label_names, num_crops
 
     def validation_step(self, **kwargs):
         """
@@ -101,12 +106,20 @@ class ModelMGR(ModelMGRMixin):
         loss = torch.tensor(0.)
 
         with torch.cuda.amp.autocast(enabled=USE_AMP):
-            imgs, true_masks, masks_pred, labels, label_names = self.get_validation_data(batch)
+            imgs, true_masks, masks_pred, labels, label_names, num_crops = self.get_validation_data(batch)
 
             if not testing:
                 loss = torch.sum(torch.stack([
                     self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
                 ]))
+                # IMPORTANT NOTE:
+                # when using online data augmentation, it can return X crops instead of 1, so
+                # we need to modify this to loss / (n_val*X)
+                # because the loss is result of processing X times more crops than
+                # normal, so to properly calculate the final loss we need to divide it by
+                # number of batches times X. Here we only divide it by X, the final summation
+                # will be divided by num_baches at the validation method implementation
+                loss /= num_crops
 
         # TODO: Try with masks from d5 and other decoders
         pred = masks_pred[0]  # using mask from decoder d1
@@ -203,7 +216,8 @@ class ModelMGR(ModelMGRMixin):
             batch <dict>: Dictionary contaning batch data
 
         Returns:
-            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>, metrics<dict>, labels<list>, label_names<list>
+            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>,
+            metrics<dict>, labels<list>, label_names<list>
         """
         assert isinstance(batch, dict), type(batch)
         # TODO: part of these lines can be re-used for get_validation_data with minors tweaks
@@ -219,9 +233,10 @@ class ModelMGR(ModelMGRMixin):
         # for i in range(labels.shape[0]):
         #     assert true_masks[i][labels[i]].max() == 1, labels[i].item()
 
-        if len(imgs.shape) == 5:
-            # TODO: see how to use and process label_names
-            imgs, labels, true_masks, _ = self.reshape_data(imgs, labels, true_masks)
+        num_crops = 1
+
+        # TODO: see how to use and process label_names
+        imgs, labels, true_masks, _ = self.reshape_data(imgs, labels, true_masks)
 
         if imgs.shape[1] != self.module.n_channels:
             raise ModelMGRImageChannelsError(self.module.n_channels, imgs.shape[1])
@@ -242,10 +257,17 @@ class ModelMGR(ModelMGRMixin):
             # so if we have a tensor then we just put it inside a tuple
             # to not break the workflow
             masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
-
             loss = torch.sum(torch.stack([
                 self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
             ]))
+            # IMPORTANT NOTE:
+            # when using online data augmentation, it can return X crops instead of 1, so
+            # we need to modify this to loss / (n_val*X)
+            # because the loss is result of processing X times more crops than
+            # normal, so to properly calculate the final loss we need to divide it by
+            # number of batches times X. Here we only divide it by X, the final summation
+            # will be divided by num_baches at the training method implementation
+            loss /= num_crops
 
         # using mask from decoder d1
         # TODO: Try with masks from d5 and other decoders
