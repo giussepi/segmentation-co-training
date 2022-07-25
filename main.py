@@ -792,7 +792,7 @@ def main():
     #     assert labels.shape == cts.shape == target_size
 
     # mgr.perform_visual_verification(80, scans=[70], clahe=True)
-    # mgr.split_processed_dataset(.15, .2, shuffle=False)
+    # mgr.split_processed_dataset(.15, .25, shuffle=False)
 
     # visual verification of cts ##############################################
     # target_size = (368, 368, 96)  # (1024, 1024, 96)
@@ -875,7 +875,7 @@ def main():
     # increase recall values (p = .005) by improving the model’s expression power as it relies
     # on AGs to localise foreground pixels.
     # inference timeused 160x160x96 tensors
-    # CT-80 (TCIA Pancreas-CT Dataset) train 61 (74.39%), test 21 (25.6%)
+    # CT-82 (TCIA Pancreas-CT Dataset) train 61 (74.39%), test 21 (25.6%)
     # 5-fold cross-validation
     # #+caption: models from scratch
     # | Method          | Dice        | Precision   | Recall      | S2S dist(mm) |
