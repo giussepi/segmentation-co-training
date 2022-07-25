@@ -136,7 +136,10 @@ class ModelMGR(ModelMGRMixin):
 
         self.valid_metrics.update(pred, true_masks)
 
-        extra_data = dict(imgs=imgs, pred=pred, true_masks=true_masks, labels=labels, label_names=label_names)
+        extra_data = dict(
+            imgs=imgs.detach().cpu(), pred=pred.detach().cpu(), true_masks=true_masks.detach().cpu(),
+            labels=labels, label_names=label_names
+        )
 
         return loss, extra_data
 
