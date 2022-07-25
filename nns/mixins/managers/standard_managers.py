@@ -852,7 +852,8 @@ If true it track the loss values, else it tracks the metric values.
                             metrics=metrics, val_loss=val_loss, val_metrics=val_metrics
                         )
                         self.validation_post(
-                            pred=pred, true_masks=true_masks, labels=labels, imgs=imgs,
+                            pred=pred.detach().cpu(), true_masks=true_masks.detach().cpu(), labels=labels,
+                            imgs=imgs.detach().cpu(),
                             label_names=label_names, writer=writer, validation_step=validation_step,
                             global_step=global_step, val_extra_data=val_extra_data
                         )
