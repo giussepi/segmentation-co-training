@@ -7,3 +7,4 @@ from nns.models.layers.disagreement_attention.intra_class.merged import MergedDA
 from nns.models.layers.disagreement_attention.intra_class.mixed_embedded import MixedEmbeddedDABlock
 from nns.models.layers.disagreement_attention.intra_class.pure import PureDABlock
 from nns.models.layers.disagreement_attention.intra_class.standard import AttentionBlock
+from nns.models.layers.disagreement_attention.intra_class.thresholded import ThresholdedDABlock
