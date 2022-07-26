@@ -5,7 +5,7 @@ import torch
 
 from gtorch_utils.nns.models.segmentation.unet.unet_parts import DoubleConv, Down, Up, OutConv
 
-from nns.models.layers.disagreement_attention.inter_class.basic import AttentionBlock
+from nns.models.layers.disagreement_attention.inter_model.basic import AttentionBlock
 
 
 __all__ = ['AttentionUNet']

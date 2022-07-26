@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/inter_class/test/test_mixed_embedded_disagreement """
+""" nns/models/layers/disagreement_attention/inter_model/test/test_mixed_embedded_disagreement """
 
 import unittest
 from functools import reduce
@@ -7,7 +7,7 @@ from functools import reduce
 import torch
 from torch.nn.functional import interpolate
 
-from nns.models.layers.disagreement_attention.inter_class import MixedEmbeddedDisagreementAttentionBlock
+from nns.models.layers.disagreement_attention.inter_model import MixedEmbeddedDisagreementAttentionBlock
 
 
 def downsample(x: torch.Tensor):

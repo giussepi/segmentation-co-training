@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/inter_class/test/test_merged_disagreement """
+""" nns/models/layers/disagreement_attention/inter_model/test/test_merged_disagreement """
 
 import unittest
 
 import torch
 
-from nns.models.layers.disagreement_attention.inter_class import MergedDisagreementAttentionBlock
+from nns.models.layers.disagreement_attention.inter_model import MergedDisagreementAttentionBlock
 
 
 class Test_MergedDisagreementAttentionBlock(unittest.TestCase):

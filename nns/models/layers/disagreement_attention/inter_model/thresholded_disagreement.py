@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/inter_class/thresholded_disagreement """
+""" nns/models/layers/disagreement_attention/inter_model/thresholded_disagreement """
 
 from typing import Tuple, Callable
 
