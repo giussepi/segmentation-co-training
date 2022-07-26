@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/intra_class/combined """
+""" nns/models/layers/disagreement_attention/intra_model/combined """
 
 from typing import Optional
 

@@ -10,7 +10,7 @@ from gtorch_utils.nns.models.segmentation.unet.unet_parts import DoubleConv, Dow
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from torch.nn.modules.batchnorm import _BatchNorm
 
-from nns.models.layers.disagreement_attention.intra_class import AttentionBlock
+from nns.models.layers.disagreement_attention.intra_model import AttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.layers import AttentionConvBlock
 from nns.models.mixins import InitMixin

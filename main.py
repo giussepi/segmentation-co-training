@@ -38,7 +38,7 @@ from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3
     UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
     MultiAttentionBlock, UNet3D
 from nns.models.layers.disagreement_attention import inter_class
-from nns.models.layers.disagreement_attention import intra_class
+from nns.models.layers.disagreement_attention import intra_model
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
 from nns.segmentation.learning_algorithms import CoTraining, DACoTraining
 from nns.segmentation.utils.postprocessing import ExpandPrediction
@@ -562,7 +562,7 @@ def main():
     # model6 = dict(
     # model6 = ModelMGR(
     #     model=XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
-    #     model_kwargs=dict(da_block_cls=intra_class.AttentionBlock,
+    #     model_kwargs=dict(da_block_cls=intra_model.AttentionBlock,
     #                       # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
     #                       # da_block_config=dict(n_channels=-1),
     #                       # is_deconv=True,
@@ -644,7 +644,7 @@ def main():
             batchnorm_cls=get_batchnormxd_class(),
             init_type=UNet3InitMethod.KAIMING,
             data_dimensions=settings.DATA_DIMENSIONS,
-            da_block_cls=intra_class.ThresholdedDABlock,
+            da_block_cls=intra_model.ThresholdedDABlock,
             # da_block_config={'xi': 1.}
             da_block_config={'thresholds': (.25, .8), 'beta': -1}
         ),

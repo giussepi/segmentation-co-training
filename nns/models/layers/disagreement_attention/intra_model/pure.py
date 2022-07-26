@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/intra_class/thresholded.py """
-
-from typing import Optional, Tuple
+""" nns/models/layers/disagreement_attention/intra_model/pure.py """
+from typing import Optional
 
 import torch
 from torch import nn
@@ -11,20 +10,19 @@ from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitM
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 
 
-__all__ = ['ThresholdedDABlock']
+__all__ = ['PureDABlock']
 
 
-class ThresholdedDABlock(BaseDisagreementAttentionBlock):
+class PureDABlock(BaseDisagreementAttentionBlock):
     r"""
-    Calculates the Thresholded Disagreement Attention and returns the act1 with the computed attention
+    Calculates the Pure Disagreement Attention and returns the act1 with the computed attention
     """
 
     def __init__(
             self, m1_act: int, m2_act: int,  /, *, n_channels: int = -1,
             batchnorm_cls: Optional[_BatchNorm] = None,
             init_type=UNet3InitMethod.KAIMING, upsample: bool = True,
-            data_dimensions: int = 2,
-            thresholds: Optional[Tuple[float]] = None, beta=-1.
+            data_dimensions: int = 2
     ):
         """
         Initializes the object instance
@@ -50,27 +48,13 @@ class ThresholdedDABlock(BaseDisagreementAttentionBlock):
                                     3 for 3D [batch, channel, depth, height, width]. This argument will
                                     determine to use conv2d or conv3d.
                                     Default 2
-            thresholds   <tuple>: Tuple with the lower and upper disagreement thresholds. If not value is
-                                  provided is is set to (.25, .8). Default = None
-            beta     <float>: user-defined boost for the activations boost rule. beta in ]-inf, 1[.
-                                    Default -1.
         """
         super().__init__(
             m1_act, m2_act, n_channels=n_channels, batchnorm_cls=batchnorm_cls, init_type=init_type,
             data_dimensions=data_dimensions
         )
         assert isinstance(upsample, bool), type(upsample)
-        assert float('-inf') < beta < 1, beta
-        if thresholds is not None:
-            assert isinstance(thresholds, tuple), type(thresholds)
-            assert len(thresholds) == 2, 'thresholds must contain only 2 values'
-            assert 0 < thresholds[0] < 1, f'{thresholds[0]} is not in range ]0,1['
-            assert 0 < thresholds[1] < 1, f'{thresholds[1]} is not in range ]0,1['
-            assert thresholds[0] < thresholds[1], f'{thresholds[0]} must be less than {thresholds[1]}'
-
-        self.thresholds = (.25, .8) if thresholds is None else thresholds
         self.upsample = upsample
-        self.beta = beta
 
         convxd = nn.Conv2d if self.data_dimensions == 2 else nn.Conv3d
         mode = 'bilinear' if self.data_dimensions == 2 else 'trilinear'
@@ -105,30 +89,6 @@ class ThresholdedDABlock(BaseDisagreementAttentionBlock):
             self.batchnorm_cls(m1_act)
         )
 
-    def activation_boost_rule(
-            self, disagreement_matrix: torch.Tensor, feature_disagreement_idx: torch.Tensor):
-        """
-        Kwargs:
-            disagreement_matrix <torch.Tensor>: difference between act2 and act1
-            feature_disagreement_idx <torch.Tensor>: boolean tensor used to select the values to be
-                                                boosted. It must be a boolean tensor so it can be used
-                                                like this disagreement_matrix[feature_disagreement_idx]
-
-        Returns:
-            boosted_activations_maps <torch.Tensor>
-        """
-        assert isinstance(disagreement_matrix, torch.Tensor), type(disagreement_matrix)
-        assert isinstance(feature_disagreement_idx, torch.Tensor), \
-            type(feature_disagreement_idx)
-        assert feature_disagreement_idx.dtype == torch.bool, feature_disagreement_idx.dtype
-
-        if 0 <= self.beta < 1:
-            disagreement_matrix[feature_disagreement_idx] *= (1 + self.beta)
-        else:
-            disagreement_matrix[~feature_disagreement_idx] = 0
-
-        return disagreement_matrix
-
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
         Kwargs:
@@ -143,15 +103,10 @@ class ThresholdedDABlock(BaseDisagreementAttentionBlock):
 
         wact1 = self.w1(act1)
         wact2 = self.w2(act2)
-        feature_disagreement_idx = (torch.sigmoid(wact2) > self.thresholds[1]) * \
-            (torch.sigmoid(wact1) < self.thresholds[0])
         # option 1 ############################################################
-        delta = wact2 - wact1
+        attention = self.act_with_attention(wact2 - wact1)
         # option 2 ############################################################
-        # delta = wact2 + torch.relu(wact2 - wact1)
-
-        boosted_delta = self.activation_boost_rule(delta, feature_disagreement_idx)
-        attention = self.act_with_attention(boosted_delta)
+        # attention = self.act_with_attention(wact2 + torch.relu(wact2 - wact1))
 
         if self.upsample:
             attention = self.up(attention)

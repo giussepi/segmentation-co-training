@@ -1,47 +1,27 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/intra_class/merged.py """
+""" nns/models/layers/disagreement_attention/intra_model/standard """
 
 from typing import Optional
 
 import torch
-from torch import nn
 from torch.nn.modules.batchnorm import _BatchNorm
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
+# from gtorch_utils.nns.models.segmentation.unet3_plus.init_weights import init_weights
+from torch import nn
 
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 
 
-__all__ = ['MergedDABlock']
+__all__ = ['AttentionBlock']
 
 
-class MergedDABlock(BaseDisagreementAttentionBlock):
+class AttentionBlock(BaseDisagreementAttentionBlock):
     r"""
-    Calculates the Merged Disagreement Attention and returns the act1 with the computed attention
+    Calculates the standard UNet attention and returns the act1 with the computed attention
 
-    \begin{equation}
-    \begin{split}
-    \Phi_1 &= \bowtie_{cs, k2, s2, p0}(\rm{\text{S}}) \\
-    \Phi_2 &= \bowtie_{cs, k1, s1, p0}(\rm{\text{G}}) \\
-    \Delta\Phi &= |\Phi_2 - \Phi_1| \\
-    A_{2\rightarrow 1} &= \sigma_s(\bowtie_{c1,k1,s1,p0}(\sigma_r(\Delta\Phi))) \\
-    A_{2\rightarrow 1} &= \sqcup_{s2}(A_{2\rightarrow 1}) \\
-    \Phi_1^A &= Bn(\bowtie_{cs,k1,s1,p0}(S \oslash A_{2\rightarrow 1})) \\
-    \end{split}
-    \end{equation}
-
-    \begin{align}
-    \text{Where} ~S: & ~\text{Skip connection} \\
-    G: & ~\text{Gating signal} \\
-    |\cdot|: & ~\text{Absolute value}\\
-    \bowtie_{cs,k1,s1,p0}: & ~\text{Convolution with $s$ out channels, kernel size 1, stride 1 and padding 0} \\
-    \sigma_s: & ~ \text{Sigmoid activation} \\
-    \sigma_r: & ~ \text{ReLU activation} \\
-    A_{2\rightarrow 1}: & ~\text{Attention from $\Phi_2$ to $\Phi_1$} \\
-    \sqcup_{s2}: & ~\text{Upsample with scale factor of 2} \\
-    \oslash: & ~ \text{Hadamard product}\\
-    Bn: & ~\text{Batch normalization} \\
-    \Phi_1^A: & ~\text{Skip connection with attention} \\
-    \end{align}
+    Usage:
+        g = AttentionBlock(320, 1024, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
+        g(act, gs)
     """
 
     def __init__(
@@ -115,6 +95,11 @@ class MergedDABlock(BaseDisagreementAttentionBlock):
             self.batchnorm_cls(m1_act)
         )
 
+        # initialise weights
+        # for m in self.modules():
+        #     if isinstance(m, (convxd, self.batchnorm_cls)):
+        #         init_weights(m, init_type=self.init_type)
+
     def forward(self, act1: torch.Tensor, act2: torch.Tensor):
         """
         Kwargs:
@@ -129,7 +114,7 @@ class MergedDABlock(BaseDisagreementAttentionBlock):
 
         wact1 = self.w1(act1)
         wact2 = self.w2(act2)
-        attention = self.act_with_attention(torch.abs(wact2-wact1))
+        attention = self.act_with_attention(wact1+wact2)
 
         if self.upsample:
             attention = self.up(attention)

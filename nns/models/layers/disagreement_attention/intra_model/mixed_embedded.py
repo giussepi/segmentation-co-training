@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/models/layers/disagreement_attention/intra_class/pure.py """
+""" nns/models/layers/disagreement_attention/intra_model/mixed_embedded.py """
 from typing import Optional
 
 import torch
@@ -7,15 +7,29 @@ from torch import nn
 from torch.nn.modules.batchnorm import _BatchNorm
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 
+
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 
 
-__all__ = ['PureDABlock']
+__all__ = ['MixedEmbeddedDABlock']
 
 
-class PureDABlock(BaseDisagreementAttentionBlock):
+class MixedEmbeddedDABlock(BaseDisagreementAttentionBlock):
     r"""
-    Calculates the Pure Disagreement Attention and returns the act1 with the computed attention
+    Calculates the intra-class Mixed Embedded Disagreement Attention and returns the act1 with the
+    computed attention
+
+    In the standard UNet attention the weights alignments are computed like this:
+
+    attention = skip_conn + gating_signal
+
+    However, we calculate it a slightly different:
+
+    TODO: UPDATE HOW IT'S CALCULATED BASED ON THE RESULTS
+
+    Usage:
+        g = AttentionBlock(320, 1024, resample=torch.nn.Upsample(scale_factor=2, mode='bilinear'))
+        g(act, gs)
     """
 
     def __init__(
@@ -103,15 +117,32 @@ class PureDABlock(BaseDisagreementAttentionBlock):
 
         wact1 = self.w1(act1)
         wact2 = self.w2(act2)
-        # option 1 ############################################################
-        attention = self.act_with_attention(wact2 - wact1)
-        # option 2 ############################################################
-        # attention = self.act_with_attention(wact2 + torch.relu(wact2 - wact1))
 
+        # idea 1.1 ##############################################################
+        # modifying act1 directly
         if self.upsample:
-            attention = self.up(attention)
+            wact2 = self.up(wact2)
+        skip_with_attention = 2 * wact2 + torch.abs(wact2-act1)
+        attention = skip_with_attention/act1
 
-        skip_with_attention = act1 * attention
-        skip_with_attention = self.output(skip_with_attention)
+        # idea 1.2 ##############################################################
+        # attention = self.act_with_attention(2 * wact2 + torch.abs(wact2-wact1))
+        # if self.upsample:
+        #     attention = self.up(attention)
+        # skip_with_attention = act1 * attention
+        # skip_with_attention = self.output(skip_with_attention)
+
+        # idea 2.1 ############################################################
+        # if self.upsample:
+        #     wact2 = self.up(wact2)
+        # skip_with_attention = wact2 + torch.abs(wact2-act1) + wact2 * ((act1-wact2) > 0)
+        # attention = skip_with_attention/act1
+
+        # idea 2.2 ##############################################################
+        # attention = self.act_with_attention(wact2 + torch.abs(wact2-wact1) + wact2 * ((wact1-wact2) > 0))
+        # if self.upsample:
+        #     attention = self.up(attention)
+        # skip_with_attention = act1 * attention
+        # skip_with_attention = self.output(skip_with_attention)
 
         return skip_with_attention, attention
