@@ -17,6 +17,31 @@ __all__ = ['MergedDABlock']
 class MergedDABlock(BaseDisagreementAttentionBlock):
     r"""
     Calculates the Merged Disagreement Attention and returns the act1 with the computed attention
+
+    \begin{equation}
+    \begin{split}
+    \Phi_1 &= \bowtie_{cs, k2, s2, p0}(\rm{\text{S}}) \\
+    \Phi_2 &= \bowtie_{cs, k1, s1, p0}(\rm{\text{G}}) \\
+    \Delta\Phi &= |\Phi_2 - \Phi_1| \\
+    A_{2\rightarrow 1} &= \sigma_s(\bowtie_{c1,k1,s1,p0}(\sigma_r(\Delta\Phi))) \\
+    A_{2\rightarrow 1} &= \sqcup_{s2}(A_{2\rightarrow 1}) \\
+    \Phi_1^A &= Bn(\bowtie_{cs,k1,s1,p0}(S \oslash A_{2\rightarrow 1})) \\
+    \end{split}
+    \end{equation}
+
+    \begin{align}
+    \text{Where} ~S: & ~\text{Skip connection} \\
+    G: & ~\text{Gating signal} \\
+    |\cdot|: & ~\text{Absolute value}\\
+    \bowtie_{cs,k1,s1,p0}: & ~\text{Convolution with $s$ out channels, kernel size 1, stride 1 and padding 0} \\
+    \sigma_s: & ~ \text{Sigmoid activation} \\
+    \sigma_r: & ~ \text{ReLU activation} \\
+    A_{2\rightarrow 1}: & ~\text{Attention from $\Phi_2$ to $\Phi_1$} \\
+    \sqcup_{s2}: & ~\text{Upsample with scale factor of 2} \\
+    \oslash: & ~ \text{Hadamard product}\\
+    Bn: & ~\text{Batch normalization} \\
+    \Phi_1^A: & ~\text{Skip connection with attention} \\
+    \end{align}
     """
 
     def __init__(
