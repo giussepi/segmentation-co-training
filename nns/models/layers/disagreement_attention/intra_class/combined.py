@@ -127,7 +127,7 @@ class CombinedDABlock(BaseDisagreementAttentionBlock):
         wact1 = self.w1(act1)
         wact2 = self.w2(act2)
         attention = self.act_with_attention(wact1+wact2+self.xi*(wact1-wact2))
-        # hadamard
+        # hadamard: try replacing 1 with 0 and .5
         # attention = self.act_with_attention((wact1+wact2)*(1+torch.sigmoid(torch.relu(wact1-wact2))))
         # hadamard without relu
         # attention = self.act_with_attention((wact1+wact2)*(1+torch.sigmoid(wact1-wact2)))
