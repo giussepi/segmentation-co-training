@@ -98,14 +98,15 @@ class unetUp(nn.Module):
 
         assert data_dimensions in (2, 3), 'only 2d and 3d data is supported'
 
-        # self.conv = unetConv2(in_size, out_size, False)  # original
-        self.conv = unetConvX(in_size, out_size, is_batchnorm,
-                              data_dimensions=data_dimensions)  # modified following unetup3
-
         if is_deconv:
+            # self.conv = unetConv2(in_size, out_size, False)  # original
+            self.conv = unetConvX(in_size, out_size, is_batchnorm,
+                                  data_dimensions=data_dimensions)  # modified following unetup3
             convtransposexd = nn.ConvTranspose2d if data_dimensions == 2 else nn.ConvTranspose3d
             self.up = convtransposexd(in_size, out_size, kernel_size=4, stride=2, padding=1)
         else:
+            self.conv = unetConvX(in_size+out_size, out_size, is_batchnorm,
+                                  data_dimensions=data_dimensions)  # modified following unetup3
             if data_dimensions == 2:
                 self.up = nn.UpsamplingBilinear2d(scale_factor=2)
             else:
