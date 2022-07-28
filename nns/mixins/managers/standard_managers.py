@@ -380,7 +380,7 @@ If true it track the loss values, else it tracks the metric values.
 
         if true_masks is not None:
             assert torch.is_tensor(true_masks)
-            assert true_masks.shape == imgs.shape, 'true_masks and imgs must have the same shape'
+            assert true_masks.shape[2:] == imgs.shape[2:], 'true_masks and imgs must have the same shape'
 
             if len(true_masks.shape) == 5:  # [batches, crops, channels, height, width]
                 true_masks = true_masks.reshape((-1, *true_masks.shape[2:]))
