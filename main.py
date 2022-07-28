@@ -870,6 +870,7 @@ def main():
     #
     # Sorensen-Dice loss https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/models/layers/loss.py#L29
     # Adam https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/models/utils.py#L23
+    # transforms https://github.com/ozan-oktay/Attention-Gated-Networks/blob/eee4881fdc31920efd873773e0b744df8dacbfb6/dataio/transformation/transforms.py#L77
     # CT-150 train 120 testing 30
     # The results on pancreas predictions demonstrate that attention gates (AGs)
     # increase recall values (p = .005) by improving the model’s expression power as it relies
