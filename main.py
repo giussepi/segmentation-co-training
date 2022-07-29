@@ -779,6 +779,7 @@ def main():
     # # Processing CT-82 dataset ################################################
     # target_size = (368, 368, 96)
     # target_size = (368, 368, -1)
+    # target_size = (368, 368, 145)
     # mgr = CT82MGR(target_size=target_size)
     # mgr()
 
