@@ -32,7 +32,8 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
             batchnorm_cls: Optional[_BatchNorm] = None, init_type=UNet3InitMethod.KAIMING,
             data_dimensions: int = 2,
             da_block_cls: BaseDisagreementAttentionBlock = AttentionBlock,
-            da_block_config: Optional[dict] = None
+            da_block_config: Optional[dict] = None,
+            dsv: bool = True
     ):
         """
         Initializes the object instance
@@ -54,6 +55,7 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
                                     DO NOT PROVIDE 'n_channels' or 'data_dimensions' IN THIS DICTIONARY.
                                     They will be removed because they are properly defined per
                                     AttentionConvBlock. Default None
+             dsv            <bool>: Whether or not apply deep supervision. Default True
         """
         super().__init__()
 
@@ -65,6 +67,7 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
         self.batchnorm_cls = batchnorm_cls
         self.init_type = init_type
         self.da_block_cls = da_block_cls
+        self.dsv = dsv
 
         if da_block_config:
             assert isinstance(da_block_config, dict), type(da_block_config)
@@ -83,6 +86,7 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
         UNet3InitMethod.validate(self.init_type)
         assert issubclass(self.da_block_cls, BaseDisagreementAttentionBlock), \
             f'{self.da_block_cls} is not a descendant of BaseDisagreementAttentionBlock'
+        assert isinstance(self.dsv, bool), type(self.dsv)
 
         # adding extra configuration to da_block_config
         self.da_block_config['batchnorm_cls'] = self.batchnorm_cls
@@ -164,27 +168,28 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
             self.data_dimensions
         )
 
-        # deep supervision
-        self.dsv1 = UnetDsv(
-            in_size=self.filters[3] // factor, out_size=self.n_classes, scale_factor=8,
-            data_dimensions=self.data_dimensions
-        )
-        self.dsv2 = UnetDsv(
-            in_size=self.filters[2] // factor, out_size=self.n_classes, scale_factor=4,
-            data_dimensions=self.data_dimensions
-        )
-        self.dsv3 = UnetDsv(
-            in_size=self.filters[1] // factor, out_size=self.n_classes, scale_factor=2,
-            data_dimensions=self.data_dimensions
-        )
-
         convxd = torch.nn.Conv2d if self.data_dimensions == 2 else torch.nn.Conv3d
-        self.dsv4 = convxd(in_channels=self.filters[0], out_channels=self.n_classes, kernel_size=1)
 
-        # self.outc = OutConv(self.filters[0], self.n_classes) original
-        self.outc = OutConv(self.n_classes*4, self.n_classes, self.data_dimensions)  # deep supervision
+        if self.dsv:
+            # deep supervision ################################################
+            self.dsv1 = UnetDsv(
+                in_size=self.filters[3] // factor, out_size=self.n_classes, scale_factor=8,
+                data_dimensions=self.data_dimensions
+            )
+            self.dsv2 = UnetDsv(
+                in_size=self.filters[2] // factor, out_size=self.n_classes, scale_factor=4,
+                data_dimensions=self.data_dimensions
+            )
+            self.dsv3 = UnetDsv(
+                in_size=self.filters[1] // factor, out_size=self.n_classes, scale_factor=2,
+                data_dimensions=self.data_dimensions
+            )
+            self.dsv4 = convxd(in_channels=self.filters[0], out_channels=self.n_classes, kernel_size=1)
+            self.outc = OutConv(self.n_classes*4, self.n_classes, self.data_dimensions)
+        else:
+            self.outc = OutConv(self.filters[0], self.n_classes)
 
-        # initializing weights ################################################
+            # initializing weights ################################################
         self.initialize_weights(self.init_type, layers_cls=(convxd, self.batchnorm_cls))
 
     def forward(self, x):
@@ -203,13 +208,14 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
         d3 = self.up3_with_da(d2, x2)
         d4 = self.up4(d3, x1)
 
-        # deep supervision ####################################################
-        dsv1 = self.dsv1(d1)
-        dsv2 = self.dsv2(d2)
-        dsv3 = self.dsv3(d3)
-        dsv4 = self.dsv4(d4)
-
-        # logits = self.outc(d4)  # original
-        logits = self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1))  # using deep supervision
+        if self.dsv:
+            # deep supervision ####################################################
+            dsv1 = self.dsv1(d1)
+            dsv2 = self.dsv2(d2)
+            dsv3 = self.dsv3(d3)
+            dsv4 = self.dsv4(d4)
+            logits = self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1))
+        else:
+            logits = self.outc(d4)
 
         return logits
