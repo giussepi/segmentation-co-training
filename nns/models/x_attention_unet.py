@@ -187,7 +187,7 @@ class XAttentionUNet(torch.nn.Module, InitMixin):
             self.dsv4 = convxd(in_channels=self.filters[0], out_channels=self.n_classes, kernel_size=1)
             self.outc = OutConv(self.n_classes*4, self.n_classes, self.data_dimensions)
         else:
-            self.outc = OutConv(self.filters[0], self.n_classes)
+            self.outc = OutConv(self.filters[0], self.n_classes, self.data_dimensions)
 
             # initializing weights ################################################
         self.initialize_weights(self.init_type, layers_cls=(convxd, self.batchnorm_cls))
