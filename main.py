@@ -646,9 +646,9 @@ def main():
             batchnorm_cls=get_batchnormxd_class(),
             init_type=UNet3InitMethod.KAIMING,
             data_dimensions=settings.DATA_DIMENSIONS,
-            da_block_cls=intra_model.ThresholdedDABlock,
-            # da_block_config={'xi': 1.}
-            da_block_config={'thresholds': (.25, .8), 'beta': -1},
+            da_block_cls=intra_model.CombinedDABlock,
+            da_block_config={'xi': 1.},
+            # da_block_config={'thresholds': (.25, .8), 'beta': -1},
             dsv=True,
         ),
         # UNet_Att_DSV

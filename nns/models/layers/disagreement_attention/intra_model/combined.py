@@ -5,6 +5,7 @@ from typing import Optional
 
 import torch
 from torch import nn
+from torch.nn import functional as F
 from torch.nn.modules.batchnorm import _BatchNorm
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 
@@ -80,7 +81,7 @@ class CombinedDABlock(BaseDisagreementAttentionBlock):
         assert isinstance(self.xi, float), type(self.xi)
 
         convxd = nn.Conv2d if self.data_dimensions == 2 else nn.Conv3d
-        mode = 'bilinear' if self.data_dimensions == 2 else 'trilinear'
+        self.upsample_mode = 'bilinear' if self.data_dimensions == 2 else 'trilinear'
 
         if self.upsample:
             self.w1 = nn.Sequential(
@@ -89,7 +90,7 @@ class CombinedDABlock(BaseDisagreementAttentionBlock):
                 convxd(m1_act, self.n_channels, kernel_size=2, stride=2, padding=0, bias=False),
                 # self.batchnorm_cls(self.n_channels)  # not present in original implementation
             )
-            self.up = torch.nn.Upsample(scale_factor=2, mode=mode, align_corners=False)
+            self.up = torch.nn.Upsample(scale_factor=2, mode=self.upsample_mode, align_corners=False)
         else:
             self.w1 = nn.Sequential(
                 # modified following original implementation
@@ -107,6 +108,19 @@ class CombinedDABlock(BaseDisagreementAttentionBlock):
             # self.batchnorm_cls(1),  # not present in original implementation
             nn.Sigmoid()
         )
+        # self.act_with_attention_2 = nn.Sequential(
+        #     nn.ReLU(),
+        #     convxd(self.n_channels, self.n_channels, kernel_size=1, stride=1, padding=0, bias=True),
+        #     # self.batchnorm_cls(1),  # not present in original implementation
+        #     nn.Sigmoid()
+        # )
+        # self.act_with_attention_3 = nn.Sequential(
+        #     nn.ReLU(),
+        #     # convxd(self.n_channels, self.n_channels, kernel_size=2, stride=1, padding=0, bias=True),
+        #     convxd(self.n_channels, self.n_channels, kernel_size=(1, 2, 2), stride=1, padding=(0, 1, 1), bias=True),
+        #     # self.batchnorm_cls(1),  # not present in original implementation
+        #     nn.Sigmoid()
+        # )
         self.output = nn.Sequential(
             convxd(m1_act, m1_act, kernel_size=1, stride=1, padding=0, bias=True),
             self.batchnorm_cls(m1_act)
@@ -131,6 +145,14 @@ class CombinedDABlock(BaseDisagreementAttentionBlock):
         # option 2 ############################################################
         # hadamard: try replacing 1 with 0 and .5
         # attention = self.act_with_attention((wact1+wact2)*(1+torch.sigmoid(torch.relu(wact1-wact2))))
+        # option 2.2 ##########################################################
+        # attention = (wact1+wact2)*(1+torch.sigmoid(wact1-wact2))
+        # option 2.3 ##########################################################
+        # attention = self.act_with_attention_2((wact1+wact2)*(1+torch.sigmoid(torch.relu(wact1-wact2))))
+        # option 2.4 ##########################################################
+        # attention = self.act_with_attention_3((wact1+wact2)*(1+torch.sigmoid(torch.relu(wact1-wact2))))
+        # attention = F.interpolate(
+        #     attention, size=act1.size()[2:], mode=self.upsample_mode, align_corners=False)
         # option 3 ############################################################
         # hadamard without relu: try replacing 1 with 0 and .5
         # attention = self.act_with_attention((wact1+wact2)*(1+torch.sigmoid(wact1-wact2)))
