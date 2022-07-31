@@ -208,10 +208,16 @@ class XAttentionUNet_DSV2(torch.nn.Module, InitMixin):
 
         if self.dsv:
             # decoder #########################################################
+            # isolating updates
             d1 = self.up1_with_da(x5, x4, central_gating=gating)
-            d2 = self.up2_with_da(d1.detach().clone(), x3.detach())
-            d3 = self.up3_with_da(d2.detach().clone(), x2.detach())
-            d4 = self.up4(d3.detach().clone(), x1.detach())
+            d2 = self.up2_with_da(d1.detach(), x3.detach())
+            d3 = self.up3_with_da(d2.detach(), x2.detach())
+            d4 = self.up4(d3.detach(), x1.detach())
+            # updating deep neurons several times
+            # d1 = self.up1_with_da(x5, x4, central_gating=gating)
+            # d2 = self.up2_with_da(d1, x3)
+            # d3 = self.up3_with_da(d2, x2)
+            # d4 = self.up4(d3, x1)
 
             # deep supervision ####################################################
             dsv1 = self.dsv1(d1)
