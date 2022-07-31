@@ -643,17 +643,19 @@ If true it track the loss values, else it tracks the metric values.
         if self.sanity_checks:
             self.disable_sanity_checks()
         n_val = len(dataloader)  # the number of batchs
-        loss = imgs_counter = 0
+        loss_list = [0]*4
+        imgs_counter = 0
         # the folowing variables will store extra data from the last validation batch
         extra_data = None
 
         for batch in tqdm(dataloader, total=n_val, desc='Testing round', unit='batch', leave=True,
                           disable=not testing or DISABLE_PROGRESS_BAR):
-            loss_, extra_data = self.validation_step(
+            loss_list_, extra_data = self.validation_step(
                 batch=batch, testing=testing, plot_to_png=plot_to_png, imgs_counter=imgs_counter,
                 mask_plotter=mask_plotter
             )
-            loss += loss_
+            for idx in range(len(loss_list)):
+                loss_list[idx] += loss_list_[idx]
             imgs_counter += self.testval_dataloader_kwargs['batch_size']
 
         # total metrics over all validation batches
@@ -669,7 +671,10 @@ If true it track the loss values, else it tracks the metric values.
         if self.sanity_checks:
             self.enable_sanity_checks()
 
-        return loss / n_val, metrics, extra_data
+        for idx in range(len(loss_list)):
+            loss_list[idx] /= n_val
+
+        return loss_list, metrics, extra_data
 
     def validation_post(self, **kwargs):
         """ Logic to be executed after the validation step """
@@ -794,25 +799,31 @@ If true it track the loss values, else it tracks the metric values.
 
         for epoch in range(start_epoch, self.epochs):
             self.model.train()
-            epoch_train_loss = 0
+            # for now we're only tracking the loss from the last decoder (biggest one)
+            # but we have all the four losses in this list in case we want to display them
+            # in tensorboard, plots or summary tables
+            epoch_train_loss_list = [0]*4
             intrain_chkpt_counter = 0
             intrain_val_counter = 0
 
             with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img',
                       disable=DISABLE_PROGRESS_BAR) as pbar:
                 for batch in self.train_loader:
-                    pred, true_masks, imgs, batch_train_loss, metrics, labels, label_names = \
+                    pred, true_masks, imgs, batch_train_loss_list, metrics, labels, label_names = \
                         self.training_step(batch)
-                    epoch_train_loss += batch_train_loss.item()
-                    optimizer.zero_grad()
+                    for idx, batch_train_loss in enumerate(batch_train_loss_list):
+                        epoch_train_loss_list[idx] += batch_train_loss.item()
 
+                    batch_train_loss = batch_train_loss_list[0] + batch_train_loss_list[1] + \
+                        batch_train_loss_list[2] + batch_train_loss_list[3]
+                    optimizer.zero_grad()
                     if self.cuda:
-                        scaler.scale(batch_train_loss).backward(retain_graph=True)
+                        scaler.scale(batch_train_loss).backward(retain_graph=False)
                         nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                         scaler.step(optimizer)
                         scaler.update()
                     else:
-                        batch_train_loss.backward(retain_graph=True)
+                        batch_train_loss.backward(retain_graph=False)
                         nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                         optimizer.step()
 
@@ -825,8 +836,9 @@ If true it track the loss values, else it tracks the metric values.
                         # dividing the epoch accummulated train loss by
                         # the number of batches processed so far in the current epoch
                         current_epoch_train_loss = torch.tensor(
-                            epoch_train_loss/(intrain_val_counter*step_divider))
-                        val_loss, val_metrics, val_extra_data = self.validation(dataloader=self.val_loader)
+                            epoch_train_loss_list[-1]/(intrain_val_counter*step_divider))
+                        val_loss_list, val_metrics, val_extra_data = self.validation(
+                            dataloader=self.val_loader)
 
                         # maybe if there's no scheduler then the lr shouldn't be plotted
                         writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], validation_step)
@@ -838,8 +850,8 @@ If true it track the loss values, else it tracks the metric values.
                             writer.add_scalar(f'{metric_}', value_.item(), validation_step)
 
                         data_logger['train_metric'].append(self.prepare_to_save(metrics))
-                        writer.add_scalar('Loss/val', val_loss.item(), validation_step)
-                        data_logger['val_loss'].append(val_loss.item())
+                        writer.add_scalar('Loss/val', val_loss_list[-1].item(), validation_step)
+                        data_logger['val_loss'].append(val_loss_list[-1].item())
 
                         for metric_, value_ in val_metrics.items():
                             writer.add_scalar(f'{metric_}', value_.item(), validation_step)
@@ -849,7 +861,7 @@ If true it track the loss values, else it tracks the metric values.
                         self.print_validation_summary(
                             global_step=global_step, validation_step=validation_step,
                             loss=current_epoch_train_loss,
-                            metrics=metrics, val_loss=val_loss, val_metrics=val_metrics
+                            metrics=metrics, val_loss=val_loss_list[-1], val_metrics=val_metrics
                         )
                         self.validation_post(
                             pred=pred.detach().cpu(), true_masks=true_masks.detach().cpu(), labels=labels,
@@ -866,7 +878,7 @@ If true it track the loss values, else it tracks the metric values.
                             if earlystopping(best_metric, val_metric):
                                 early_stopped = True
                                 break
-                        elif earlystopping(val_loss.item(), val_loss_min):
+                        elif earlystopping(val_loss_list[-1].item(), val_loss_min):
                             early_stopped = True
                             break
 
@@ -883,26 +895,26 @@ If true it track the loss values, else it tracks the metric values.
                             )
                             best_metric = val_metric
 
-                        if val_loss.item() < val_loss_min:
-                            val_loss_min = val_loss.item()
+                        if val_loss_list[-1].item() < val_loss_min:
+                            val_loss_min = val_loss_list[-1].item()
 
                         if self.train_eval_chkpt and checkpoint and checkpoint(epoch):
                             intrain_chkpt_counter += 1
                             self.save_checkpoint(float(f'{epoch}.{intrain_chkpt_counter}'), optimizer, data_logger)
                         if scheduler is not None:
                             # TODO: verify the replacement function is working properly
-                            LrShedulerTrack.step(self.lr_scheduler_track, scheduler, val_metric, val_loss)
+                            LrShedulerTrack.step(self.lr_scheduler_track, scheduler, val_metric, val_loss_list[-1])
 
             # computing epoch statistiscs #####################################
             data_logger['epoch_lr'].append(optimizer.param_groups[0]['lr'])
-            data_logger['epoch_train_losses'].append(epoch_train_loss / train_batches)
+            data_logger['epoch_train_losses'].append(epoch_train_loss_list[-1] / train_batches)
             # total metrics over all training batches
             data_logger['epoch_train_metrics'].append(self.prepare_to_save(self.train_metrics.compute()))
             # reset metrics states after each epoch
             self.train_metrics.reset()
 
-            val_loss, val_metric, _ = self.validation(dataloader=self.val_loader)
-            data_logger['epoch_val_losses'].append(val_loss.item())
+            val_loss_list, val_metric, _ = self.validation(dataloader=self.val_loader)
+            data_logger['epoch_val_losses'].append(val_loss_list[-1].item())
             data_logger['epoch_val_metrics'].append(self.prepare_to_save(val_metric))
 
             self.print_epoch_summary(epoch, data_logger)
