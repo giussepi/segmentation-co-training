@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import torch
 from gtorch_utils.nns.managers.exceptions import ModelMGRImageChannelsError
+from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
 from settings import USE_AMP
@@ -109,8 +110,14 @@ class ModelMGR(ModelMGRMixin):
             imgs, true_masks, masks_pred, labels, label_names, num_crops = self.get_validation_data(batch)
 
             if not testing:
+                downsample_mode = 'bilinear' if self.module.data_dimensions == 2 else 'trilinear'
+                downsampled_true_masks = F.interpolate(
+                    true_masks, size=masks_pred[0].shape[2:], mode=downsample_mode, align_corners=False)
+                # downsampled_true_masks[downsampled_true_masks <= .5] = 0
+                # downsampled_true_masks[downsampled_true_masks > .5] = 1
+                downsampled_true_masks[downsampled_true_masks > 0] = 1
                 loss = torch.sum(torch.stack([
-                    self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
+                    self.calculate_loss(self.criterions, masks, downsampled_true_masks) for masks in masks_pred
                 ]))
                 # IMPORTANT NOTE:
                 # when using online data augmentation, it can return X crops instead of 1, so
@@ -134,7 +141,7 @@ class ModelMGR(ModelMGRMixin):
             # FIXME try calculating the metric without the threshold
             pred = (pred > self.mask_threshold).float()
 
-        self.valid_metrics.update(pred, true_masks)
+        self.valid_metrics.update(pred, downsampled_true_masks)
 
         extra_data = dict(
             imgs=imgs.detach().cpu(), pred=pred.detach().cpu(), true_masks=true_masks.detach().cpu(),
@@ -260,8 +267,14 @@ class ModelMGR(ModelMGRMixin):
             # so if we have a tensor then we just put it inside a tuple
             # to not break the workflow
             masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
+            downsample_mode = 'bilinear' if self.module.data_dimensions == 2 else 'trilinear'
+            downsampled_true_masks = F.interpolate(
+                true_masks, size=masks_pred[0].shape[2:], mode=downsample_mode, align_corners=False)
+            # downsampled_true_masks[downsampled_true_masks <= .5] = 0
+            # downsampled_true_masks[downsampled_true_masks > .5] = 1
+            downsampled_true_masks[downsampled_true_masks > 0] = 1
             loss = torch.sum(torch.stack([
-                self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
+                self.calculate_loss(self.criterions, masks, downsampled_true_masks) for masks in masks_pred
             ]))
             # IMPORTANT NOTE:
             # when using online data augmentation, it can return X crops instead of 1, so
@@ -279,7 +292,7 @@ class ModelMGR(ModelMGRMixin):
 
         # FIXME try calculating the metric without the threshold
         pred = (pred > self.mask_threshold).float()
-        metrics = self.train_metrics(pred, true_masks)
+        metrics = self.train_metrics(pred, downsampled_true_masks)
 
         return pred, true_masks, imgs, loss, metrics, labels, label_names
 

@@ -12,4 +12,5 @@ from nns.models.unet_3plus_intra_da import UNet_3Plus_Intra_DA
 from nns.models.unet_3plus_intra_da_gs import UNet_3Plus_Intra_DA_GS
 from nns.models.unet_3plus_intra_da_gs_hdx import UNet_3Plus_Intra_DA_GS_HDX
 from nns.models.x_attention_unet import XAttentionUNet
+from nns.models.x_attention_unet_adsv import XAttentionUNet_ADSV
 from nns.models.x_grid_attention_unet import XGridAttentionUNet

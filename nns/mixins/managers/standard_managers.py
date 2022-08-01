@@ -800,21 +800,31 @@ If true it track the loss values, else it tracks the metric values.
 
             with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img',
                       disable=DISABLE_PROGRESS_BAR) as pbar:
-                for batch in self.train_loader:
-                    pred, true_masks, imgs, batch_train_loss, metrics, labels, label_names = \
-                        self.training_step(batch)
-                    epoch_train_loss += batch_train_loss.item()
-                    optimizer.zero_grad()
 
-                    if self.cuda:
-                        scaler.scale(batch_train_loss).backward(retain_graph=True)
-                        nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
-                        scaler.step(optimizer)
-                        scaler.update()
-                    else:
-                        batch_train_loss.backward(retain_graph=True)
-                        nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
-                        optimizer.step()
+                for batch in self.train_loader:
+
+                    # if (global_step + 1) % step_divider == 0 or (global_step + 1) % train_batches == 0:
+                    #     # making sure to update the all the layers before performing and evaluation
+                    #     self.module.fwd_counter = 3
+
+                    # passing 4 times each batch to make sure that all the DSVs have been applied
+                    for i in range(4):
+                        pred, true_masks, imgs, batch_train_loss, metrics, labels, label_names = \
+                            self.training_step(batch)
+                        # tracking only the last loss
+                        if i == 3:
+                            epoch_train_loss += batch_train_loss.item()
+                        optimizer.zero_grad()
+
+                        if self.cuda:
+                            scaler.scale(batch_train_loss).backward(retain_graph=True)
+                            nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                            scaler.step(optimizer)
+                            scaler.update()
+                        else:
+                            batch_train_loss.backward(retain_graph=True)
+                            nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                            optimizer.step()
 
                     pbar.update(imgs.shape[0])
                     global_step += 1
