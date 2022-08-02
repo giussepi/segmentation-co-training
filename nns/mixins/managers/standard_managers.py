@@ -811,11 +811,30 @@ If true it track the loss values, else it tracks the metric values.
                 for batch in self.train_loader:
                     pred, true_masks, imgs, batch_train_loss_list, metrics, labels, label_names = \
                         self.training_step(batch)
+                    batch_loss_list = []
                     for idx, batch_train_loss in enumerate(batch_train_loss_list):
                         epoch_train_loss_list[idx] += batch_train_loss.item()
+                        batch_loss_list.append(batch_train_loss.item())
 
-                    batch_train_loss = batch_train_loss_list[0] + batch_train_loss_list[1] + \
-                        batch_train_loss_list[2] + batch_train_loss_list[3]
+                    # normal dsv ##############################################
+                    # batch_train_loss = batch_train_loss_list[0] + batch_train_loss_list[1] + \
+                    #     batch_train_loss_list[2] + batch_train_loss_list[3]
+                    # dsv modified 1 ##########################################
+                    # selecting the loss with the maximum value, i.e. the one that requires
+                    # the most to be decreased
+                    # per epoch
+                    # batch_train_loss = batch_train_loss_list[np.argmax(epoch_train_loss_list)]
+                    # per batch
+                    # batch_train_loss = batch_train_loss_list[np.argmax(batch_loss_list)]
+                    # dsv modified 2 ##########################################
+                    batch_train_loss = batch_train_loss_list[3]
+                    highest_dsv_loss = np.argmax(epoch_train_loss_list)  # per epoch
+                    # highest_dsv_loss = np.argmax(batch_loss_list)  # per batch
+                    # print(highest_dsv_loss, epoch_train_loss_list)
+                    if highest_dsv_loss != 3:
+                        batch_train_loss = batch_train_loss_list[highest_dsv_loss] + batch_train_loss
+                    # end dsv modified 2 ######################################
+
                     optimizer.zero_grad()
                     if self.cuda:
                         scaler.scale(batch_train_loss).backward(retain_graph=False)
