@@ -117,6 +117,8 @@ class ModelMGR(ModelMGRMixin):
                     downsampled_true_masks = F.interpolate(
                         true_masks, size=masks_pred.shape[2:], mode=downsample_mode, align_corners=False
                     )
+                    downsampled_true_masks = (downsampled_true_masks >= self.mask_threshold).float()
+                    # downsampled_true_masks[downsampled_true_masks >= self.mask_threshold] = 1
                     loss = torch.sum(self.calculate_loss(self.criterions, masks_pred, downsampled_true_masks))
                     # IMPORTANT NOTE:
                     # when using online data augmentation, it can return X crops instead of 1, so
@@ -275,6 +277,8 @@ class ModelMGR(ModelMGRMixin):
                 downsampled_true_masks = F.interpolate(
                     true_masks, size=masks_pred.shape[2:], mode=downsample_mode, align_corners=False
                 )
+                downsampled_true_masks = (downsampled_true_masks >= self.mask_threshold).float()
+                # downsampled_true_masks[downsampled_true_masks >= self.mask_threshold] = 1
                 loss = torch.sum(self.calculate_loss(self.criterions, masks_pred, downsampled_true_masks))
                 # IMPORTANT NOTE:
                 # when using online data augmentation, it can return X crops instead of 1, so
