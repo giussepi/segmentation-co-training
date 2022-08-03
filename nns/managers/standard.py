@@ -113,9 +113,7 @@ class ModelMGR(ModelMGRMixin):
                 downsample_mode = 'bilinear' if self.module.data_dimensions == 2 else 'trilinear'
                 downsampled_true_masks = F.interpolate(
                     true_masks, size=masks_pred[0].shape[2:], mode=downsample_mode, align_corners=False)
-                # downsampled_true_masks[downsampled_true_masks <= .5] = 0
-                # downsampled_true_masks[downsampled_true_masks > .5] = 1
-                downsampled_true_masks[downsampled_true_masks > 0] = 1
+                downsampled_true_masks = (downsampled_true_masks >= self.mask_threshold).float()
                 loss = torch.sum(torch.stack([
                     self.calculate_loss(self.criterions, masks, downsampled_true_masks) for masks in masks_pred
                 ]))
@@ -270,9 +268,7 @@ class ModelMGR(ModelMGRMixin):
             downsample_mode = 'bilinear' if self.module.data_dimensions == 2 else 'trilinear'
             downsampled_true_masks = F.interpolate(
                 true_masks, size=masks_pred[0].shape[2:], mode=downsample_mode, align_corners=False)
-            # downsampled_true_masks[downsampled_true_masks <= .5] = 0
-            # downsampled_true_masks[downsampled_true_masks > .5] = 1
-            downsampled_true_masks[downsampled_true_masks > 0] = 1
+            downsampled_true_masks = (downsampled_true_masks >= self.mask_threshold).float()
             loss = torch.sum(torch.stack([
                 self.calculate_loss(self.criterions, masks, downsampled_true_masks) for masks in masks_pred
             ]))
