@@ -109,6 +109,7 @@ class XAttentionUNet_DSV2(torch.nn.Module, InitMixin):
             self.da_block_config.pop('data_dimensions')
 
         self.filters = [64, 128, 256, 512, 1024]
+        self.att_conv_layers = [2, 2, 2]
 
         # Encoder layers ######################################################
         self.inc = DoubleConv(
@@ -138,6 +139,7 @@ class XAttentionUNet_DSV2(torch.nn.Module, InitMixin):
             self.filters[3] // factor,
             batchnorm_cls=self.batchnorm_cls,
             data_dimensions=self.data_dimensions,
+            conv_layers=self.att_conv_layers[0],
         )
         # intra-class DA skip conn. down2 & gating signal up1_with_da -> up2
         self.up2_with_da = AttentionConvBlock(
@@ -150,6 +152,7 @@ class XAttentionUNet_DSV2(torch.nn.Module, InitMixin):
             self.filters[2] // factor,
             batchnorm_cls=self.batchnorm_cls,
             data_dimensions=self.data_dimensions,
+            conv_layers=self.att_conv_layers[1],
         )
         # intra-class DA skip conn. down1 & gating signal up2_with_da -> up3
         self.up3_with_da = AttentionConvBlock(
@@ -162,6 +165,7 @@ class XAttentionUNet_DSV2(torch.nn.Module, InitMixin):
             self.filters[1] // factor,
             batchnorm_cls=self.batchnorm_cls,
             data_dimensions=self.data_dimensions,
+            conv_layers=self.att_conv_layers[2],
         )
         self.up4 = UpConcat(
             self.filters[1] // factor, self.filters[0], self.bilinear, self.batchnorm_cls,
