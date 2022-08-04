@@ -653,7 +653,7 @@ If true it track the loss values, else it tracks the metric values.
                 batch=batch, testing=testing, plot_to_png=plot_to_png, imgs_counter=imgs_counter,
                 mask_plotter=mask_plotter
             )
-            loss += loss_
+            loss += sum(loss_.values())
             imgs_counter += self.testval_dataloader_kwargs['batch_size']
 
         # total metrics over all validation batches
@@ -803,7 +803,12 @@ If true it track the loss values, else it tracks the metric values.
                 for batch in self.train_loader:
                     pred, true_masks, imgs, batch_train_loss, metrics, labels, label_names = \
                         self.training_step(batch)
-                    epoch_train_loss += batch_train_loss.item()
+                    epoch_train_loss += sum([v.item() for v in batch_train_loss.values()])
+                    batch_train_loss = batch_train_loss['down1'] + batch_train_loss['down2'] + \
+                        batch_train_loss['down3'] + batch_train_loss['down4'] +  \
+                        batch_train_loss['up1da'] + batch_train_loss['up2da'] +  \
+                        batch_train_loss['up3da'] + batch_train_loss['up4'] + \
+                        batch_train_loss['general']
                     optimizer.zero_grad()
 
                     if self.cuda:

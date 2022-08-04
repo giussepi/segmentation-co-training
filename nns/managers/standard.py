@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """ nns/managers/standard """
 
+from collections import defaultdict
 from unittest.mock import MagicMock
 
 import torch
@@ -26,8 +27,8 @@ class ModelMGR(ModelMGRMixin):
             batch <dict>: Dictionary contaning batch data
 
         Returns:
-            imgs<torch.Tensor>, true_masks<torch.Tensor>, masks_pred<tuple of torch.Tensors>, labels<list>,
-            label_names<list>, num_crops <int>
+            imgs<torch.Tensor>, true_masks<torch.Tensor>, masks_pred<tuple of torch.Tensors>,
+            aes_data<dict>, labels<list>, label_names<list>, num_crops <int>
         """
         assert isinstance(batch, dict)
         assert len(batch) > 0, 'the provided batch is empty'
@@ -59,14 +60,14 @@ class ModelMGR(ModelMGRMixin):
         true_masks = true_masks.to(device=self.device, dtype=torch.float32)
 
         with torch.no_grad():
-            masks_pred = self.model(imgs)
+            masks_pred, aes_data = self.model(imgs)
 
         # NOTE: UNet_3Plus_DeepSup returns a tuple of tensor masks
         # so if we have a tensor then we just put it inside a tuple
         # to not break the workflow
         masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
 
-        return imgs, true_masks, masks_pred, labels, label_names, num_crops
+        return imgs, true_masks, masks_pred, aes_data, labels, label_names, num_crops
 
     def validation_step(self, **kwargs):
         """
@@ -86,7 +87,7 @@ class ModelMGR(ModelMGRMixin):
                                 Default True
 
         Returns:
-            loss<torch.Tensor>, extra_data<dict>
+            loss<dict>, extra_data<dict>
         """
         batch = kwargs.get('batch')
         testing = kwargs.get('testing', False)
@@ -103,13 +104,14 @@ class ModelMGR(ModelMGRMixin):
         assert isinstance(imgs_counter, int), type(imgs_counter)
         assert isinstance(apply_threshold, bool), type(apply_threshold)
 
-        loss = torch.tensor(0.)
+        loss = defaultdict(lambda: torch.tensor(0.))
 
         with torch.cuda.amp.autocast(enabled=USE_AMP):
-            imgs, true_masks, masks_pred, labels, label_names, num_crops = self.get_validation_data(batch)
+            imgs, true_masks, masks_pred, aes_data,  labels, label_names, num_crops = \
+                self.get_validation_data(batch)
 
             if not testing:
-                loss = torch.sum(torch.stack([
+                loss['general'] = torch.sum(torch.stack([
                     self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
                 ]))
                 # IMPORTANT NOTE:
@@ -119,7 +121,11 @@ class ModelMGR(ModelMGRMixin):
                 # normal, so to properly calculate the final loss we need to divide it by
                 # number of batches times X. Here we only divide it by X, the final summation
                 # will be divided by num_baches at the validation method implementation
-                loss /= num_crops
+                loss['general'] /= num_crops
+
+                # computing AEs losses
+                for key, val in aes_data.items():
+                    loss[key] = self.module.ae_loss(val.output, val.input) / num_crops
 
         # TODO: Try with masks from d5 and other decoders
         pred = masks_pred[0]  # using mask from decoder d1
@@ -219,7 +225,7 @@ class ModelMGR(ModelMGRMixin):
             batch <dict>: Dictionary contaning batch data
 
         Returns:
-            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>,
+            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<dict>,
             metrics<dict>, labels<list>, label_names<list>
         """
         assert isinstance(batch, dict), type(batch)
@@ -253,14 +259,17 @@ class ModelMGR(ModelMGRMixin):
         # mask_type = torch.float32
         true_masks = true_masks.to(device=self.device, dtype=torch.float32)
 
+        loss = defaultdict(lambda: torch.tensor(0.))
+
         with torch.cuda.amp.autocast(enabled=USE_AMP):
-            masks_pred = self.model(imgs)
+            masks_pred, aes_data = self.model(imgs)
 
             # NOTE: UNet_3Plus_DeepSup returns a tuple of tensor masks
             # so if we have a tensor then we just put it inside a tuple
             # to not break the workflow
             masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
-            loss = torch.sum(torch.stack([
+
+            loss['general'] = torch.sum(torch.stack([
                 self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
             ]))
             # IMPORTANT NOTE:
@@ -270,7 +279,11 @@ class ModelMGR(ModelMGRMixin):
             # normal, so to properly calculate the final loss we need to divide it by
             # number of batches times X. Here we only divide it by X, the final summation
             # will be divided by num_baches at the training method implementation
-            loss /= num_crops
+            loss['general'] /= num_crops
+
+            # computing AEs losses
+            for key, val in aes_data.items():
+                loss[key] = self.module.ae_loss(val.output, val.input) / num_crops
 
         # using mask from decoder d1
         # TODO: Try with masks from d5 and other decoders
