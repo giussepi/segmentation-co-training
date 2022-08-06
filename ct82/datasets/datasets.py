@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """ ct82/datasets/datasets """
 
+import glob
 import os
 import re
 from collections import defaultdict
@@ -46,7 +47,7 @@ class CT82Dataset(DatasetTemplate):
         Kwargs:
             images_masks_path  <str>: path to the folder for containing images and masks
             filename_reg       <str>: regular expression to get the index id from the crop filename.
-                                      Default r'^CT\_(?P<id>[\d]+).pro.nii.gz$'
+                                      Default r'^.*CT\_(?P<id>[\d]+).pro.nii.gz$'
             mask_name_tpl      <str>: Template to build the label name using the id. Default 'label_{}.nii.gz'
             cot_mask_name_tpl  <str>: Template to build the co-training label name using the id.
                                       Default 'label_{}.cot.nii.gz'
@@ -60,7 +61,7 @@ class CT82Dataset(DatasetTemplate):
             cache             <bool>: If True all the images will be cached. Default False
         """
         self.images_masks_path = kwargs.get('images_masks_path')
-        self.filename_reg = kwargs.get('filename_reg', r'^CT\_(?P<id>[\d]+).pro.nii.gz$')
+        self.filename_reg = kwargs.get('filename_reg', r'^.*CT\_(?P<id>[\d]+).pro.nii.gz$')
         self.mask_name_tpl = kwargs.get('mask_name_tpl', 'label_{}.nii.gz')
         self.cot_mask_name_tpl = kwargs.get('cot_mask_name_tpl', 'label_{}.cot.nii.gz')
         self.cotraining = kwargs.get('cotraining', False)
@@ -81,8 +82,7 @@ class CT82Dataset(DatasetTemplate):
             assert callable(self.transform)
 
         self.pattern = re.compile(self.filename_reg)
-        self.image_list = \
-            [file_ for file_ in os.listdir(self.images_masks_path) if bool(self.pattern.fullmatch(file_))]
+        self.image_list = glob.glob(os.path.join(self.images_masks_path, '**/*.pro.nii.gz'), recursive=True)
 
         self.cached = {}
 
@@ -102,9 +102,8 @@ class CT82Dataset(DatasetTemplate):
         assert isinstance(idx, int), type(idx)
 
         subject_id = self.pattern.fullmatch(self.image_list[idx]).groupdict()['id']
-
         mask = NIfTI(os.path.join(
-            self.images_masks_path,
+            os.path.dirname(self.image_list[idx]),
             self.mask_name_tpl.format(subject_id)
         ))
 
@@ -128,13 +127,13 @@ class CT82Dataset(DatasetTemplate):
         if self.cache and idx in self.cached:
             return self.cached[idx]
 
-        image = ProNIfTI(os.path.join(self.images_masks_path, self.image_list[idx]))
+        image = ProNIfTI(self.image_list[idx])
         cot_mask_path = original_mask = original_target_mask = ''
 
         if self.cotraining:
             subject_id = self.pattern.fullmatch(self.image_list[idx]).groupdict()['id']
             cot_mask_path = os.path.join(
-                self.images_masks_path,
+                os.path.dirname(self.image_list[idx]),
                 self.cot_mask_name_tpl.format(subject_id)
             )
 
