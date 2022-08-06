@@ -804,6 +804,7 @@ If true it track the loss values, else it tracks the metric values.
                     pred, true_masks, imgs, batch_train_loss, metrics, labels, label_names = \
                         self.training_step(batch)
                     epoch_train_loss += sum([v.item() for v in batch_train_loss.values()])
+                    batch_train_loss_for_printing = batch_train_loss
                     batch_train_loss = batch_train_loss['down1'] + batch_train_loss['down2'] + \
                         batch_train_loss['down3'] + batch_train_loss['down4'] +  \
                         batch_train_loss['up1da'] + batch_train_loss['up2da'] +  \
@@ -831,6 +832,10 @@ If true it track the loss values, else it tracks the metric values.
                         # the number of batches processed so far in the current epoch
                         current_epoch_train_loss = torch.tensor(
                             epoch_train_loss/(intrain_val_counter*step_divider))
+                        # printing AE losses
+                        for k, v in batch_train_loss_for_printing.items():
+                            print(f'{k}: {v.item()}')
+                        ##
                         val_loss, val_metrics, val_extra_data = self.validation(dataloader=self.val_loader)
 
                         # maybe if there's no scheduler then the lr shouldn't be plotted

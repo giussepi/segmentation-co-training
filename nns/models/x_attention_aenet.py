@@ -7,14 +7,14 @@ from typing import Optional
 import torch
 from torch.nn.modules.loss import _Loss
 from logzero import logger
-from gtorch_utils.nns.models.segmentation.unet.unet_parts import DoubleConv, AEDown, OutConv,\
-    AEUpConcat, UnetDsv, UnetGridGatingSignal
+from gtorch_utils.nns.models.segmentation.unet.unet_parts import DoubleConv, AEDown, AEDown2, OutConv,\
+    AEUpConcat, AEUpConcat2, UnetDsv, UnetGridGatingSignal
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from torch.nn.modules.batchnorm import _BatchNorm
 
 from nns.models.layers.disagreement_attention.intra_model import AttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
-from nns.models.layers.disagreement_attention.layers import AttentionAEConvBlock
+from nns.models.layers.disagreement_attention.layers import AttentionAEConvBlock, AttentionAEConvBlock2
 from nns.models.mixins import InitMixin
 
 
@@ -124,11 +124,11 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             n_channels, self.filters[0], batchnorm_cls=self.batchnorm_cls,
             data_dimensions=self.data_dimensions
         )
-        self.down1 = AEDown(self.filters[0], self.filters[1], self.batchnorm_cls, self.data_dimensions)
-        self.down2 = AEDown(self.filters[1], self.filters[2], self.batchnorm_cls, self.data_dimensions)
-        self.down3 = AEDown(self.filters[2], self.filters[3], self.batchnorm_cls, self.data_dimensions)
+        self.down1 = AEDown2(self.filters[0], self.filters[1], self.batchnorm_cls, self.data_dimensions)
+        self.down2 = AEDown2(self.filters[1], self.filters[2], self.batchnorm_cls, self.data_dimensions)
+        self.down3 = AEDown2(self.filters[2], self.filters[3], self.batchnorm_cls, self.data_dimensions)
         factor = 2 if self.bilinear else 1
-        self.down4 = AEDown(
+        self.down4 = AEDown2(
             self.filters[3], self.filters[4] // factor, self.batchnorm_cls, self.data_dimensions)  # centre
         self.gating = UnetGridGatingSignal(
             self.filters[4] // factor, self.filters[4] // factor, kernel_size=1,
@@ -137,7 +137,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
 
         # Decoder layers ######################################################
         # intra-class DA skip-con down3 & gating signal down4 -> up1
-        self.up1_with_da = AttentionAEConvBlock(
+        self.up1_with_da = AttentionAEConvBlock2(
             # attention to skip_connection
             self.da_block_cls(self.filters[3], self.filters[4] // factor,
                               n_channels=self.filters[3],
@@ -149,7 +149,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             data_dimensions=self.data_dimensions,
         )
         # intra-class DA skip conn. down2 & gating signal up1_with_da -> up2
-        self.up2_with_da = AttentionAEConvBlock(
+        self.up2_with_da = AttentionAEConvBlock2(
             # attention to skip_connection
             self.da_block_cls(self.filters[2], self.filters[3] // factor,
                               n_channels=self.filters[2],
@@ -161,7 +161,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             data_dimensions=self.data_dimensions,
         )
         # intra-class DA skip conn. down1 & gating signal up2_with_da -> up3
-        self.up3_with_da = AttentionAEConvBlock(
+        self.up3_with_da = AttentionAEConvBlock2(
             # attention to skip_connection
             self.da_block_cls(self.filters[1], self.filters[2] // factor,
                               n_channels=self.filters[1],
@@ -172,7 +172,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             batchnorm_cls=self.batchnorm_cls,
             data_dimensions=self.data_dimensions,
         )
-        self.up4 = AEUpConcat(
+        self.up4 = AEUpConcat2(
             self.filters[1] // factor, self.filters[0], self.bilinear, self.batchnorm_cls,
             self.data_dimensions
         )
@@ -210,16 +210,28 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
         x5, x5ae = self.down4(x4)
         gating = self.gating(x5)
 
-        # decoder #############################################################
-        d1, d1ae_out, d1ae_in = self.up1_with_da(x5, x4, central_gating=gating)
-        d2, d2ae_out, d2ae_in = self.up2_with_da(d1, x3)
-        d3, d3ae_out, d3ae_in = self.up3_with_da(d2, x2)
-        d4, d4ae_out, d4ae_in = self.up4(d3, x1)
+        # decoder ############################################################
+        # using AttentionAEConvBlock
+        # d1, d1ae_out, d1ae_in = self.up1_with_da(x5, x4, central_gating=gating)
+        # d2, d2ae_out, d2ae_in = self.up2_with_da(d1, x3)
+        # d3, d3ae_out, d3ae_in = self.up3_with_da(d2, x2)
+        # d4, d4ae_out, d4ae_in = self.up4(d3, x1)
+
+        # aes_data = dict(
+        #     down1=Data(x1, x2ae), down2=Data(x2, x3ae), down3=Data(x3, x4ae), down4=Data(x4, x5ae),
+        #     up1da=Data(d1ae_in, d1ae_out), up2da=Data(d2ae_in, d2ae_out), up3da=Data(d3ae_in, d3ae_out),
+        #     up4=Data(d4ae_in, d4ae_out)
+        # )
+        # using AttentionAEConvBlock2
+        d1, d1ae = self.up1_with_da(x5, x4, central_gating=gating)
+        d2, d2ae = self.up2_with_da(d1, x3)
+        d3, d3ae = self.up3_with_da(d2, x2)
+        d4, d4ae = self.up4(d3, x1)
 
         aes_data = dict(
             down1=Data(x1, x2ae), down2=Data(x2, x3ae), down3=Data(x3, x4ae), down4=Data(x4, x5ae),
-            up1da=Data(d1ae_in, d1ae_out), up2da=Data(d2ae_in, d2ae_out), up3da=Data(d3ae_in, d3ae_out),
-            up4=Data(d4ae_in, d4ae_out)
+            up1da=Data(x5, d1ae), up2da=Data(d1, d2ae), up3da=Data(d2, d3ae),
+            up4=Data(d3, d4ae)
         )
 
         if self.dsv:
