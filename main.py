@@ -797,6 +797,7 @@ def main():
 
     # mgr.perform_visual_verification(80, scans=[70], clahe=True)
     # mgr.split_processed_dataset(.15, .25, shuffle=False)
+    # mgr.split_processed_dataset(.20, .20, shuffle=False)  # to easily apply 5-fold CV later
 
     # visual verification of cts ##############################################
     # target_size = (368, 368, 96)  # (1024, 1024, 96)
