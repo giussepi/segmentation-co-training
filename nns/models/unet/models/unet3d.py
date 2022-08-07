@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from nns.models.unet.network_others import init_weights
-from nns.models.unet.utils import UnetConv3, UnetUp3_CT
+from nns.models.unet.utils import UnetConv3, UnetUp_CT
 
 
 __all__ = ['UNet3D']
@@ -44,10 +44,14 @@ class UNet3D(nn.Module):
         self.center = UnetConv3(filters[3], filters[4], self.is_batchnorm)
 
         # upsampling
-        self.up_concat4 = UnetUp3_CT(filters[4], filters[3], is_batchnorm, scale_factor=maxpool_kernel_size)
-        self.up_concat3 = UnetUp3_CT(filters[3], filters[2], is_batchnorm, scale_factor=maxpool_kernel_size)
-        self.up_concat2 = UnetUp3_CT(filters[2], filters[1], is_batchnorm, scale_factor=maxpool_kernel_size)
-        self.up_concat1 = UnetUp3_CT(filters[1], filters[0], is_batchnorm, scale_factor=maxpool_kernel_size)
+        self.up_concat4 = UnetUp_CT(filters[4], filters[3], is_batchnorm, data_dimensions=3,
+                                    scale_factor=maxpool_kernel_size)
+        self.up_concat3 = UnetUp_CT(filters[3], filters[2], is_batchnorm, data_dimensions=3,
+                                    scale_factor=maxpool_kernel_size)
+        self.up_concat2 = UnetUp_CT(filters[2], filters[1], is_batchnorm, data_dimensions=3,
+                                    scale_factor=maxpool_kernel_size)
+        self.up_concat1 = UnetUp_CT(filters[1], filters[0], is_batchnorm, data_dimensions=3,
+                                    scale_factor=maxpool_kernel_size)
 
         # final conv (without any concat)
         self.final = nn.Conv3d(filters[0], self.n_classes, 1)
