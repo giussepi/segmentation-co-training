@@ -53,7 +53,8 @@ class ThresholdedDABlock(BaseDisagreementAttentionBlock):
             thresholds   <tuple>: Tuple with the lower and upper disagreement thresholds. If not value is
                                   provided is is set to (.25, .8). Default = None
             beta     <float>: user-defined boost for the activations boost rule. beta in ]-inf, 1[.
-                                    Default -1.
+                                    Default -1. Note: when beta = 0 , it will work like the
+                                    PureDABlock using the forward option 1
         """
         super().__init__(
             m1_act, m2_act, n_channels=n_channels, batchnorm_cls=batchnorm_cls, init_type=init_type,
