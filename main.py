@@ -575,12 +575,19 @@ def main():
         #                   batchnorm_cls=get_batchnormxd_class(),
         #                   dsv=True,
         #                   ),
-        # UNet4Plus & ModularUNet4Plus
+        # UNet4Plus
+        # model_kwargs=dict(feature_scale=1, n_channels=3, n_classes=1,
+        #                   data_dimensions=settings.DATA_DIMENSIONS,
+        #                   is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
+        #                   init_type=UNet3InitMethod.KAIMING,
+        #                   dsv=True
+        #                   ),
+        # ModularUNet4Plus
         model_kwargs=dict(feature_scale=1, n_channels=3, n_classes=1,
                           data_dimensions=settings.DATA_DIMENSIONS,
                           is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
                           init_type=UNet3InitMethod.KAIMING,
-                          # dsv=True,  # not used by ModularUNet4Plus
+                          filters=[64, 128, 256, 512, 1024]
                           ),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,

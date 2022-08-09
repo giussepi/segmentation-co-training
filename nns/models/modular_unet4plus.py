@@ -224,7 +224,8 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
     """
 
     def __init__(
-            self, feature_scale: int = 1, n_classes: int = 1, n_channels: int = 1,
+            self, filters: Union[list, tuple] = None, feature_scale: int = 1, n_classes: int = 1,
+            n_channels: int = 1,
             data_dimensions: int = 2, is_batchnorm: bool = True, batchnorm_cls: Optional[_BatchNorm] = None,
             init_type=UNet3InitMethod.KAIMING
     ):
@@ -232,6 +233,8 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
         Initializes the object instance
 
         Kwargs:
+            filters  <list, tuple>: List of UNet filters. You must provide at least two.
+                                    Default [64, 128, 256, 512, 1024]
             feature_scale    <int>: scale factor for the filters. Default 1
             n_channels       <int>: number of channels from the input images. e.g. for RGB use 3. Default 1
             n_classes        <int>: number of classes. Use n_classes=1 for classes <= 2, for the rest or cases
@@ -245,6 +248,7 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
             init_type        <int>: Initialization method. Default UNet3InitMethod.KAIMING
         """
         super().__init__()
+        self.filters = filters if filters is not None else [64, 128, 256, 512, 1024]
         self.feature_scale = feature_scale
         self.n_classes = n_classes
         self.n_channels = n_channels
@@ -256,6 +260,8 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
         if self.batchnorm_cls is None:
             self.batchnorm_cls = torch.nn.BatchNorm2d if self.data_dimensions == 2 else torch.nn.BatchNorm3d
 
+        assert isinstance(self.filters, (list, tuple)), type(self.filters)
+        assert len(self.filters) >= 2, self.filters
         assert isinstance(self.feature_scale, int), type(self.feature_scale)
         assert self.feature_scale >= 1, 'feature_scale must be bigger or equal to 1'
         assert isinstance(self.n_channels, int), type(self.n_channels)
@@ -265,39 +271,35 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
         assert issubclass(self.batchnorm_cls, _BatchNorm), type(self.batchnom_cls)
         UNet3InitMethod.validate(self.init_type)
 
-        filters = [64, 128, 256, 512, 1024]
-        filters = [int(x / self.feature_scale) for x in filters]
+        self.filters = [int(x / self.feature_scale) for x in self.filters]
         convxd = torch.nn.Conv2d if self.data_dimensions == 2 else torch.nn.Conv3d
 
         self.micro_unet = MicroUNet(
-            filters[:2], 1, self.n_classes, self.n_channels, self.data_dimensions, self.is_batchnorm,
+            self.filters[:2], 1, self.n_classes, self.n_channels, self.data_dimensions, self.is_batchnorm,
             self.batchnorm_cls, self.init_type
         )
-        self.ext1 = UNetExtension(
-            filters[:3], 1, self.n_classes, self.n_channels, self.data_dimensions,
-            self.is_batchnorm, self.batchnorm_cls, self.init_type
-        )
-        self.ext2 = UNetExtension(
-            filters[:4], 1, self.n_classes, self.n_channels, self.data_dimensions,
-            self.is_batchnorm, self.batchnorm_cls, self.init_type
-        )
-        self.ext3 = UNetExtension(
-            filters, 1, self.n_classes, self.n_channels, self.data_dimensions,
-            self.is_batchnorm, self.batchnorm_cls, self.init_type
-        )
-        # we could add or remove extensions as necessary
+        for idx, filter_idx in enumerate(range(3, len(self.filters)+1), start=1):
+            setattr(
+                self,
+                f'ext{idx}',
+                UNetExtension(
+                    self.filters[:filter_idx], 1, self.n_classes, self.n_channels, self.data_dimensions,
+                    self.is_batchnorm, self.batchnorm_cls, self.init_type
+                )
+            )
 
         # ouput ###############################################################
         self.outc = convxd(self.n_classes*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
         # TODO: what if I concatenate all the decoder outputs and use a single
         #       large conv to create the final mask
-        # self.outc = convxd(filters[0]*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
+        # self.outc = convxd(self.filters[0]*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
 
     def forward(self, inputs):
-        logits1, skip_connections1 = self.micro_unet(inputs)
-        logits2, skip_connections2 = self.ext1(skip_connections1)
-        logits3, skip_connections3 = self.ext2(skip_connections2)
-        logits4, _ = self.ext3(skip_connections3)
+        logits, skip_connections = self.micro_unet(inputs)
+
+        for idx, _ in enumerate(range(3, len(self.filters)+1), start=1):
+            logits_, skip_connections = getattr(self, f'ext{idx}')(skip_connections)
+            logits += logits_
 
         # opt 1 : normal DSV
         # I dont't think we can apply this because each isolated module must be updated
@@ -305,6 +307,6 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
         # logits = self.outc(torch.cat([logits1, logits2, logits3, logits4], dim=1))
         # opt 2: sum them all and use self.final(mean(summation))
         # opt 3: return 4 dsvs to have 4 losses
-        logits = logits1 + logits2 + logits3 + logits4  # this should be equivalent...
+        # logits = logits1 + logits2 + logits3 + logits4  # this should be equivalent...
 
         return logits
