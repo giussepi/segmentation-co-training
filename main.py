@@ -36,7 +36,7 @@ from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
     UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS, UNet_3Plus_Intra_DA_GS_HDX, XAttentionUNet, UNet2D, \
     UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
-    MultiAttentionBlock, UNet3D, XGridAttentionUNet, UNet4Plus
+    MultiAttentionBlock, UNet3D, XGridAttentionUNet, UNet4Plus, ModularUNet4Plus
 from nns.models.layers.disagreement_attention import inter_model
 from nns.models.layers.disagreement_attention import intra_model
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
@@ -561,7 +561,8 @@ def main():
 
     # model6 = dict(
     model6 = ModelMGR(
-        model=UNet4Plus,  # XAttentionUNet,  # XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
+        # XAttentionUNet,  # XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
+        model=ModularUNet4Plus,
         # model_kwargs=dict(da_block_cls=intra_model.AttentionBlock,
         #                   # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
         #                   # da_block_config=dict(n_channels=-1),
@@ -574,12 +575,12 @@ def main():
         #                   batchnorm_cls=get_batchnormxd_class(),
         #                   dsv=True,
         #                   ),
-        # UNet4Plus
+        # UNet4Plus & ModularUNet4Plus
         model_kwargs=dict(feature_scale=1, n_channels=3, n_classes=1,
                           data_dimensions=settings.DATA_DIMENSIONS,
                           is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
                           init_type=UNet3InitMethod.KAIMING,
-                          dsv=True,
+                          # dsv=True,  # not used by ModularUNet4Plus
                           ),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
