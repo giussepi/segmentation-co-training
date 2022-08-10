@@ -272,7 +272,7 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
         UNet3InitMethod.validate(self.init_type)
 
         self.filters = [int(x / self.feature_scale) for x in self.filters]
-        convxd = torch.nn.Conv2d if self.data_dimensions == 2 else torch.nn.Conv3d
+        # convxd = torch.nn.Conv2d if self.data_dimensions == 2 else torch.nn.Conv3d
 
         self.micro_unet = MicroUNet(
             self.filters[:2], 1, self.n_classes, self.n_channels, self.data_dimensions, self.is_batchnorm,
@@ -289,24 +289,30 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
             )
 
         # ouput ###############################################################
-        self.outc = convxd(self.n_classes*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
+        # self.outc = convxd(self.n_classes*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
         # TODO: what if I concatenate all the decoder outputs and use a single
         #       large conv to create the final mask
         # self.outc = convxd(self.filters[0]*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
 
-    def forward(self, inputs):
+    def forward(self, inputs: torch.Tensor) -> Tuple[torch.Tensor]:
         logits, skip_connections = self.micro_unet(inputs)
+        all_logits = [logits]
 
         for idx, _ in enumerate(range(3, len(self.filters)+1), start=1):
             logits_, skip_connections = getattr(self, f'ext{idx}')(skip_connections)
-            logits += logits_
+            all_logits.append(logits_)
+            # logits += logits_
+
+        # logits = self.outc(torch.cat(all_logits, dim=1))
 
         # opt 1 : normal DSV
         # I dont't think we can apply this because each isolated module must be updated
         # using its own error. Try it anyway to see what could happen
         # logits = self.outc(torch.cat([logits1, logits2, logits3, logits4], dim=1))
         # opt 2: sum them all and use self.final(mean(summation))
-        # opt 3: return 4 dsvs to have 4 losses
+        # opt 3: return the summation of all the logits
         # logits = logits1 + logits2 + logits3 + logits4  # this should be equivalent...
+        # opt 4: now I think returning a tuple with all the module predictions is the best way
+        # keep the modules isolated and working properly
 
-        return logits
+        return tuple(all_logits)

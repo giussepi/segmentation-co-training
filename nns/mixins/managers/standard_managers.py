@@ -3,6 +3,7 @@
 
 import os
 import sys
+from collections import defaultdict
 from typing import Union, Optional
 from unittest.mock import MagicMock
 
@@ -608,7 +609,7 @@ If true it track the loss values, else it tracks the metric values.
                                           nns.callbacks.plotters.masks import MaskPlotter
                                           Default dict(alpha=.7, dir_per_file=False, superimposed=False, max_values=False, decoupled=False)
         Returns:
-            loss<torch.Tensor>, metric_scores<dict>, extra_data<dict>
+            loss<Dict[torch.Tensor]>, metric_scores<dict>, extra_data<dict>
         """
         dataloader = kwargs.get('dataloader')
         testing = kwargs.get('testing', False)
@@ -643,7 +644,10 @@ If true it track the loss values, else it tracks the metric values.
         if self.sanity_checks:
             self.disable_sanity_checks()
         n_val = len(dataloader)  # the number of batchs
-        loss = imgs_counter = 0
+        # loss = imgs_counter = 0
+        imgs_counter = 0
+
+        loss = defaultdict(lambda: torch.tensor(0.).to(self.device))
         # the folowing variables will store extra data from the last validation batch
         extra_data = None
 
@@ -653,7 +657,9 @@ If true it track the loss values, else it tracks the metric values.
                 batch=batch, testing=testing, plot_to_png=plot_to_png, imgs_counter=imgs_counter,
                 mask_plotter=mask_plotter
             )
-            loss += loss_
+            # loss += loss_
+            for k in loss_.keys():
+                loss[k] += loss_[k]
             imgs_counter += self.testval_dataloader_kwargs['batch_size']
 
         # total metrics over all validation batches
@@ -669,7 +675,11 @@ If true it track the loss values, else it tracks the metric values.
         if self.sanity_checks:
             self.enable_sanity_checks()
 
-        return loss / n_val, metrics, extra_data
+        for k in loss.keys():
+            loss[k] /= n_val
+
+        # return loss / n_val, metrics, extra_data
+        return loss, metrics, extra_data
 
     def validation_post(self, **kwargs):
         """ Logic to be executed after the validation step """
@@ -803,6 +813,8 @@ If true it track the loss values, else it tracks the metric values.
                 for batch in self.train_loader:
                     pred, true_masks, imgs, batch_train_loss, metrics, labels, label_names = \
                         self.training_step(batch)
+
+                    batch_train_loss = sum([*batch_train_loss.values()])
                     epoch_train_loss += batch_train_loss.item()
                     optimizer.zero_grad()
 
@@ -827,6 +839,12 @@ If true it track the loss values, else it tracks the metric values.
                         current_epoch_train_loss = torch.tensor(
                             epoch_train_loss/(intrain_val_counter*step_divider))
                         val_loss, val_metrics, val_extra_data = self.validation(dataloader=self.val_loader)
+
+                        print('\n')
+                        for k, v in val_loss.items():
+                            print(f'{k}: {v}')
+
+                        val_loss = sum([*val_loss.values()])
 
                         # maybe if there's no scheduler then the lr shouldn't be plotted
                         writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], validation_step)
@@ -902,6 +920,7 @@ If true it track the loss values, else it tracks the metric values.
             self.train_metrics.reset()
 
             val_loss, val_metric, _ = self.validation(dataloader=self.val_loader)
+            val_loss = sum([*val_loss.values()])
             data_logger['epoch_val_losses'].append(val_loss.item())
             data_logger['epoch_val_metrics'].append(self.prepare_to_save(val_metric))
 
