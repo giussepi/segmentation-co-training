@@ -764,7 +764,6 @@ If true it track the loss values, else it tracks the metric values.
         """
         global_step = 0
         step_divider = self.n_train // (self.intrain_val * self.train_dataloader_kwargs['batch_size'])
-        # optimizer = self.optimizer(self.model.parameters(), **self.optimizer_kwargs)
         optimizers = (
             self.optimizer(self.module.micro_unet.parameters(), **self.optimizer_kwargs),
             self.optimizer(self.module.ext1.parameters(), **self.optimizer_kwargs),
@@ -838,8 +837,6 @@ If true it track the loss values, else it tracks the metric values.
                     pred, true_masks, imgs, batch_train_loss, metrics, labels, label_names = \
                         self.training_step(batch)
 
-                    # batch_train_loss = sum([*batch_train_loss.values()])
-                    # epoch_train_loss += batch_train_loss.item()
                     for idx, key in enumerate(modules):
                         epoch_train_loss[idx] += batch_train_loss[key].item()
 
@@ -848,14 +845,12 @@ If true it track the loss values, else it tracks the metric values.
 
                         if self.cuda:
                             scalers[idx].scale(batch_train_loss[modules[idx]]).backward(retain_graph=True)
-                            # nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                             nn.utils.clip_grad_value_(
                                 getattr(self.module, f'{modules[idx]}').parameters(), 0.1)
                             scalers[idx].step(optimizer)
                             scalers[idx].update()
                         else:
                             batch_train_loss[modules[idx]].backward(retain_graph=True)
-                            # nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                             nn.utils.clip_grad_value_(
                                 getattr(self.module, f'{modules[idx]}').parameters(), 0.1)
                             optimizer.step()
@@ -868,8 +863,6 @@ If true it track the loss values, else it tracks the metric values.
                         intrain_val_counter += 1
                         # dividing the epoch accummulated train loss by
                         # the number of batches processed so far in the current epoch
-                        # current_epoch_train_loss = torch.tensor(
-                        #     epoch_train_loss/(intrain_val_counter*step_divider))
                         current_epoch_train_loss = epoch_train_loss/(intrain_val_counter*step_divider)
 
                         val_loss, val_metrics, val_extra_data = self.validation(dataloader=self.val_loader)
@@ -877,8 +870,6 @@ If true it track the loss values, else it tracks the metric values.
                         print('\n')
                         for k, v in val_loss.items():
                             print(f'{k}: {v}')
-
-                        # val_loss = sum([*val_loss.values()])
 
                         # maybe if there's no scheduler then the lr shouldn't be plotted
                         for idx, optimizer in enumerate(optimizers, start=1):
@@ -976,7 +967,6 @@ If true it track the loss values, else it tracks the metric values.
                 getattr(self, f'train_metrics{idx+1}').reset()
 
             val_loss, val_metric, _ = self.validation(dataloader=self.val_loader)
-            # val_loss = sum([*val_loss.values()])
             for idx in range(len(modules)):
                 data_logger[f'epoch_val_losses{idx+1}'].append(val_loss[modules[idx]].item())
                 data_logger[f'epoch_val_metrics{idx+1}'].append(self.prepare_to_save(val_metric[idx]))
@@ -992,17 +982,16 @@ If true it track the loss values, else it tracks the metric values.
             if early_stopped:
                 break
 
-        # TODO: verify the following tweaks are working as intended
-        # train_metrics1 = [f'{self.train_prefix1}{metric}' for metric in self.train_metrics]
-        # val_metrics1 = [f'{self.valid_prefix1}{metric}' for metric in self.valid_metrics]
         writer_lr_set = []
         train_val_sets = []
         loss_sets = []
-        for idx in range(1, len(modules)+1):
+        for idx, _ in enumerate(modules, start=1):
             writer_lr_set.append('learning_rate{idx}')
             train_val_sets.append(
-                [getattr(self, f'train_prefix{idx}')+f'{metric}' for metric in self.train_metrics] +
-                [getattr(self, f'valid_prefix{idx}')+f'{metric}' for metric in self.valid_metrics]
+                [getattr(self, f'train_prefix{idx}')+f'{metric}'
+                 for metric in getattr(self, f'train_metrics{idx}')] +
+                [getattr(self, f'valid_prefix{idx}')+f'{metric}'
+                 for metric in getattr(self, f'valid_metrics{idx}')]
             )
             loss_sets.append([f'Loss{idx}/train', 'Loss{idx}/val'])
 
