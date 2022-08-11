@@ -62,6 +62,10 @@ class BaseSanityChecksMixin:
 
         Note: overwrite this method as necessary
         See https://github.com/pengyan510/torcheck
+
+        Kwargs:
+            optimizer   <Optimizer>: Optimizer instance
+            model <torch.nn.Module>: Module instance. Default self.model
         """
         assert isinstance(optimizer, Optimizer), type(optimizer)
         model = model if model is not None else self.model
