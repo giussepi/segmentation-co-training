@@ -27,9 +27,9 @@ from nns.callbacks.metrics import MetricEvaluator
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.constants import LrShedulerTrack
-from nns.mixins.checkpoints import ModularUNet4PlusCheckPointMixin  # , CheckPointMixin,
+from nns.mixins.checkpoints import ModularUNet4PlusCheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
-from nns.mixins.sanity_checks import SanityChecksMixin
+from nns.mixins.sanity_checks import ModularUNet4PlusSanityChecksMixin
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
 from nns.mixins.subdatasets import SubDatasetsMixin
 from nns.mixins.torchmetrics.mixins import ModularUNet4PlusTorchMetricsMixin
@@ -40,8 +40,8 @@ __all__ = ['ModelMGRMixin']
 
 
 class ModelMGRMixin(
-        SanityChecksMixin, ModularUNet4PlusCheckPointMixin, ModularUNet4PlusTorchMetricsMixin,
-        DataLoggerMixin, SubDatasetsMixin
+        ModularUNet4PlusSanityChecksMixin, ModularUNet4PlusCheckPointMixin,
+        ModularUNet4PlusTorchMetricsMixin, DataLoggerMixin, SubDatasetsMixin
 ):
     """
     General segmentation model manager
@@ -764,20 +764,6 @@ If true it track the loss values, else it tracks the metric values.
         """
         global_step = 0
         step_divider = self.n_train // (self.intrain_val * self.train_dataloader_kwargs['batch_size'])
-        optimizers = (
-            self.optimizer(self.module.micro_unet.parameters(), **self.optimizer_kwargs),
-            self.optimizer(self.module.ext1.parameters(), **self.optimizer_kwargs),
-            self.optimizer(self.module.ext2.parameters(), **self.optimizer_kwargs),
-            self.optimizer(self.module.ext3.parameters(), **self.optimizer_kwargs),
-        )
-
-        if self.sanity_checks:
-            # FIXME: finish the update to use sanity checks
-            for optimizer in optimizers:
-                self.add_sanity_checks(optimizer)
-
-        if self.cuda:
-            scalers = [torch.cuda.amp.GradScaler(enabled=USE_AMP) for _ in optimizers]
 
         metric_evaluator = MetricEvaluator(self.metric_mode)
         earlystopping = EarlyStopping(**self.earlystopping_kwargs)
@@ -801,6 +787,14 @@ If true it track the loss values, else it tracks the metric values.
         best_metric = np.NINF
         val_loss_min = np.inf
         train_batches = len(self.train_loader)
+        modules = ['micro_unet', 'ext1', 'ext2', 'ext3']
+
+        optimizers = (
+            self.optimizer(self.module.micro_unet.parameters(), **self.optimizer_kwargs),
+            self.optimizer(self.module.ext1.parameters(), **self.optimizer_kwargs),
+            self.optimizer(self.module.ext2.parameters(), **self.optimizer_kwargs),
+            self.optimizer(self.module.ext3.parameters(), **self.optimizer_kwargs),
+        )
 
         # If a checkpoint file is provided, then load it
         if self.ini_checkpoint:
@@ -809,6 +803,13 @@ If true it track the loss values, else it tracks the metric values.
             best_metric = self.get_best_combined_main_metrics(data_logger['val_metric4'])
             # increasing to start at the next epoch
             start_epoch += 1
+
+        if self.sanity_checks:
+            for optimizer, module_name in zip(optimizers, modules):
+                self.add_sanity_checks(optimizer, getattr(self.module, module_name))
+
+        if self.cuda:
+            scalers = [torch.cuda.amp.GradScaler(enabled=USE_AMP) for _ in optimizers]
 
         if self.lr_scheduler is not None:
             schedulers = (self.lr_scheduler(optimizer, **self.lr_scheduler_kwargs) for optimizer in optimizers)
@@ -821,8 +822,6 @@ If true it track the loss values, else it tracks the metric values.
             )
         else:
             writer = MagicMock()
-
-        modules = ['micro_unet', 'ext1', 'ext2', 'ext3']
 
         for epoch in range(start_epoch, self.epochs):
             self.model.train()
