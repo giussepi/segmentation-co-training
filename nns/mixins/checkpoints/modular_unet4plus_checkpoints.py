@@ -2,7 +2,7 @@
 """ nns/mixins/checkpoints/modular_unet4plus_checkpoints """
 
 import os
-from typing import Union, List, Tuple
+from typing import Union, Tuple
 
 import torch
 from logzero import logger
@@ -79,7 +79,7 @@ class ModularUNet4PlusCheckPointMixin(CheckPointBaseMixin):
 
         torch.save(data, os.path.join(self.dir_checkpoints, filename))
 
-    def load_checkpoint(self, optimizers: List[Optimizer]):
+    def load_checkpoint(self, optimizers: Tuple[Optimizer]):
         """
         Loads the checkpoint for inference and/or resuming training
 
@@ -91,12 +91,12 @@ class ModularUNet4PlusCheckPointMixin(CheckPointBaseMixin):
         ini_checkpoint to any epoch checkpoint e.g. chkpt_<int>.pth.tar
 
         Kwargs:
-            optimizers <List[Optimizer]>: list of optimizer instances
+            optimizers <Tuple[Optimizer]>: list of optimizer instances
 
         Returns:
             current epoch (int), data_logger (dict)
         """
-        assert isinstance(optimizers, list), type(optimizers)
+        assert isinstance(optimizers, tuple), type(optimizers)
 
         chkpt_path = os.path.join(self.dir_checkpoints, self.ini_checkpoint)
         assert os.path.isfile(chkpt_path), chkpt_path
@@ -105,7 +105,7 @@ class ModularUNet4PlusCheckPointMixin(CheckPointBaseMixin):
         self.model.load_state_dict(chkpt['model_state_dict'])
 
         for idx in range(len(optimizers)):
-            optimizers[idx].load_state_dict(chkpt['optimizer_state_dict'][idx])
+            optimizers[idx].load_state_dict(chkpt['optimizer_state_dicts'][idx])
 
         # sending model and optimizers to the right device
         self.model.to(self.device)

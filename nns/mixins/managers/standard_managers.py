@@ -804,7 +804,6 @@ If true it track the loss values, else it tracks the metric values.
 
         # If a checkpoint file is provided, then load it
         if self.ini_checkpoint:
-            # FIXME: update and test these lines to work with the new tweaks
             start_epoch, data_logger = self.load_checkpoint(optimizers)
             val_loss_min = min(data_logger['val_loss4'])
             best_metric = self.get_best_combined_main_metrics(data_logger['val_metric4'])
