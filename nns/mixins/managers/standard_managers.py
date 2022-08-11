@@ -27,18 +27,22 @@ from nns.callbacks.metrics import MetricEvaluator
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.constants import LrShedulerTrack
-from nns.mixins.checkpoints import CheckPointMixin
+from nns.mixins.checkpoints import ModularUNet4PlusCheckPointMixin  # , CheckPointMixin,
 from nns.mixins.data_loggers import DataLoggerMixin
 from nns.mixins.sanity_checks import SanityChecksMixin
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
 from nns.mixins.subdatasets import SubDatasetsMixin
+from nns.mixins.torchmetrics.mixins import ModularUNet4PlusTorchMetricsMixin
 from nns.utils.sync_batchnorm import patch_replication_callback
 
 
 __all__ = ['ModelMGRMixin']
 
 
-class ModelMGRMixin(SanityChecksMixin, CheckPointMixin, DataLoggerMixin, SubDatasetsMixin):
+class ModelMGRMixin(
+        SanityChecksMixin, ModularUNet4PlusCheckPointMixin, ModularUNet4PlusTorchMetricsMixin,
+        DataLoggerMixin, SubDatasetsMixin
+):
     """
     General segmentation model manager
 
@@ -609,7 +613,7 @@ If true it track the loss values, else it tracks the metric values.
                                           nns.callbacks.plotters.masks import MaskPlotter
                                           Default dict(alpha=.7, dir_per_file=False, superimposed=False, max_values=False, decoupled=False)
         Returns:
-            loss<Dict[torch.Tensor]>, metric_scores<dict>, extra_data<dict>
+            loss<Dict[torch.Tensor]>, metric_scores<List[dict]>, extra_data<dict>
         """
         dataloader = kwargs.get('dataloader')
         testing = kwargs.get('testing', False)
@@ -663,9 +667,11 @@ If true it track the loss values, else it tracks the metric values.
             imgs_counter += self.testval_dataloader_kwargs['batch_size']
 
         # total metrics over all validation batches
-        metrics = self.valid_metrics.compute()
-        # reset metrics states after each epoch
-        self.valid_metrics.reset()
+        metrics = []
+        for idx in range(1, 5):
+            metrics.append(getattr(self, f'valid_metrics{idx}').compute())
+            # reset metrics states after each epoch
+            getattr(self, f'valid_metrics{idx}').reset()
 
         if testing and plot_to_png and func_plot_palette is not None:
             func_plot_palette(os.path.join(saving_dir, 'label_palette.png'))
@@ -758,13 +764,21 @@ If true it track the loss values, else it tracks the metric values.
         """
         global_step = 0
         step_divider = self.n_train // (self.intrain_val * self.train_dataloader_kwargs['batch_size'])
-        optimizer = self.optimizer(self.model.parameters(), **self.optimizer_kwargs)
+        # optimizer = self.optimizer(self.model.parameters(), **self.optimizer_kwargs)
+        optimizers = (
+            self.optimizer(self.module.micro_unet.parameters(), **self.optimizer_kwargs),
+            self.optimizer(self.module.ext1.parameters(), **self.optimizer_kwargs),
+            self.optimizer(self.module.ext2.parameters(), **self.optimizer_kwargs),
+            self.optimizer(self.module.ext3.parameters(), **self.optimizer_kwargs),
+        )
 
         if self.sanity_checks:
-            self.add_sanity_checks(optimizer)
+            # FIXME: finish the update to use sanity checks
+            for optimizer in optimizers:
+                self.add_sanity_checks(optimizer)
 
         if self.cuda:
-            scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
+            scalers = [torch.cuda.amp.GradScaler(enabled=USE_AMP) for _ in optimizers]
 
         metric_evaluator = MetricEvaluator(self.metric_mode)
         earlystopping = EarlyStopping(**self.earlystopping_kwargs)
@@ -773,9 +787,17 @@ If true it track the loss values, else it tracks the metric values.
         start_epoch = 0
         validation_step = 0
         data_logger = dict(
-            train_loss=[], train_metric=[], val_loss=[], val_metric=[], lr=[],
-            epoch_train_losses=[], epoch_train_metrics=[], epoch_val_losses=[], epoch_val_metrics=[],
-            epoch_lr=[],
+            train_loss1=[], train_loss2=[], train_loss3=[], train_loss4=[],
+            train_metric1=[], train_metric2=[], train_metric3=[], train_metric4=[],
+            val_loss1=[], val_loss2=[], val_loss3=[], val_loss4=[],
+            val_metric1=[], val_metric2=[], val_metric3=[], val_metric4=[],
+            lr1=[], lr2=[], lr3=[], lr4=[],
+            epoch_train_losses1=[], epoch_train_losses2=[], epoch_train_losses3=[], epoch_train_losses4=[],
+            epoch_train_metrics1=[], epoch_train_metrics2=[], epoch_train_metrics3=[],
+            epoch_train_metrics4=[],
+            epoch_val_losses1=[], epoch_val_losses2=[], epoch_val_losses3=[], epoch_val_losses4=[],
+            epoch_val_metrics1=[], epoch_val_metrics2=[], epoch_val_metrics3=[], epoch_val_metrics4=[],
+            epoch_lr1=[], epoch_lr2=[], epoch_lr3=[], epoch_lr4=[],
         )
         best_metric = np.NINF
         val_loss_min = np.inf
@@ -783,17 +805,17 @@ If true it track the loss values, else it tracks the metric values.
 
         # If a checkpoint file is provided, then load it
         if self.ini_checkpoint:
-            # TODO: once all the losses are settled, load them too!
-            start_epoch, data_logger = self.load_checkpoint(optimizer)
-            val_loss_min = min(data_logger['val_loss'])
-            best_metric = self.get_best_combined_main_metrics(data_logger['val_metric'])
+            # FIXME: update and test these lines to work with the new tweaks
+            start_epoch, data_logger = self.load_checkpoint(optimizers)
+            val_loss_min = min(data_logger['val_loss4'])
+            best_metric = self.get_best_combined_main_metrics(data_logger['val_metric4'])
             # increasing to start at the next epoch
             start_epoch += 1
 
         if self.lr_scheduler is not None:
-            scheduler = self.lr_scheduler(optimizer, **self.lr_scheduler_kwargs)
+            schedulers = (self.lr_scheduler(optimizer, **self.lr_scheduler_kwargs) for optimizer in optimizers)
         else:
-            scheduler = None
+            schedulers = None
 
         if self.tensorboard:
             writer = SummaryWriter(
@@ -802,9 +824,11 @@ If true it track the loss values, else it tracks the metric values.
         else:
             writer = MagicMock()
 
+        modules = ['micro_unet', 'ext1', 'ext2', 'ext3']
+
         for epoch in range(start_epoch, self.epochs):
             self.model.train()
-            epoch_train_loss = 0
+            epoch_train_loss = torch.zeros(len(modules)).to(self.device)
             intrain_chkpt_counter = 0
             intrain_val_counter = 0
 
@@ -814,19 +838,27 @@ If true it track the loss values, else it tracks the metric values.
                     pred, true_masks, imgs, batch_train_loss, metrics, labels, label_names = \
                         self.training_step(batch)
 
-                    batch_train_loss = sum([*batch_train_loss.values()])
-                    epoch_train_loss += batch_train_loss.item()
-                    optimizer.zero_grad()
+                    # batch_train_loss = sum([*batch_train_loss.values()])
+                    # epoch_train_loss += batch_train_loss.item()
+                    for idx, key in enumerate(modules):
+                        epoch_train_loss[idx] += batch_train_loss[key].item()
 
-                    if self.cuda:
-                        scaler.scale(batch_train_loss).backward(retain_graph=True)
-                        nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
-                        scaler.step(optimizer)
-                        scaler.update()
-                    else:
-                        batch_train_loss.backward(retain_graph=True)
-                        nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
-                        optimizer.step()
+                    for idx, optimizer in enumerate(optimizers):
+                        optimizer.zero_grad()
+
+                        if self.cuda:
+                            scalers[idx].scale(batch_train_loss[modules[idx]]).backward(retain_graph=True)
+                            # nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                            nn.utils.clip_grad_value_(
+                                getattr(self.module, f'{modules[idx]}').parameters(), 0.1)
+                            scalers[idx].step(optimizer)
+                            scalers[idx].update()
+                        else:
+                            batch_train_loss[modules[idx]].backward(retain_graph=True)
+                            # nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
+                            nn.utils.clip_grad_value_(
+                                getattr(self.module, f'{modules[idx]}').parameters(), 0.1)
+                            optimizer.step()
 
                     pbar.update(imgs.shape[0])
                     global_step += 1
@@ -836,39 +868,48 @@ If true it track the loss values, else it tracks the metric values.
                         intrain_val_counter += 1
                         # dividing the epoch accummulated train loss by
                         # the number of batches processed so far in the current epoch
-                        current_epoch_train_loss = torch.tensor(
-                            epoch_train_loss/(intrain_val_counter*step_divider))
+                        # current_epoch_train_loss = torch.tensor(
+                        #     epoch_train_loss/(intrain_val_counter*step_divider))
+                        current_epoch_train_loss = epoch_train_loss/(intrain_val_counter*step_divider)
+
                         val_loss, val_metrics, val_extra_data = self.validation(dataloader=self.val_loader)
 
                         print('\n')
                         for k, v in val_loss.items():
                             print(f'{k}: {v}')
 
-                        val_loss = sum([*val_loss.values()])
+                        # val_loss = sum([*val_loss.values()])
 
                         # maybe if there's no scheduler then the lr shouldn't be plotted
-                        writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], validation_step)
-                        data_logger['lr'].append(optimizer.param_groups[0]['lr'])
-                        writer.add_scalar('Loss/train', current_epoch_train_loss.item(), validation_step)
-                        data_logger['train_loss'].append(current_epoch_train_loss.item())
+                        for idx, optimizer in enumerate(optimizers, start=1):
+                            writer.add_scalar(
+                                f'learning_rate{idx}', optimizer.param_groups[0]['lr'], validation_step)
+                            data_logger[f'lr{idx}'].append(optimizer.param_groups[0]['lr'])
 
-                        for metric_, value_ in metrics.items():
-                            writer.add_scalar(f'{metric_}', value_.item(), validation_step)
+                            writer.add_scalar(
+                                f'Loss{idx}/train', current_epoch_train_loss[idx-1].item(), validation_step)
+                            data_logger[f'train_loss{idx}'].append(current_epoch_train_loss[idx-1].item())
 
-                        data_logger['train_metric'].append(self.prepare_to_save(metrics))
-                        writer.add_scalar('Loss/val', val_loss.item(), validation_step)
-                        data_logger['val_loss'].append(val_loss.item())
+                            for metric_, value_ in metrics[idx-1].items():
+                                writer.add_scalar(f'{metric_}', value_.item(), validation_step)
 
-                        for metric_, value_ in val_metrics.items():
-                            writer.add_scalar(f'{metric_}', value_.item(), validation_step)
+                            data_logger[f'train_metric{idx}'].append(self.prepare_to_save(metrics[idx-1]))
+                            writer.add_scalar(
+                                f'Loss{idx}/val', val_loss[modules[idx-1]].item(), validation_step)
+                            data_logger[f'val_loss{idx}'].append(val_loss[modules[idx-1]].item())
 
-                        data_logger['val_metric'].append(self.prepare_to_save(val_metrics))
+                            for metric_, value_ in val_metrics[idx-1].items():
+                                writer.add_scalar(f'{metric_}', value_.item(), validation_step)
+
+                            data_logger[f'val_metric{idx}'].append(self.prepare_to_save(val_metrics[idx-1]))
 
                         self.print_validation_summary(
                             global_step=global_step, validation_step=validation_step,
                             loss=current_epoch_train_loss,
-                            metrics=metrics, val_loss=val_loss, val_metrics=val_metrics
+                            metrics=metrics, val_loss=[val_loss[modules[i]] for i in range(len(modules))],
+                            val_metrics=val_metrics
                         )
+
                         self.validation_post(
                             pred=pred.detach().cpu(), true_masks=true_masks.detach().cpu(), labels=labels,
                             imgs=imgs.detach().cpu(),
@@ -876,77 +917,116 @@ If true it track the loss values, else it tracks the metric values.
                             global_step=global_step, val_extra_data=val_extra_data
                         )
 
+                        # NOTE: the following processes will be led by the last encoder's data
                         # TODO: find out if it's better to apply the early stopping to
                         # val_metric or val_loss
-                        val_metric = self.get_mean_main_metrics(val_metrics)
+
+                        val_metric = [0]*len(modules)
+
+                        for idx, metrics in enumerate(val_metrics):
+                            val_metric[idx] = self.get_mean_main_metrics(metrics)
 
                         if self.earlystopping_to_metric:
-                            if earlystopping(best_metric, val_metric):
+                            if earlystopping(best_metric, val_metric[-1]):
                                 early_stopped = True
                                 break
-                        elif earlystopping(val_loss.item(), val_loss_min):
+                        elif earlystopping(val_loss[modules[-1]].item(), val_loss_min):
                             early_stopped = True
                             break
 
-                        if metric_evaluator(val_metric, best_metric):
+                        if metric_evaluator(val_metric[-1], best_metric):
                             logger.info(
                                 f'{self.main_metrics_str} increased'
-                                f'({best_metric:.6f} --> {val_metric:.6f}). '
+                                f'({best_metric:.6f} --> {val_metric[-1]:.6f}). '
                                 'Saving model ...'
                             )
+
                             self.save()
                             self.save_checkpoint(
-                                float(f'{epoch}.{intrain_val_counter}'), optimizer, data_logger,
+                                float(f'{epoch}.{intrain_val_counter}'), optimizers, data_logger,
                                 best_chkpt=True
                             )
-                            best_metric = val_metric
+                            best_metric = val_metric[-1]
 
-                        if val_loss.item() < val_loss_min:
-                            val_loss_min = val_loss.item()
+                        val_loss_min = min(val_loss_min, val_loss[modules[-1]].item())
 
                         if self.train_eval_chkpt and checkpoint and checkpoint(epoch):
                             intrain_chkpt_counter += 1
-                            self.save_checkpoint(float(f'{epoch}.{intrain_chkpt_counter}'), optimizer, data_logger)
-                        if scheduler is not None:
+                            self.save_checkpoint(
+                                float(f'{epoch}.{intrain_chkpt_counter}'), optimizers, data_logger)
+
+                        if schedulers is not None:
                             # TODO: verify the replacement function is working properly
-                            LrShedulerTrack.step(self.lr_scheduler_track, scheduler, val_metric, val_loss)
+                            for idx, scheduler in enumerate(schedulers):
+                                LrShedulerTrack.step(
+                                    self.lr_scheduler_track, scheduler, val_metric[idx],
+                                    val_loss[modules[idx]]
+                                )
 
             # computing epoch statistiscs #####################################
-            data_logger['epoch_lr'].append(optimizer.param_groups[0]['lr'])
-            data_logger['epoch_train_losses'].append(epoch_train_loss / train_batches)
-            # total metrics over all training batches
-            data_logger['epoch_train_metrics'].append(self.prepare_to_save(self.train_metrics.compute()))
-            # reset metrics states after each epoch
-            self.train_metrics.reset()
+
+            for idx in range(len(modules)):
+                data_logger[f'epoch_lr{idx+1}'].append(optimizers[idx].param_groups[0]['lr'])
+                data_logger[f'epoch_train_losses{idx+1}'].append(
+                    epoch_train_loss[idx].item() / train_batches)
+                # total metrics over all training batches
+                data_logger[f'epoch_train_metrics{idx+1}'].append(
+                    self.prepare_to_save(getattr(self, f'train_metrics{idx+1}').compute()))
+                # reset metrics states after each epoch
+                getattr(self, f'train_metrics{idx+1}').reset()
 
             val_loss, val_metric, _ = self.validation(dataloader=self.val_loader)
-            val_loss = sum([*val_loss.values()])
-            data_logger['epoch_val_losses'].append(val_loss.item())
-            data_logger['epoch_val_metrics'].append(self.prepare_to_save(val_metric))
+            # val_loss = sum([*val_loss.values()])
+            for idx in range(len(modules)):
+                data_logger[f'epoch_val_losses{idx+1}'].append(val_loss[modules[idx]].item())
+                data_logger[f'epoch_val_metrics{idx+1}'].append(self.prepare_to_save(val_metric[idx]))
 
             self.print_epoch_summary(epoch, data_logger)
 
             if checkpoint and checkpoint(epoch):
-                self.save_checkpoint(epoch, optimizer, data_logger)
+                self.save_checkpoint(epoch, optimizers, data_logger)
 
             if self.last_checkpoint:
-                self.save_checkpoint(float(f'{epoch}'), optimizer, data_logger, last_chkpt=True)
+                self.save_checkpoint(float(f'{epoch}'), optimizers, data_logger, last_chkpt=True)
 
             if early_stopped:
                 break
 
-        train_metrics = [f'{self.train_prefix}{metric}' for metric in self.train_metrics]
-        val_metrics = [f'{self.valid_prefix}{metric}' for metric in self.valid_metrics]
+        # TODO: verify the following tweaks are working as intended
+        # train_metrics1 = [f'{self.train_prefix1}{metric}' for metric in self.train_metrics]
+        # val_metrics1 = [f'{self.valid_prefix1}{metric}' for metric in self.valid_metrics]
+        writer_lr_set = []
+        train_val_sets = []
+        loss_sets = []
+        for idx in range(1, len(modules)+1):
+            writer_lr_set.append('learning_rate{idx}')
+            train_val_sets.append(
+                [getattr(self, f'train_prefix{idx}')+f'{metric}' for metric in self.train_metrics] +
+                [getattr(self, f'valid_prefix{idx}')+f'{metric}' for metric in self.valid_metrics]
+            )
+            loss_sets.append([f'Loss{idx}/train', 'Loss{idx}/val'])
 
         writer.add_custom_scalars({
-            'Metric': {'Metric/Train&Val': ['Multiline', train_metrics+val_metrics]},
-            'Loss': {'Loss/Train&Val': ['Multiline', ['Loss/train', 'Loss/val']]},
-            'LearningRate': {'Train': ['Multiline', ['learning_rate']]}
+            'Metric': {
+                'Metric1/Train&Val': ['Multiline', train_val_sets[0]],
+                'Metric2/Train&Val': ['Multiline', train_val_sets[1]],
+                'Metric3/Train&Val': ['Multiline', train_val_sets[2]],
+                'Metric4/Train&Val': ['Multiline', train_val_sets[3]],
+            },
+            'Loss': {
+                'Loss1/Train&Val': ['Multiline', loss_sets[0]],
+                'Loss2/Train&Val': ['Multiline', loss_sets[1]],
+                'Loss3/Train&Val': ['Multiline', loss_sets[2]],
+                'Loss4/Train&Val': ['Multiline', loss_sets[3]],
+            },
+            'LearningRate': {'Train': ['Multiline', writer_lr_set]}
         })
         writer.close()
 
         if self.plot_to_disk:
-            self.plot_and_save(data_logger, step_divider)
+            logger.error('plot_and_save not implemented yet to handle the new tweaks')
+            # TODO: implement a proper plot_and_save for to the tweaks
+            # self.plot_and_save(data_logger, step_divider)
 
     @timing
     def fit(self):

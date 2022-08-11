@@ -622,7 +622,7 @@ def main():
             # torch.nn.CrossEntropyLoss()
             loss_functions.BceDiceLoss(with_logits=True),
             # BceDiceLoss(),
-            loss_functions.SpecificityLoss(with_logits=True),
+            # loss_functions.SpecificityLoss(with_logits=True),
         ],
         mask_threshold=0.5,
         metrics=settings.METRICS,

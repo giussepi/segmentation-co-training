@@ -115,8 +115,11 @@ class ModelMGR(ModelMGRMixin):
                 #     self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
                 # ]))
 
-                for key, masks in zip(['microunet', 'ext1', 'ext2', 'ext3'], masks_pred):
-                    loss[key] = self.calculate_loss(self.criterions, masks, true_masks)
+                for key, masks in zip(['micro_unet', 'ext1', 'ext2', 'ext3'], masks_pred):
+                    if key == 'micro_unet':
+                        loss[key] = self.calculate_loss(self.criterions, masks, true_masks*.8)
+                    else:
+                        loss[key] = self.calculate_loss(self.criterions, masks, true_masks)
 
                     # IMPORTANT NOTE:
                     # when using online data augmentation, it can return X crops instead of 1, so
@@ -127,20 +130,19 @@ class ModelMGR(ModelMGRMixin):
                     # will be divided by num_baches at the validation method implementation
                     loss[key] /= num_crops
 
-        # TODO: Try with masks from d5 and other decoders
-        pred = masks_pred[-1]  # using mask from last decoder
-        pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
+        for idx, pred in enumerate(masks_pred, start=1):
+            pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
 
-        if testing and plot_to_png:
-            # TODO: review if the logic of imgs_counter still works
-            filenames = tuple(str(imgs_counter + i) for i in range(1, pred.shape[0]+1))
-            mask_plotter(imgs, true_masks, pred, filenames)
+            if testing and plot_to_png:
+                # TODO: review if the logic of imgs_counter still works
+                filenames = tuple(f'{imgs_counter + i}_{idx}' for i in range(1, pred.shape[0]+1))
+                mask_plotter(imgs, true_masks, pred, filenames)
 
-        if apply_threshold:
-            # FIXME try calculating the metric without the threshold
-            pred = (pred > self.mask_threshold).float()
+            if apply_threshold:
+                # FIXME try calculating the metric without the threshold
+                pred = (pred > self.mask_threshold).float()
 
-        self.valid_metrics.update(pred, true_masks)
+            getattr(self, f'valid_metrics{idx}').update(pred, true_masks)
 
         extra_data = dict(
             imgs=imgs.detach().cpu(), pred=pred.detach().cpu(), true_masks=true_masks.detach().cpu(),
@@ -226,7 +228,7 @@ class ModelMGR(ModelMGRMixin):
 
         Returns:
             pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<Dict[torch.Tensor]>,
-            metrics<dict>, labels<list>, label_names<list>
+            metrics<List[dict]>, labels<list>, label_names<list>
         """
         assert isinstance(batch, dict), type(batch)
         # TODO: part of these lines can be re-used for get_validation_data with minors tweaks
@@ -271,8 +273,11 @@ class ModelMGR(ModelMGRMixin):
             #     self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
             # ]))
 
-            for key, masks in zip(['microunet', 'ext1', 'ext2', 'ext3'], masks_pred):
-                loss[key] = self.calculate_loss(self.criterions, masks, true_masks)
+            for key, masks in zip(['micro_unet', 'ext1', 'ext2', 'ext3'], masks_pred):
+                if key == 'micro_unet':
+                    loss[key] = self.calculate_loss(self.criterions, masks, true_masks*.8)
+                else:
+                    loss[key] = self.calculate_loss(self.criterions, masks, true_masks)
 
                 # IMPORTANT NOTE:
                 # when using online data augmentation, it can return X crops instead of 1, so
@@ -283,14 +288,16 @@ class ModelMGR(ModelMGRMixin):
                 # will be divided by num_baches at the training method implementation
                 loss[key] /= num_crops
 
-        # using mask from decoder d1
-        # TODO: Try with masks from d5 and other decoders
-        pred = masks_pred[-1]  # using mask from last decoder
-        pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
+        metrics = []
+        pred = None
 
-        # FIXME try calculating the metric without the threshold
-        pred = (pred > self.mask_threshold).float()
-        metrics = self.train_metrics(pred, true_masks)
+        for idx, pred in enumerate(masks_pred, start=1):
+            pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
+            # FIXME try calculating the metric without the threshold
+            pred = (pred > self.mask_threshold).float()
+            metrics.append(getattr(self, f'train_metrics{idx}')(pred, true_masks))
+
+        # NOTE: we return the pred from the last encoder
 
         return pred, true_masks, imgs, loss, metrics, labels, label_names
 
