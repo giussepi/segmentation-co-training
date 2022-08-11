@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """ nns/mixins/sanity_checks/standard.py """
 
-import torcheck
-from torch.optim.optimizer import Optimizer
+from nns.mixins.sanity_checks.base import BaseSanityChecksMixin
+
 
 __all__ = ['SanityChecksMixin']
 
 
-class SanityChecksMixin:
+class SanityChecksMixin(BaseSanityChecksMixin):
     """
     Provides standard methods to add and manage sanity checks
 
@@ -32,31 +32,3 @@ class SanityChecksMixin:
                     self.enable_sanity_checks()
                 ...
     """
-
-    def add_sanity_checks(self, optimizer: Optimizer):
-        """
-        Adds model sanity checks.
-
-        Note: overwrite this method as necessary
-        See https://github.com/pengyan510/torcheck
-        """
-        assert isinstance(optimizer, Optimizer), type(optimizer)
-        torcheck.register(optimizer)
-
-        torcheck.add_module(
-            self.model,
-            module_name="my_model",
-            changing=True,
-            # output_range=(0, 1),
-            # negate_range=False,
-            check_nan=True,
-            check_inf=True,
-        )
-
-    @staticmethod
-    def disable_sanity_checks():
-        torcheck.disable()
-
-    @staticmethod
-    def enable_sanity_checks():
-        torcheck.enable()
