@@ -32,7 +32,7 @@ from nns.mixins.data_loggers import DataLoggerMixin
 from nns.mixins.sanity_checks import ModularUNet4PlusSanityChecksMixin
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
 from nns.mixins.subdatasets import SubDatasetsMixin
-from nns.mixins.torchmetrics.mixins import ModularUNet4PlusTorchMetricsMixin
+from nns.mixins.torchmetrics.mixins import ModularTorchMetricsMixin
 from nns.utils.sync_batchnorm import patch_replication_callback
 
 
@@ -41,7 +41,7 @@ __all__ = ['ModelMGRMixin']
 
 class ModelMGRMixin(
         ModularUNet4PlusSanityChecksMixin, ModularUNet4PlusCheckPointMixin,
-        ModularUNet4PlusTorchMetricsMixin, DataLoggerMixin, SubDatasetsMixin
+        ModularTorchMetricsMixin, DataLoggerMixin, SubDatasetsMixin
 ):
     """
     General segmentation model manager

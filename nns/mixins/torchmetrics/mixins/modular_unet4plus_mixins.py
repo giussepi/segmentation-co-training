@@ -10,13 +10,13 @@ from torchmetrics import MetricCollection
 from nns.mixins.torchmetrics.mixins.base import TorchMetricsBaseMixin
 
 
-__all__ = ['ModularUNet4PlusTorchMetricsMixin']
+__all__ = ['ModularTorchMetricsMixin']
 
 
-class ModularUNet4PlusTorchMetricsMixin(TorchMetricsBaseMixin):
+class ModularTorchMetricsMixin(TorchMetricsBaseMixin):
     """
     Provides methods to initialize the ModelMGR and handle the MetricCollection objects for
-    ModularUNet4Plus
+    different Neuronal Network modules
 
     Usage:
        MyModelMGR(ModularUNet4PlusTorchMetricsMixin):
