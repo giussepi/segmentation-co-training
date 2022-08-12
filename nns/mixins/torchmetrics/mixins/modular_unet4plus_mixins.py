@@ -24,14 +24,6 @@ class ModularUNet4PlusTorchMetricsMixin(TorchMetricsBaseMixin):
                self._TorchMetricsBaseMixin__init(**kwargs)
 
     """
-    train_prefix1 = 'trainmicrounet_'
-    valid_prefix1 = 'valmicrounet_'
-    train_prefix2 = 'trainext1_'
-    valid_prefix2 = 'valext1_'
-    train_prefix3 = 'trainext2_'
-    valid_prefix3 = 'valext2_'
-    train_prefix4 = 'trainext3_'
-    valid_prefix4 = 'valext3_'
 
     def _init_subdataset_metrics(self, metrics_tmp: list):
         """
@@ -43,6 +35,10 @@ class ModularUNet4PlusTorchMetricsMixin(TorchMetricsBaseMixin):
             metrics_tmp: list of MetricItem instances
         """
         assert isinstance(metrics_tmp, list), type(metrics_tmp)
+
+        for idx, module in enumerate(self.module.module_names, start=1):
+            setattr(self, f'train_prefix{idx}', f'train{module}_')
+            setattr(self, f'valid_prefix{idx}', f'val{module}_')
 
         metrics_tmp = MetricCollection(metrics_tmp)
         self.train_metrics1 = metrics_tmp.clone(prefix=self.train_prefix1)
