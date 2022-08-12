@@ -111,11 +111,7 @@ class ModelMGR(ModelMGRMixin):
             imgs, true_masks, masks_pred, labels, label_names, num_crops = self.get_validation_data(batch)
 
             if not testing:
-                # loss = torch.sum(torch.stack([
-                #     self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
-                # ]))
-
-                for key, masks in zip(['micro_unet', 'ext1', 'ext2', 'ext3'], masks_pred):
+                for key, masks in zip(self.module.module_names, masks_pred):
                     if key == 'micro_unet':
                         loss[key] = self.calculate_loss(self.criterions, masks, true_masks*.8)
                     else:
@@ -269,11 +265,8 @@ class ModelMGR(ModelMGRMixin):
             # so if we have a tensor then we just put it inside a tuple
             # to not break the workflow
             masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
-            # loss = torch.sum(torch.stack([
-            #     self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
-            # ]))
 
-            for key, masks in zip(['micro_unet', 'ext1', 'ext2', 'ext3'], masks_pred):
+            for key, masks in zip(self.module.module_names, masks_pred):
                 if key == 'micro_unet':
                     loss[key] = self.calculate_loss(self.criterions, masks, true_masks*.8)
                 else:
