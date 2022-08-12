@@ -27,7 +27,7 @@ from nns.callbacks.metrics import MetricEvaluator
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.constants import LrShedulerTrack
-from nns.mixins.checkpoints import ModularUNet4PlusCheckPointMixin
+from nns.mixins.checkpoints import SeveralOptimizersCheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
 from nns.mixins.sanity_checks import ModularUNet4PlusSanityChecksMixin
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
@@ -40,7 +40,7 @@ __all__ = ['ModelMGRMixin']
 
 
 class ModelMGRMixin(
-        ModularUNet4PlusSanityChecksMixin, ModularUNet4PlusCheckPointMixin,
+        ModularUNet4PlusSanityChecksMixin, SeveralOptimizersCheckPointMixin,
         ModularTorchMetricsMixin, DataLoggerMixin, SubDatasetsMixin
 ):
     """

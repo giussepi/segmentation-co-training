@@ -11,16 +11,16 @@ from torch.optim.optimizer import Optimizer
 from nns.mixins.checkpoints.base import CheckPointBaseMixin
 
 
-__all__ = ['ModularUNet4PlusCheckPointMixin']
+__all__ = ['SeveralOptimizersCheckPointMixin']
 
 
-class ModularUNet4PlusCheckPointMixin(CheckPointBaseMixin):
+class SeveralOptimizersCheckPointMixin(CheckPointBaseMixin):
     """
     Provides standard methods to save and load checkpoints for inference or resume training for
-    the ModularUNet4Plus
+    the Neuronal Networks with several optimizers
 
     Usage:
-        class SomeClass(ModularUNet4PlusCheckPointMixin):
+        class SomeClass(SeveralOptimizersCheckPointMixin):
             ...
     """
 
