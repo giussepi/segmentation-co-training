@@ -272,7 +272,7 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
         UNet3InitMethod.validate(self.init_type)
 
         self.filters = [int(x / self.feature_scale) for x in self.filters]
-        # convxd = torch.nn.Conv2d if self.data_dimensions == 2 else torch.nn.Conv3d
+        self.module_names = ['micro_unet']
 
         self.micro_unet = MicroUNet(
             self.filters[:2], 1, self.n_classes, self.n_channels, self.data_dimensions, self.is_batchnorm,
@@ -287,12 +287,7 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
                     self.is_batchnorm, self.batchnorm_cls, self.init_type
                 )
             )
-
-        # ouput ###############################################################
-        # self.outc = convxd(self.n_classes*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
-        # TODO: what if I concatenate all the decoder outputs and use a single
-        #       large conv to create the final mask
-        # self.outc = convxd(self.filters[0]*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
+            self.module_names.append(f'ext{idx}')
 
     def forward(self, inputs: torch.Tensor) -> Tuple[torch.Tensor]:
         logits, skip_connections = self.micro_unet(inputs)
@@ -302,8 +297,6 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
             logits_, skip_connections = getattr(self, f'ext{idx}')(skip_connections)
             all_logits.append(logits_)
             # logits += logits_
-
-        # logits = self.outc(torch.cat(all_logits, dim=1))
 
         # opt 1 : normal DSV
         # I dont't think we can apply this because each isolated module must be updated
