@@ -10,15 +10,15 @@ from torch.optim.optimizer import Optimizer
 from nns.mixins.sanity_checks.base import BaseSanityChecksMixin
 
 
-__all__ = ['ModularUNet4PlusSanityChecksMixin']
+__all__ = ['WeightsChangingSanityChecksMixin']
 
 
-class ModularUNet4PlusSanityChecksMixin(BaseSanityChecksMixin):
+class WeightsChangingSanityChecksMixin(BaseSanityChecksMixin):
     """
-    Provides standard methods to add and manage sanity checks
+    Provides standard methods to verify that the model weights are being updated properly
 
     Usage:
-        class SomeClass(ModularUNet4PlusSanityChecksMixin):
+        class SomeClass(WeightsChangingSanityChecksMixin):
             def training(self):
                 optimizer = ...
                 if self.sanity_checks:
