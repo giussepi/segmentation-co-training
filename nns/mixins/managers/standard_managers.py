@@ -787,22 +787,15 @@ If true it track the loss values, else it tracks the metric values.
         best_metric = np.NINF
         val_loss_min = np.inf
         train_batches = len(self.train_loader)
-        modules = ['micro_unet', 'ext1', 'ext2', 'ext3']
+        modules = self.module.module_names
+        optimizers = tuple([self.optimizer(getattr(self.module, module).parameters(),
+                           **self.optimizer_kwargs) for module in modules])
 
-        optimizers = (
-            self.optimizer(self.module.micro_unet.parameters(), **self.optimizer_kwargs),
-            self.optimizer(self.module.ext1.parameters(), **self.optimizer_kwargs),
-            self.optimizer(self.module.ext2.parameters(), **self.optimizer_kwargs),
-            self.optimizer(self.module.ext3.parameters(), **self.optimizer_kwargs),
-        )
-
-        # If a checkpoint file is provided, then load it
         if self.ini_checkpoint:
             start_epoch, data_logger = self.load_checkpoint(optimizers)
             val_loss_min = min(data_logger['val_loss4'])
             best_metric = self.get_best_combined_main_metrics(data_logger['val_metric4'])
-            # increasing to start at the next epoch
-            start_epoch += 1
+            start_epoch += 1  # increasing it to start at the next epoch
 
         if self.sanity_checks:
             for optimizer, module_name in zip(optimizers, modules):
