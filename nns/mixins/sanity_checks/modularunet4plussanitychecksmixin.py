@@ -48,10 +48,10 @@ class ModularUNet4PlusSanityChecksMixin(BaseSanityChecksMixin):
 
         Kwargs:
             optimizer   <Optimizer>: Optimizer instance
-            model <torch.nn.Module>: Module instance. Default self.model
+            model <torch.nn.Module>: Module instance. Default self.module
         """
         assert isinstance(optimizer, Optimizer), type(optimizer)
-        model = model if model is not None else self.model
+        model = model if model is not None else self.module
         assert isinstance(model, torch.nn.Module), type(model)
 
         torcheck.register(optimizer)
