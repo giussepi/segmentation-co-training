@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/mixins/torchmetrics/mixins/da_mixins """
+""" nns/mixins/torchmetrics/mixins/modular_mixins """
 
 from statistics import mean
 
