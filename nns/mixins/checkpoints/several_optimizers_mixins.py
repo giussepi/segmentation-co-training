@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/mixins/checkpoints/modular_unet4plus_checkpoints """
+""" nns/mixins/checkpoints/several_optimizers_mixins """
 
 import os
 from typing import Union, Tuple
