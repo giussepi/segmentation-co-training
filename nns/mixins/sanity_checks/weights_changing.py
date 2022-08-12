@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" nns/mixins/sanity_checks/modularunet4plussanitychecksmixin.py """
+""" nns/mixins/sanity_checks/weights_changing """
 
 from typing import Optional
 
