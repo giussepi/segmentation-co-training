@@ -3,4 +3,5 @@
 
 
 from nns.managers.da import DAModelMGR
+from nns.managers.modular import ModularModelMGR
 from nns.managers.standard import ModelMGR

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-""" nns/managers/standard """
+""" nns/managers/modular """
 
+from collections import defaultdict
 from unittest.mock import MagicMock
 
 import torch
@@ -9,14 +10,17 @@ from torch.utils.tensorboard import SummaryWriter
 
 from settings import USE_AMP
 from nns.callbacks.plotters.masks import MaskPlotter
-from nns.mixins.managers import ModelMGRMixin
+from nns.mixins.managers import ModularModelMGRMixin
 
 
-__all__ = ['ModelMGR']
+__all__ = ['ModularModelMGR']
 
 
-class ModelMGR(ModelMGRMixin):
-    """  """
+class ModularModelMGR(ModularModelMGRMixin):
+    """
+    General segmentation model manager for models composed of several modules trained
+    with different optimizers
+    """
 
     def get_validation_data(self, batch):
         """
@@ -86,7 +90,7 @@ class ModelMGR(ModelMGRMixin):
                                 Default True
 
         Returns:
-            loss<torch.Tensor>, extra_data<dict>
+            loss<Dict[torch.Tensor]>, extra_data<dict>
         """
         batch = kwargs.get('batch')
         testing = kwargs.get('testing', False)
@@ -103,38 +107,41 @@ class ModelMGR(ModelMGRMixin):
         assert isinstance(imgs_counter, int), type(imgs_counter)
         assert isinstance(apply_threshold, bool), type(apply_threshold)
 
-        loss = torch.tensor(0.)
+        # loss = torch.tensor(0.)
+        loss = defaultdict(lambda: torch.tensor(0.).to(self.device))
 
         with torch.cuda.amp.autocast(enabled=USE_AMP):
             imgs, true_masks, masks_pred, labels, label_names, num_crops = self.get_validation_data(batch)
 
             if not testing:
-                loss = torch.sum(torch.stack([
-                    self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
-                ]))
-                # IMPORTANT NOTE:
-                # when using online data augmentation, it can return X crops instead of 1, so
-                # we need to modify this to loss / (n_val*X)
-                # because the loss is result of processing X times more crops than
-                # normal, so to properly calculate the final loss we need to divide it by
-                # number of batches times X. Here we only divide it by X, the final summation
-                # will be divided by num_baches at the validation method implementation
-                loss /= num_crops
+                for key, masks in zip(self.module.module_names, masks_pred):
+                    if key == 'micro_unet':
+                        loss[key] = self.calculate_loss(self.criterions, masks, true_masks*.8)
+                    else:
+                        loss[key] = self.calculate_loss(self.criterions, masks, true_masks)
 
-        # TODO: Try with masks from d5 and other decoders
-        pred = masks_pred[0]  # using mask from decoder d1
-        pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
+                    # IMPORTANT NOTE:
+                    # when using online data augmentation, it can return X crops instead of 1, so
+                    # we need to modify this to loss / (n_val*X)
+                    # because the loss is result of processing X times more crops than
+                    # normal, so to properly calculate the final loss we need to divide it by
+                    # number of batches times X. Here we only divide it by X, the final summation
+                    # will be divided by num_baches at the validation method implementation
+                    loss[key] /= num_crops
 
-        if testing and plot_to_png:
-            # TODO: review if the logic of imgs_counter still works
-            filenames = tuple(str(imgs_counter + i) for i in range(1, pred.shape[0]+1))
-            mask_plotter(imgs, true_masks, pred, filenames)
+        for idx, pred in enumerate(masks_pred, start=1):
+            pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
 
-        if apply_threshold:
-            # FIXME try calculating the metric without the threshold
-            pred = (pred > self.mask_threshold).float()
+            if testing and plot_to_png:
+                # TODO: review if the logic of imgs_counter still works
+                filenames = tuple(f'{imgs_counter + i}_{idx}' for i in range(1, pred.shape[0]+1))
+                mask_plotter(imgs, true_masks, pred, filenames)
 
-        self.valid_metrics.update(pred, true_masks)
+            if apply_threshold:
+                # FIXME try calculating the metric without the threshold
+                pred = (pred > self.mask_threshold).float()
+
+            getattr(self, f'valid_metrics{idx}').update(pred, true_masks)
 
         extra_data = dict(
             imgs=imgs.detach().cpu(), pred=pred.detach().cpu(), true_masks=true_masks.detach().cpu(),
@@ -219,8 +226,8 @@ class ModelMGR(ModelMGRMixin):
             batch <dict>: Dictionary contaning batch data
 
         Returns:
-            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<torch.Tensor>,
-            metrics<dict>, labels<list>, label_names<list>
+            pred<torch.Tensor>, true_masks<torch.Tensor>, imgs<torch.Tensor>, loss<Dict[torch.Tensor]>,
+            metrics<List[dict]>, labels<list>, label_names<list>
         """
         assert isinstance(batch, dict), type(batch)
         # TODO: part of these lines can be re-used for get_validation_data with minors tweaks
@@ -252,6 +259,7 @@ class ModelMGR(ModelMGRMixin):
         # mask_type = torch.float32 if self.module.n_classes == 1 else torch.long
         # mask_type = torch.float32
         true_masks = true_masks.to(device=self.device, dtype=torch.float32)
+        loss = defaultdict(lambda: torch.tensor(0.))
 
         with torch.cuda.amp.autocast(enabled=USE_AMP):
             masks_pred = self.model(imgs)
@@ -260,26 +268,32 @@ class ModelMGR(ModelMGRMixin):
             # so if we have a tensor then we just put it inside a tuple
             # to not break the workflow
             masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
-            loss = torch.sum(torch.stack([
-                self.calculate_loss(self.criterions, masks, true_masks) for masks in masks_pred
-            ]))
-            # IMPORTANT NOTE:
-            # when using online data augmentation, it can return X crops instead of 1, so
-            # we need to modify this to loss / (n_val*X)
-            # because the loss is result of processing X times more crops than
-            # normal, so to properly calculate the final loss we need to divide it by
-            # number of batches times X. Here we only divide it by X, the final summation
-            # will be divided by num_baches at the training method implementation
-            loss /= num_crops
 
-        # using mask from decoder d1
-        # TODO: Try with masks from d5 and other decoders
-        pred = masks_pred[0]
-        pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
+            for key, masks in zip(self.module.module_names, masks_pred):
+                if key == 'micro_unet':
+                    loss[key] = self.calculate_loss(self.criterions, masks, true_masks*.8)
+                else:
+                    loss[key] = self.calculate_loss(self.criterions, masks, true_masks)
 
-        # FIXME try calculating the metric without the threshold
-        pred = (pred > self.mask_threshold).float()
-        metrics = self.train_metrics(pred, true_masks)
+                # IMPORTANT NOTE:
+                # when using online data augmentation, it can return X crops instead of 1, so
+                # we need to modify this to loss / (n_val*X)
+                # because the loss is result of processing X times more crops than
+                # normal, so to properly calculate the final loss we need to divide it by
+                # number of batches times X. Here we only divide it by X, the final summation
+                # will be divided by num_baches at the training method implementation
+                loss[key] /= num_crops
+
+        metrics = []
+        pred = None
+
+        for idx, pred in enumerate(masks_pred, start=1):
+            pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
+            # FIXME try calculating the metric without the threshold
+            pred = (pred > self.mask_threshold).float()
+            metrics.append(getattr(self, f'train_metrics{idx}')(pred, true_masks))
+
+        # NOTE: we return the pred from the last encoder
 
         return pred, true_masks, imgs, loss, metrics, labels, label_names
 
