@@ -35,6 +35,9 @@ class ModularTorchMetricsMixin(TorchMetricsBaseMixin):
             metrics_tmp: list of MetricItem instances
         """
         assert isinstance(metrics_tmp, list), type(metrics_tmp)
+        assert hasattr(self.module, 'module_names'), \
+            f'{self.module._get_name()} does not have a module_names attribute'
+        assert isinstance(self.module.module_names, (list, tuple))
 
         for idx, module in enumerate(self.module.module_names, start=1):
             setattr(self, f'train_prefix{idx}', f'train{module}_')
