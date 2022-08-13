@@ -30,7 +30,7 @@ from ct82.processors import CT82MGR
 from ct82.settings import TRANSFORMS
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
-from nns.managers import ModelMGR, DAModelMGR
+from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
@@ -562,7 +562,7 @@ def main():
     # model6 = dict(
     model6 = ModelMGR(
         # XAttentionUNet,  # XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
-        model=ModularUNet4Plus,
+        model=UNet4Plus,
         # model_kwargs=dict(da_block_cls=intra_model.AttentionBlock,
         #                   # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
         #                   # da_block_config=dict(n_channels=-1),
@@ -576,19 +576,19 @@ def main():
         #                   dsv=True,
         #                   ),
         # UNet4Plus
-        # model_kwargs=dict(feature_scale=1, n_channels=3, n_classes=1,
-        #                   data_dimensions=settings.DATA_DIMENSIONS,
-        #                   is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
-        #                   init_type=UNet3InitMethod.KAIMING,
-        #                   dsv=True
-        #                   ),
-        # ModularUNet4Plus
         model_kwargs=dict(feature_scale=1, n_channels=3, n_classes=1,
                           data_dimensions=settings.DATA_DIMENSIONS,
                           is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
                           init_type=UNet3InitMethod.KAIMING,
-                          filters=[64, 128, 256, 512, 1024]
+                          dsv=True
                           ),
+        # ModularUNet4Plus
+        # model_kwargs=dict(feature_scale=1, n_channels=3, n_classes=1,
+        #                   data_dimensions=settings.DATA_DIMENSIONS,
+        #                   is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
+        #                   init_type=UNet3InitMethod.KAIMING,
+        #                   filters=[64, 128, 256, 512, 1024]
+        #                   ),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
