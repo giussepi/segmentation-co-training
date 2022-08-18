@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """ nns/models/layers/disagreement_attention/intra_model/__init__ """
 
+from nns.models.layers.disagreement_attention.intra_model.bidirectional_mixed_embedded import BidirectionalMixedEmbeddedDABlock
 from nns.models.layers.disagreement_attention.intra_model.combined import CombinedDABlock
 from nns.models.layers.disagreement_attention.intra_model.embedded import EmbeddedDABlock
 from nns.models.layers.disagreement_attention.intra_model.merged import MergedDABlock
