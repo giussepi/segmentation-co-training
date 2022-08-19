@@ -664,7 +664,7 @@ def main():
                           init_type=UNet3InitMethod.KAIMING,
                           data_dimensions=settings.DATA_DIMENSIONS,
                           batchnorm_cls=get_batchnormxd_class(),
-                          dsv=False,
+                          dsv=True,
                           ae_loss=torch.nn.MSELoss(),  # torch.nn.L1Loss()
                           isolated_aes=True
                           ),
