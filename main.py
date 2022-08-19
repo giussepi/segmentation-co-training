@@ -929,6 +929,24 @@ def main():
     # rotation, shear mapping and compositions of them in any combination sequence
     ##
 
+    ###########################################################################
+    #                                  CoNSeP                                 #
+    ###########################################################################
+    # https://warwick.ac.uk/fac/cross_fac/tia/data/
+    # The colorectal nuclear segmentation and phenotypes(CoNSeP) dataset
+    # consists of 41 H & E stained image tiles, each of size 1, 000×1, 000 pixels
+    # at 40× objective magnification. The images were extracted from 16
+    # colorectal adenocarcinoma(CRA) WSIs, each belonging to an individual
+    # patient, and scanned with an Omnyx VL120 scanner within the department of
+    # pathology at University Hospitals Coventry and Warwickshire, UK.
+
+    # new dataset of Haematoxylin & Eosin stained colorectal adenocarcinoma
+    # image tiles, containing 24,319 exhaustively annotated nuclei with
+    # associated class labels.
+
+    # consep 26 train 14 test
+    ###############################################################################
+
 
 if __name__ == '__main__':
     main()
