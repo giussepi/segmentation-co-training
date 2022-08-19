@@ -660,7 +660,7 @@ def main():
                           # is_deconv=True,
                           # feature_scale=1, is_batchnorm=True,
                           bilinear=False,  # XAttentionUNet only
-                          n_channels=3, n_classes=1,
+                          n_channels=1, n_classes=1,
                           init_type=UNet3InitMethod.KAIMING,
                           data_dimensions=settings.DATA_DIMENSIONS,
                           batchnorm_cls=get_batchnormxd_class(),
