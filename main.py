@@ -573,7 +573,8 @@ def main():
                           data_dimensions=settings.DATA_DIMENSIONS,
                           batchnorm_cls=get_batchnormxd_class(),
                           dsv=False,
-                          ae_loss=torch.nn.MSELoss()  # torch.nn.L1Loss()
+                          ae_loss=torch.nn.MSELoss(),  # torch.nn.L1Loss()
+                          isolated_aes=True
                           ),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,

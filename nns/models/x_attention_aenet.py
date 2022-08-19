@@ -38,7 +38,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             data_dimensions: int = 2,
             da_block_cls: BaseDisagreementAttentionBlock = AttentionBlock,
             da_block_config: Optional[dict] = None,
-            dsv: bool = True, ae_loss: Optional[_Loss] = None
+            dsv: bool = True, ae_loss: Optional[_Loss] = None, isolated_aes: bool = True
     ):
         """
         Initializes the object instance
@@ -63,6 +63,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
              dsv            <bool>: Whether or not apply deep supervision. Default True
              ae_loss       <_Loss>: Instance of a subclass of _Loss to be used with the autoencoders.
                                     Default torch.nn.MSELoss()
+             isolated_aes   <bool>: Whether or not to use isolated AutoEncoders. Default True
         """
         super().__init__()
 
@@ -76,6 +77,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
         self.da_block_cls = da_block_cls
         self.dsv = dsv
         self.ae_loss = ae_loss if ae_loss else torch.nn.MSELoss()
+        self.isolated_aes = isolated_aes
 
         if da_block_config:
             assert isinstance(da_block_config, dict), type(da_block_config)
@@ -96,6 +98,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             f'{self.da_block_cls} is not a descendant of BaseDisagreementAttentionBlock'
         assert isinstance(self.dsv, bool), type(self.dsv)
         assert isinstance(self.ae_loss, _Loss), type(self.ae_loss)
+        assert isinstance(self.isolated_aes, bool), type(self.isolated_aes)
 
         # adding extra configuration to da_block_config
         self.da_block_config['batchnorm_cls'] = self.batchnorm_cls
@@ -119,16 +122,25 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
 
         self.filters = [64, 128, 256, 512, 1024]
 
+        if self.isolated_aes:
+            down = AEDown2
+            attention_block = AttentionAEConvBlock2
+            up_concat = AEUpConcat2
+        else:
+            down = AEDown
+            attention_block = AttentionAEConvBlock
+            up_concat = AEUpConcat
+
         # Encoder layers ######################################################
         self.inc = DoubleConv(
             n_channels, self.filters[0], batchnorm_cls=self.batchnorm_cls,
             data_dimensions=self.data_dimensions
         )
-        self.down1 = AEDown2(self.filters[0], self.filters[1], self.batchnorm_cls, self.data_dimensions)
-        self.down2 = AEDown2(self.filters[1], self.filters[2], self.batchnorm_cls, self.data_dimensions)
-        self.down3 = AEDown2(self.filters[2], self.filters[3], self.batchnorm_cls, self.data_dimensions)
+        self.down1 = down(self.filters[0], self.filters[1], self.batchnorm_cls, self.data_dimensions)
+        self.down2 = down(self.filters[1], self.filters[2], self.batchnorm_cls, self.data_dimensions)
+        self.down3 = down(self.filters[2], self.filters[3], self.batchnorm_cls, self.data_dimensions)
         factor = 2 if self.bilinear else 1
-        self.down4 = AEDown2(
+        self.down4 = down(
             self.filters[3], self.filters[4] // factor, self.batchnorm_cls, self.data_dimensions)  # centre
         self.gating = UnetGridGatingSignal(
             self.filters[4] // factor, self.filters[4] // factor, kernel_size=1,
@@ -137,7 +149,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
 
         # Decoder layers ######################################################
         # intra-class DA skip-con down3 & gating signal down4 -> up1
-        self.up1_with_da = AttentionAEConvBlock2(
+        self.up1_with_da = attention_block(
             # attention to skip_connection
             self.da_block_cls(self.filters[3], self.filters[4] // factor,
                               n_channels=self.filters[3],
@@ -149,7 +161,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             data_dimensions=self.data_dimensions,
         )
         # intra-class DA skip conn. down2 & gating signal up1_with_da -> up2
-        self.up2_with_da = AttentionAEConvBlock2(
+        self.up2_with_da = attention_block(
             # attention to skip_connection
             self.da_block_cls(self.filters[2], self.filters[3] // factor,
                               n_channels=self.filters[2],
@@ -161,7 +173,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             data_dimensions=self.data_dimensions,
         )
         # intra-class DA skip conn. down1 & gating signal up2_with_da -> up3
-        self.up3_with_da = AttentionAEConvBlock2(
+        self.up3_with_da = attention_block(
             # attention to skip_connection
             self.da_block_cls(self.filters[1], self.filters[2] // factor,
                               n_channels=self.filters[1],
@@ -172,7 +184,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             batchnorm_cls=self.batchnorm_cls,
             data_dimensions=self.data_dimensions,
         )
-        self.up4 = AEUpConcat2(
+        self.up4 = up_concat(
             self.filters[1] // factor, self.filters[0], self.bilinear, self.batchnorm_cls,
             self.data_dimensions
         )
@@ -211,28 +223,30 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
         gating = self.gating(x5)
 
         # decoder ############################################################
-        # using AttentionAEConvBlock
-        # d1, d1ae_out, d1ae_in = self.up1_with_da(x5, x4, central_gating=gating)
-        # d2, d2ae_out, d2ae_in = self.up2_with_da(d1, x3)
-        # d3, d3ae_out, d3ae_in = self.up3_with_da(d2, x2)
-        # d4, d4ae_out, d4ae_in = self.up4(d3, x1)
+        if self.isolated_aes:
+            # using AttentionAEConvBlock2
+            d1, d1ae = self.up1_with_da(x5, x4, central_gating=gating)
+            d2, d2ae = self.up2_with_da(d1, x3)
+            d3, d3ae = self.up3_with_da(d2, x2)
+            d4, d4ae = self.up4(d3, x1)
 
-        # aes_data = dict(
-        #     down1=Data(x1, x2ae), down2=Data(x2, x3ae), down3=Data(x3, x4ae), down4=Data(x4, x5ae),
-        #     up1da=Data(d1ae_in, d1ae_out), up2da=Data(d2ae_in, d2ae_out), up3da=Data(d3ae_in, d3ae_out),
-        #     up4=Data(d4ae_in, d4ae_out)
-        # )
-        # using AttentionAEConvBlock2
-        d1, d1ae = self.up1_with_da(x5, x4, central_gating=gating)
-        d2, d2ae = self.up2_with_da(d1, x3)
-        d3, d3ae = self.up3_with_da(d2, x2)
-        d4, d4ae = self.up4(d3, x1)
+            aes_data = dict(
+                down1=Data(x1, x2ae), down2=Data(x2, x3ae), down3=Data(x3, x4ae), down4=Data(x4, x5ae),
+                up1da=Data(x5, d1ae), up2da=Data(d1, d2ae), up3da=Data(d2, d3ae),
+                up4=Data(d3, d4ae)
+            )
+        else:
+            # using AttentionAEConvBlock
+            d1, d1ae_out, d1ae_in = self.up1_with_da(x5, x4, central_gating=gating)
+            d2, d2ae_out, d2ae_in = self.up2_with_da(d1, x3)
+            d3, d3ae_out, d3ae_in = self.up3_with_da(d2, x2)
+            d4, d4ae_out, d4ae_in = self.up4(d3, x1)
 
-        aes_data = dict(
-            down1=Data(x1, x2ae), down2=Data(x2, x3ae), down3=Data(x3, x4ae), down4=Data(x4, x5ae),
-            up1da=Data(x5, d1ae), up2da=Data(d1, d2ae), up3da=Data(d2, d3ae),
-            up4=Data(d3, d4ae)
-        )
+            aes_data = dict(
+                down1=Data(x1, x2ae), down2=Data(x2, x3ae), down3=Data(x3, x4ae), down4=Data(x4, x5ae),
+                up1da=Data(d1ae_in, d1ae_out), up2da=Data(d2ae_in, d2ae_out), up3da=Data(d3ae_in, d3ae_out),
+                up4=Data(d4ae_in, d4ae_out)
+            )
 
         if self.dsv:
             # deep supervision ####################################################
