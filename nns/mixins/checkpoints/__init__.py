@@ -3,3 +3,4 @@
 
 from nns.mixins.checkpoints.standard_checkpoints import CheckPointMixin
 from nns.mixins.checkpoints.da_checkpoints import DACheckPointMixin
+from nns.mixins.checkpoints.several_optimizers_mixins import SeveralOptimizersCheckPointMixin
