@@ -115,10 +115,10 @@ class ModularModelMGR(ModularModelMGRMixin):
 
             if not testing:
                 for key, masks in zip(self.module.module_names, masks_pred):
-                    if key == 'micro_unet':
-                        loss[key] = self.calculate_loss(self.criterions, masks, true_masks*.8)
-                    else:
-                        loss[key] = self.calculate_loss(self.criterions, masks, true_masks)
+                    # if key == 'micro_unet':
+                    #     loss[key] = self.calculate_loss(self.criterions, masks, true_masks*.8)
+                    # else:
+                    loss[key] = self.calculate_loss(self.criterions, masks, true_masks)
 
                     # IMPORTANT NOTE:
                     # when using online data augmentation, it can return X crops instead of 1, so
@@ -270,10 +270,10 @@ class ModularModelMGR(ModularModelMGRMixin):
             masks_pred = masks_pred if isinstance(masks_pred, tuple) else (masks_pred, )
 
             for key, masks in zip(self.module.module_names, masks_pred):
-                if key == 'micro_unet':
-                    loss[key] = self.calculate_loss(self.criterions, masks, true_masks*.8)
-                else:
-                    loss[key] = self.calculate_loss(self.criterions, masks, true_masks)
+                # if key == 'micro_unet':
+                #     loss[key] = self.calculate_loss(self.criterions, masks, true_masks*.8)
+                # else:
+                loss[key] = self.calculate_loss(self.criterions, masks, true_masks)
 
                 # IMPORTANT NOTE:
                 # when using online data augmentation, it can return X crops instead of 1, so
