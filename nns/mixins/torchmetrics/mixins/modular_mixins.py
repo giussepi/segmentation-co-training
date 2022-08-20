@@ -102,18 +102,22 @@ class ModularTorchMetricsMixin(TorchMetricsBaseMixin):
         assert isinstance(epoch, int), type(epoch)
         assert isinstance(data_logger, dict), type(data_logger)
 
-        modules = 4
+        num_modules = len(self.module.module_names)
 
-        mtrain_loss = mean([data_logger[f"epoch_train_losses{idx}"][epoch] for idx in range(1, modules+1)])
-        mval_loss = mean([data_logger[f"epoch_val_losses{idx}"][epoch] for idx in range(1, modules+1)])
+        mtrain_loss = mean([
+            data_logger[f"epoch_train_losses{idx}"][epoch] for idx in range(1, num_modules+1)])
+        mval_loss = mean([
+            data_logger[f"epoch_val_losses{idx}"][epoch] for idx in range(1, num_modules+1)])
 
         text = f'Epoch {epoch+1}\n' + \
             f'mean train loss: {mtrain_loss:.6f} \t\t' + \
             f'mean val loss: {mval_loss:.6f}\n'
 
-        for idx in range(1, modules+1):
-            text += 'Module {idx}:\n' + \
-                self.metrics_to_str(self.prepare_to_save(data_logger[f'epoch_train_metrics{idx}'][epoch]),
-                                    self.prepare_to_save(data_logger[f'epoch_val_metrics{idx}'][epoch]))
+        for idx, module in enumerate(self.module.module_names, start=1):
+            text += f'Module {idx} - {module}:\n' + \
+                self.metrics_to_str(
+                    self.prepare_to_save(data_logger[f'epoch_train_metrics{idx}'][epoch]),
+                    self.prepare_to_save(data_logger[f'epoch_val_metrics{idx}'][epoch])
+                )
 
         logger.info(text)
