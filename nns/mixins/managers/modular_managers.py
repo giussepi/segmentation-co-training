@@ -470,13 +470,18 @@ class ModularModelMGRMixin(
 
         assert len(dataloader) > 0, "The dataloader did not have any data"
 
-        # FIXME: udpate these lines to work with the new modifications
         # Loading the provided checkpoint or the best model obtained during training
         if self.ini_checkpoint:
-            _, _ = self.load_checkpoint(self.optimizer(self.model.parameters(), **self.optimizer_kwargs))
+            optimizers = tuple([
+                self.optimizer(getattr(self.module, module).parameters(), **self.optimizer_kwargs)
+                for module in self.module.module_names
+            ])
+            _, _ = self.load_checkpoint(optimizers)
         else:
             self.load()
 
-        _, metric, _ = self.validation(dataloader=self.test_loader, testing=True, **kwargs)
+        _, metrics, _ = self.validation(dataloader=self.test_loader, testing=True, **kwargs)
 
-        logger.info(f'Testing Metric: {metric["val_DiceCoefficient"].item()}')
+        for idx, module in enumerate(self.module.module_names):
+            for k, v in metrics[idx].items():
+                logger.info(f'Test Module {idx+1} - {module} {k}: {v.item():.6f}')
