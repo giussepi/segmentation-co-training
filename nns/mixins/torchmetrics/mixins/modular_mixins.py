@@ -39,19 +39,13 @@ class ModularTorchMetricsMixin(TorchMetricsBaseMixin):
             f'{self.module._get_name()} does not have a module_names attribute'
         assert isinstance(self.module.module_names, (list, tuple))
 
+        metrics_tmp = MetricCollection(metrics_tmp)
+
         for idx, module in enumerate(self.module.module_names, start=1):
             setattr(self, f'train_prefix{idx}', f'train{module}_')
             setattr(self, f'valid_prefix{idx}', f'val{module}_')
-
-        metrics_tmp = MetricCollection(metrics_tmp)
-        self.train_metrics1 = metrics_tmp.clone(prefix=self.train_prefix1)
-        self.valid_metrics1 = metrics_tmp.clone(prefix=self.valid_prefix1)
-        self.train_metrics2 = metrics_tmp.clone(prefix=self.train_prefix2)
-        self.valid_metrics2 = metrics_tmp.clone(prefix=self.valid_prefix2)
-        self.train_metrics3 = metrics_tmp.clone(prefix=self.train_prefix3)
-        self.valid_metrics3 = metrics_tmp.clone(prefix=self.valid_prefix3)
-        self.train_metrics4 = metrics_tmp.clone(prefix=self.train_prefix4)
-        self.valid_metrics4 = metrics_tmp.clone(prefix=self.valid_prefix4)
+            setattr(self, f'train_metrics{idx}', metrics_tmp.clone(prefix=getattr(self, f'train_prefix{idx}')))
+            setattr(self, f'valid_metrics{idx}', metrics_tmp.clone(prefix=getattr(self, f'valid_prefix{idx}')))
 
     def print_validation_summary(self, **kwargs):
         """
