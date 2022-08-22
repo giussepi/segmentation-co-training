@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ nns/models/unet4plus.py """
 
-from typing import Optional
+from typing import Optional, Union, Tuple
 
 import torch
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
@@ -24,7 +24,7 @@ class UNet4Plus(torch.nn.Module, InitMixin):
     def __init__(
             self, feature_scale: int = 1, n_classes: int = 1, n_channels: int = 1,
             data_dimensions: int = 2, is_batchnorm: bool = True, batchnorm_cls: Optional[_BatchNorm] = None,
-            init_type=UNet3InitMethod.KAIMING, dsv: bool = True,
+            init_type=UNet3InitMethod.KAIMING, dsv: bool = True, multi_preds: bool = False
     ):
         """
         Initializes the object instance
@@ -42,6 +42,8 @@ class UNet4Plus(torch.nn.Module, InitMixin):
                                        torch.nn.BatchNorm3d
             init_type        <int>: Initialization method. Default UNet3InitMethod.KAIMING
             dsv             <bool>: Whether or not apply deep supervision. Default True
+            multi_preds     <bool>: If True a mask per decoder will be returned. It requires dsv = False.
+                                    Default False
         """
         super().__init__()
         self.feature_scale = feature_scale
@@ -52,6 +54,7 @@ class UNet4Plus(torch.nn.Module, InitMixin):
         self.batchnorm_cls = batchnorm_cls
         self.init_type = init_type
         self.dsv = dsv
+        self.multi_preds = multi_preds
 
         if self.batchnorm_cls is None:
             self.batchnorm_cls = torch.nn.BatchNorm2d if self.data_dimensions == 2 else torch.nn.BatchNorm3d
@@ -65,6 +68,9 @@ class UNet4Plus(torch.nn.Module, InitMixin):
         assert issubclass(self.batchnorm_cls, _BatchNorm), type(self.batchnom_cls)
         UNet3InitMethod.validate(self.init_type)
         assert isinstance(self.dsv, bool), type(self.dsv)
+        assert isinstance(self.multi_preds, bool), type(self.multi_preds)
+        assert not (self.dsv == self.multi_preds == True), \
+            'dsv or multi_preds cannot be True at the same time'
 
         filters = [64, 128, 256, 512, 1024]
         filters = [int(x / self.feature_scale) for x in filters]
@@ -116,23 +122,25 @@ class UNet4Plus(torch.nn.Module, InitMixin):
         self.up_concat4_1 = UnetUp_CT(filters[1], filters[0], is_batchnorm,
                                       data_dimensions=self.data_dimensions, scale_factor=maxpool_kernel_size)
 
-        if self.dsv:
-            # deep supervision ################################################
+        if self.dsv or self.multi_preds:
             self.dsv1 = convxd(filters[0], self.n_classes, kernel_size=1, stride=1, padding=0)
             self.dsv2 = convxd(filters[0], self.n_classes, kernel_size=1, stride=1, padding=0)
             self.dsv3 = convxd(filters[0], self.n_classes, kernel_size=1, stride=1, padding=0)
             self.dsv4 = convxd(filters[0], self.n_classes, kernel_size=1, stride=1, padding=0)
-            self.outc = convxd(self.n_classes*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
-            # TODO: what if I concatenate all the decoder outputs and use a single
-            #       large conv to create the final mask
-            # self.outc = convxd(filters[0]*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
+
+            if self.dsv:
+                # deep supervision ############################################
+                self.outc = convxd(self.n_classes*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
+                # TODO: what if I concatenate all the decoder outputs and use a single
+                #       large conv to create the final mask
+                # self.outc = convxd(filters[0]*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
         else:
             self.outc = convxd(filters[0], self.n_classes, kernel_size=1, stride=1, padding=0)
 
         # initializing weights ################################################
         self.initialize_weights(self.init_type, layers_cls=(convxd, self.batchnorm_cls))
 
-    def forward(self, inputs):
+    def forward(self, inputs: torch.Tensor) -> Union[torch.Tensor, Tuple[torch.Tensor]]:
         # encoder #############################################################
         en1 = self.conv1(inputs)
         maxpool1 = self.maxpool1(en1)
@@ -162,17 +170,22 @@ class UNet4Plus(torch.nn.Module, InitMixin):
         de4_2 = self.up_concat4_2(de3_2, de4_3)  # resolution 2
         de4_1 = self.up_concat4_1(de3_1, de4_2)  # resolution 1 (original)
 
-        if self.dsv:
-            # deep supervision ################################################
+        if self.dsv or self.multi_preds:
             dsv_de1_1 = self.dsv1(de1_1)
             dsv_de2_1 = self.dsv2(de2_1)
             dsv_de3_1 = self.dsv3(de3_1)
             dsv_de4_1 = self.dsv4(de4_1)
-            # opt 1 : normal DSV
-            logits = self.outc(torch.cat([dsv_de1_1, dsv_de2_1, dsv_de3_1, dsv_de4_1], dim=1))
-            # opt 2: sum them all and use self.final(mean(summation))
-            # opt 3: return 4 dsvs to have 4 losses
-            # opt 4: split the NN in 4 isolated modules and handle 4 dsvs separately
+
+            if self.dsv:
+                # deep supervision ############################################
+                # opt 1 : normal DSV
+                logits = self.outc(torch.cat([dsv_de1_1, dsv_de2_1, dsv_de3_1, dsv_de4_1], dim=1))
+                # opt 2: sum them all and use self.final(mean(summation))
+                # opt 3: return 4 dsvs to have 4 losses
+                # opt 4: split the NN in 4 isolated modules and handle 4 dsvs separately
+            else:
+                # multiple predictions ########################################
+                logits = (dsv_de1_1, dsv_de2_1, dsv_de3_1, dsv_de4_1)
         else:
             logits = self.outc(de4_1)
 

@@ -650,8 +650,8 @@ def main():
     #                           Working with 3D data                          #
     ###########################################################################
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
-    model7 = ModularModelMGR(
-        model=ModularUNet4Plus,   # XAttentionUNet,  # UNet_Att_DSV,  # UNet_Grid_Attention,,  # XAttentionUNet,  # UNet3D,
+    model7 = ModelMGR(
+        model=UNet4Plus,   # XAttentionUNet,  # UNet_Att_DSV,  # UNet_Grid_Attention,,  # XAttentionUNet,  # UNet3D,
         # UNet3D
         # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
         # XAttentionUNet & XGridAttentionUNet
@@ -666,13 +666,20 @@ def main():
         #     # da_block_config={'thresholds': (.25, .8), 'beta': -1},
         #     dsv=True,
         # ),
-        # ModularUNet4Plus
-        model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, isolate=True,
+        # Unet4Plus
+        model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1,
                           data_dimensions=settings.DATA_DIMENSIONS,
                           is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
                           init_type=UNet3InitMethod.KAIMING,
-                          filters=[64, 128, 256, 512, 1024]
+                          dsv=True, multi_preds=False
                           ),
+        # ModularUNet4Plus
+        # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, isolate=True,
+        #                   data_dimensions=settings.DATA_DIMENSIONS,
+        #                   is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
+        #                   init_type=UNet3InitMethod.KAIMING,
+        #                   filters=[64, 128, 256, 512, 1024]
+        #                   ),
         # UNet_Att_DSV
         # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
         #                   attention_block_cls=SingleAttentionBlock, data_dimensions=settings.DATA_DIMENSIONS),
