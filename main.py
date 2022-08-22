@@ -667,7 +667,7 @@ def main():
         #     dsv=True,
         # ),
         # ModularUNet4Plus
-        model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1,
+        model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, isolate=True,
                           data_dimensions=settings.DATA_DIMENSIONS,
                           is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
                           init_type=UNet3InitMethod.KAIMING,

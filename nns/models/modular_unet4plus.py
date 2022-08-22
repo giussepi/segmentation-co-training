@@ -22,7 +22,7 @@ class MicroUNet(torch.nn.Module, InitMixin):
 
     def __init__(
             self, filters: Union[list, tuple] = None, feature_scale: int = 1, n_classes: int = 1,
-            n_channels: int = 1, data_dimensions: int = 2, is_batchnorm: bool = True,
+            n_channels: int = 1, isolate: bool = True, data_dimensions: int = 2, is_batchnorm: bool = True,
             batchnorm_cls: Optional[_BatchNorm] = None, init_type=UNet3InitMethod.KAIMING
     ):
         """
@@ -34,6 +34,8 @@ class MicroUNet(torch.nn.Module, InitMixin):
             n_channels       <int>: number of channels from the input images. e.g. for RGB use 3. Default 1
             n_classes        <int>: number of classes. Use n_classes=1 for classes <= 2, for the rest or cases
                                     use n_classes = classes. Default 1
+            isolate         <bool>: Whether or returtn detached and cloned tensors in the forward pass.
+                                    Default True
             data_dimensions  <int>: Number of dimensions of the data. 2 for 2D [batch, channel, height, width],
                                     3 for 3D [batch, channel, depth, height, width].
                                     Default 2
@@ -47,6 +49,7 @@ class MicroUNet(torch.nn.Module, InitMixin):
         self.feature_scale = feature_scale
         self.n_classes = n_classes
         self.n_channels = n_channels
+        self.isolate = isolate
         self.data_dimensions = data_dimensions
         self.is_batchnorm = is_batchnorm
         self.batchnorm_cls = batchnorm_cls
@@ -61,6 +64,7 @@ class MicroUNet(torch.nn.Module, InitMixin):
         assert self.feature_scale >= 1, 'feature_scale must be bigger or equal to 1'
         assert isinstance(self.n_channels, int), type(self.n_channels)
         assert isinstance(self.n_classes, int), type(self.n_classes)
+        assert isinstance(self.isolate, bool), type(self.isolate)
         assert self.data_dimensions in (2, 3), 'only 2d and 3d data is supported'
         assert isinstance(self.is_batchnorm, bool), type(self.is_batchnorm)
         assert issubclass(self.batchnorm_cls, _BatchNorm), type(self.batchnom_cls)
@@ -104,7 +108,10 @@ class MicroUNet(torch.nn.Module, InitMixin):
         # output ##############################################################
         logits = self.outc(decoder)
 
-        return logits, (center.detach().clone(), decoder.detach().clone())
+        if self.isolate:
+            return logits, (center.detach().clone(), decoder.detach().clone())
+
+        return logits, (center, decoder)
 
 
 class UNetExtension(torch.nn.Module, InitMixin):
@@ -119,7 +126,7 @@ class UNetExtension(torch.nn.Module, InitMixin):
 
     def __init__(
             self, filters: Union[list, tuple], feature_scale: int = 1, n_classes: int = 1,
-            n_channels: int = 1, data_dimensions: int = 2, is_batchnorm: bool = True,
+            n_channels: int = 1, isolate: bool = True, data_dimensions: int = 2, is_batchnorm: bool = True,
             batchnorm_cls: Optional[_BatchNorm] = None, init_type=UNet3InitMethod.KAIMING
     ):
         """
@@ -131,6 +138,8 @@ class UNetExtension(torch.nn.Module, InitMixin):
             n_channels       <int>: number of channels from the input images. e.g. for RGB use 3. Default 1
             n_classes        <int>: number of classes. Use n_classes=1 for classes <= 2, for the rest or cases
                                     use n_classes = classes. Default 1
+            isolate         <bool>: Whether or returtn detached and cloned tensors in the forward pass.
+                                    Default True
             data_dimensions  <int>: Number of dimensions of the data. 2 for 2D [batch, channel, height, width],
                                     3 for 3D [batch, channel, depth, height, width].
                                     Default 2
@@ -144,6 +153,7 @@ class UNetExtension(torch.nn.Module, InitMixin):
         self.feature_scale = feature_scale
         self.n_classes = n_classes
         self.n_channels = n_channels
+        self.isolate = isolate
         self.data_dimensions = data_dimensions
         self.is_batchnorm = is_batchnorm
         self.batchnorm_cls = batchnorm_cls
@@ -158,6 +168,7 @@ class UNetExtension(torch.nn.Module, InitMixin):
         assert self.feature_scale >= 1, 'feature_scale must be bigger or equal to 1'
         assert isinstance(self.n_channels, int), type(self.n_channels)
         assert isinstance(self.n_classes, int), type(self.n_classes)
+        assert isinstance(self.isolate, bool), type(self.isolate)
         assert self.data_dimensions in (2, 3), 'only 2d and 3d data is supported'
         assert isinstance(self.is_batchnorm, bool), type(self.is_batchnorm)
         assert issubclass(self.batchnorm_cls, _BatchNorm), type(self.batchnom_cls)
@@ -215,7 +226,10 @@ class UNetExtension(torch.nn.Module, InitMixin):
 
         logits = self.outc(decoders[-1])
 
-        return logits, tuple([i.detach().clone() for i in chain((center, ), decoders)])
+        if self.isolate:
+            return logits, tuple(i.detach().clone() for i in chain((center, ), decoders))
+
+        return logits, tuple(i for i in chain((center, ), decoders))
 
 
 class ModularUNet4Plus(torch.nn.Module, InitMixin):
@@ -225,7 +239,7 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
 
     def __init__(
             self, filters: Union[list, tuple] = None, feature_scale: int = 1, n_classes: int = 1,
-            n_channels: int = 1,
+            n_channels: int = 1, isolate: bool = True,
             data_dimensions: int = 2, is_batchnorm: bool = True, batchnorm_cls: Optional[_BatchNorm] = None,
             init_type=UNet3InitMethod.KAIMING
     ):
@@ -239,6 +253,7 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
             n_channels       <int>: number of channels from the input images. e.g. for RGB use 3. Default 1
             n_classes        <int>: number of classes. Use n_classes=1 for classes <= 2, for the rest or cases
                                     use n_classes = classes. Default 1
+            isolate         <bool>: Whether or not isolate the modules. Default True
             data_dimensions  <int>: Number of dimensions of the data. 2 for 2D [batch, channel, height, width],
                                     3 for 3D [batch, channel, depth, height, width].
                                     Default 2
@@ -252,6 +267,7 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
         self.feature_scale = feature_scale
         self.n_classes = n_classes
         self.n_channels = n_channels
+        self.isolate = isolate
         self.data_dimensions = data_dimensions
         self.is_batchnorm = is_batchnorm
         self.batchnorm_cls = batchnorm_cls
@@ -266,6 +282,7 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
         assert self.feature_scale >= 1, 'feature_scale must be bigger or equal to 1'
         assert isinstance(self.n_channels, int), type(self.n_channels)
         assert isinstance(self.n_classes, int), type(self.n_classes)
+        assert isinstance(self.isolate, bool), type(self.isolate)
         assert self.data_dimensions in (2, 3), 'only 2d and 3d data is supported'
         assert isinstance(self.is_batchnorm, bool), type(self.is_batchnorm)
         assert issubclass(self.batchnorm_cls, _BatchNorm), type(self.batchnom_cls)
@@ -275,16 +292,16 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
         self.module_names = ['micro_unet']
 
         self.micro_unet = MicroUNet(
-            self.filters[:2], 1, self.n_classes, self.n_channels, self.data_dimensions, self.is_batchnorm,
-            self.batchnorm_cls, self.init_type
+            self.filters[:2], 1, self.n_classes, self.n_channels, self.isolate, self.data_dimensions,
+            self.is_batchnorm, self.batchnorm_cls, self.init_type
         )
         for idx, filter_idx in enumerate(range(3, len(self.filters)+1), start=1):
             setattr(
                 self,
                 f'ext{idx}',
                 UNetExtension(
-                    self.filters[:filter_idx], 1, self.n_classes, self.n_channels, self.data_dimensions,
-                    self.is_batchnorm, self.batchnorm_cls, self.init_type
+                    self.filters[:filter_idx], 1, self.n_classes, self.n_channels, self.isolate,
+                    self.data_dimensions, self.is_batchnorm, self.batchnorm_cls, self.init_type
                 )
             )
             self.module_names.append(f'ext{idx}')
@@ -296,7 +313,6 @@ class ModularUNet4Plus(torch.nn.Module, InitMixin):
         for idx, _ in enumerate(range(3, len(self.filters)+1), start=1):
             logits_, skip_connections = getattr(self, f'ext{idx}')(skip_connections)
             all_logits.append(logits_)
-            # logits += logits_
 
         # opt 1 : normal DSV
         # I dont't think we can apply this because each isolated module must be updated
