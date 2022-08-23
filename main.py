@@ -30,7 +30,7 @@ from ct82.processors import CT82MGR
 from ct82.settings import TRANSFORMS
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
-from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR
+from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
@@ -560,7 +560,7 @@ def main():
     # model5.plot_and_save(None, 154)
 
     # model6 = dict(
-    # model6 = ModelMGR(
+    # model6 = MultiPredsModelMGR(
     #     # XAttentionUNet,  # XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
     #     model=UNet4Plus,
     #     # model_kwargs=dict(da_block_cls=intra_model.AttentionBlock,
@@ -580,7 +580,7 @@ def main():
     #                       data_dimensions=settings.DATA_DIMENSIONS,
     #                       is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
     #                       init_type=UNet3InitMethod.KAIMING,
-    #                       dsv=True
+    #                       dsv=False, multi_preds=True
     #                       ),
     #     # ModularUNet4Plus
     #     # model_kwargs=dict(feature_scale=1, n_channels=3, n_classes=1,
@@ -650,7 +650,7 @@ def main():
     #                           Working with 3D data                          #
     ###########################################################################
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
-    model7 = ModelMGR(
+    model7 = MultiPredsModelMGR(
         model=UNet4Plus,   # XAttentionUNet,  # UNet_Att_DSV,  # UNet_Grid_Attention,,  # XAttentionUNet,  # UNet3D,
         # UNet3D
         # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
@@ -671,7 +671,7 @@ def main():
                           data_dimensions=settings.DATA_DIMENSIONS,
                           is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
                           init_type=UNet3InitMethod.KAIMING,
-                          dsv=True, multi_preds=False
+                          dsv=False, multi_preds=True
                           ),
         # ModularUNet4Plus
         # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, isolate=True,
@@ -732,7 +732,7 @@ def main():
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
             settings.DIR_CHECKPOINTS, 'ct82',  'unet3d', 'exp1'),
-        tensorboard=False,
+        tensorboard=True,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
         plot_to_disk=False,
