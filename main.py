@@ -732,7 +732,7 @@ def main():
         ini_checkpoint='',
         dir_checkpoints=os.path.join(
             settings.DIR_CHECKPOINTS, 'ct82',  'unet3d', 'exp1'),
-        tensorboard=True,
+        tensorboard=False,
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
         plot_to_disk=False,
