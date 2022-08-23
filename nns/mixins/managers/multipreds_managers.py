@@ -30,8 +30,8 @@ __all__ = ['MultiPredsModelMGRMixin']
 class MultiPredsModelMGRMixin(ModularTorchMetricsMixin, BaseModelMGR):
     """
     General segmentation manager mixin for models that returns multiple masks/logits and use an single
-    optimizers. All the losses from the masks are added together and updates the weights using
-    one optimizer.
+    optimizers. All the losses from the masks are backpropagated individually; then, the model weights are
+    updated using the unique optimizer.
 
     Note: The model passed to the manager must have a module_names attribute containing the some names
     representing the output masks. Thus, if the model returns 4 prediction masks, then its module_names
@@ -214,12 +214,16 @@ class MultiPredsModelMGRMixin(ModularTorchMetricsMixin, BaseModelMGR):
                     optimizer.zero_grad()
 
                     if self.cuda:
-                        scaler.scale(sum(batch_train_loss)).backward(retain_graph=True)
+                        # scaler.scale(sum(batch_train_loss)).backward(retain_graph=True)
+                        for bt_loss in batch_train_loss:
+                            scaler.scale(bt_loss).backward(retain_graph=True)
                         nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                         scaler.step(optimizer)
                         scaler.update()
                     else:
-                        sum(batch_train_loss).backward(retain_graph=True)
+                        # sum(batch_train_loss).backward(retain_graph=True)
+                        for bt_loss in batch_train_loss:
+                            bt_loss.backward(retain_graph=True)
                         nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                         optimizer.step()
 

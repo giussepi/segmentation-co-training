@@ -19,9 +19,14 @@ __all__ = ['MultiPredsModelMGR']
 
 class MultiPredsModelMGR(MultiPredsModelMGRMixin):
     """
-    General segmentation manager for models that returns multiple masks/logits and use an single
-    optimizers. All the losses from the masks are added together and updates the weights using
-    a single optimizer.
+    General segmentation manager class for models that returns multiple masks/logits and use a single
+    optimizer. All the losses from the masks are backpropagated individually; then, the model weights are
+    updated using the unique optimizer.
+
+    Note: The model passed to the manager must have a module_names attribute containing the some names
+    representing the output masks. Thus, if the model returns 4 prediction masks, then its module_names
+    attribute should have 4 names e.g. self.module_names = ['de1', 'de2', 'd3', 'd4']
+
     """
 
     def get_validation_data(self, batch):
