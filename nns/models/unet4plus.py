@@ -19,6 +19,9 @@ class UNet4Plus(torch.nn.Module, InitMixin):
     Unet4+
 
     Based on https://github.com/ozan-oktay/Attention-Gated-Networks/blob/master/models/networks/unet_3D.py
+
+    When multi_preds = False use the standard ModelMGR
+         multi_preds = True use MultiPredsModelMGR
     """
 
     def __init__(
@@ -134,6 +137,9 @@ class UNet4Plus(torch.nn.Module, InitMixin):
                 # TODO: what if I concatenate all the decoder outputs and use a single
                 #       large conv to create the final mask
                 # self.outc = convxd(filters[0]*4,  self.n_classes, kernel_size=1, stride=1, padding=0)
+            else:
+                # outputs names [required by MultiPredsModelMGR]
+                self.module_names = ['de1', 'de2', 'de3', 'de4']
         else:
             self.outc = convxd(filters[0], self.n_classes, kernel_size=1, stride=1, padding=0)
 
@@ -181,8 +187,6 @@ class UNet4Plus(torch.nn.Module, InitMixin):
                 # opt 1 : normal DSV
                 logits = self.outc(torch.cat([dsv_de1_1, dsv_de2_1, dsv_de3_1, dsv_de4_1], dim=1))
                 # opt 2: sum them all and use self.final(mean(summation))
-                # opt 3: return 4 dsvs to have 4 losses
-                # opt 4: split the NN in 4 isolated modules and handle 4 dsvs separately
             else:
                 # multiple predictions ########################################
                 logits = (dsv_de1_1, dsv_de2_1, dsv_de3_1, dsv_de4_1)
