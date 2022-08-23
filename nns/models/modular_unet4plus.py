@@ -235,6 +235,8 @@ class UNetExtension(torch.nn.Module, InitMixin):
 class ModularUNet4Plus(torch.nn.Module, InitMixin):
     """
     Modular Unet4+
+
+    Run it using ModularModelMGR
     """
 
     def __init__(
