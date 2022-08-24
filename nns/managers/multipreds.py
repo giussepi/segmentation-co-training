@@ -118,7 +118,7 @@ class MultiPredsModelMGR(MultiPredsModelMGRMixin):
             imgs, true_masks, masks_pred, labels, label_names, num_crops = self.get_validation_data(batch)
 
             if not testing:
-                for masks in masks_pred:
+                for idx, masks in enumerate(masks_pred):
                     if masks.shape != true_masks.shape:
                         true_masks_ = (F.interpolate(
                             true_masks, size=masks.size()[2:], mode=interpolate_mode, align_corners=False
@@ -126,7 +126,11 @@ class MultiPredsModelMGR(MultiPredsModelMGRMixin):
                     else:
                         true_masks_ = true_masks
 
-                    losses.append(self.calculate_loss(self.criterions, masks, true_masks_))
+                    # applying lenient masks to first decoder output
+                    if idx == 0:
+                        losses.append(self.calculate_loss(self.criterions, masks, true_masks_*.85))
+                    else:
+                        losses.append(self.calculate_loss(self.criterions, masks, true_masks_))
 
                     # IMPORTANT NOTE:
                     # when using online data augmentation, it can return X crops instead of 1, so
@@ -278,7 +282,7 @@ class MultiPredsModelMGR(MultiPredsModelMGRMixin):
             masks_pred = self.model(imgs)
             assert isinstance(masks_pred, (list, tuple)), type(masks_pred)
 
-            for masks in masks_pred:
+            for idx, masks in enumerate(masks_pred):
                 if masks.shape != true_masks.shape:
                     true_masks_ = (F.interpolate(
                         true_masks, size=masks.size()[2:], mode=interpolate_mode, align_corners=False
@@ -286,7 +290,11 @@ class MultiPredsModelMGR(MultiPredsModelMGRMixin):
                 else:
                     true_masks_ = true_masks
 
-                losses.append(self.calculate_loss(self.criterions, masks, true_masks_))
+                # applying lenient masks to first decoder output
+                if idx == 0:
+                    losses.append(self.calculate_loss(self.criterions, masks, true_masks_*.85))
+                else:
+                    losses.append(self.calculate_loss(self.criterions, masks, true_masks_))
 
                 # IMPORTANT NOTE:
                 # when using online data augmentation, it can return X crops instead of 1, so
