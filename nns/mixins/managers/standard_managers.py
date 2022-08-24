@@ -804,21 +804,17 @@ If true it track the loss values, else it tracks the metric values.
                     pred, true_masks, imgs, batch_train_loss, metrics, labels, label_names = \
                         self.training_step(batch)
                     epoch_train_loss += sum([v.item() for v in batch_train_loss.values()])
-                    batch_train_loss_for_printing = batch_train_loss
-                    batch_train_loss = batch_train_loss['down1'] + batch_train_loss['down2'] + \
-                        batch_train_loss['down3'] + batch_train_loss['down4'] +  \
-                        batch_train_loss['up1da'] + batch_train_loss['up2da'] +  \
-                        batch_train_loss['up3da'] + batch_train_loss['up4'] + \
-                        batch_train_loss['general']
                     optimizer.zero_grad()
 
                     if self.cuda:
-                        scaler.scale(batch_train_loss).backward(retain_graph=True)
+                        for bt_loss in batch_train_loss.values():
+                            scaler.scale(bt_loss).backward(retain_graph=True)
                         nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                         scaler.step(optimizer)
                         scaler.update()
                     else:
-                        batch_train_loss.backward(retain_graph=True)
+                        for bt_loss in batch_train_loss.values():
+                            bt_loss.backward(retain_graph=True)
                         nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                         optimizer.step()
 
@@ -833,7 +829,7 @@ If true it track the loss values, else it tracks the metric values.
                         current_epoch_train_loss = torch.tensor(
                             epoch_train_loss/(intrain_val_counter*step_divider))
                         # printing AE losses
-                        for k, v in batch_train_loss_for_printing.items():
+                        for k, v in batch_train_loss.items():
                             print(f'{k}: {v.item()}')
                         ##
                         val_loss, val_metrics, val_extra_data = self.validation(dataloader=self.val_loader)
