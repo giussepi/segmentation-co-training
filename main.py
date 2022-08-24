@@ -654,20 +654,13 @@ def main():
         #     dsv=True,
         # ),
         # XAttentionAENet
-        model_kwargs=dict(da_block_cls=intra_model.AttentionBlock,
-                          # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
-                          # da_block_config=dict(n_channels=-1),
-                          # is_deconv=True,
-                          # feature_scale=1, is_batchnorm=True,
-                          bilinear=False,  # XAttentionUNet only
-                          n_channels=1, n_classes=1,
-                          init_type=UNet3InitMethod.KAIMING,
-                          data_dimensions=settings.DATA_DIMENSIONS,
-                          batchnorm_cls=get_batchnormxd_class(),
-                          dsv=True,
-                          ae_loss=torch.nn.MSELoss(),  # torch.nn.L1Loss()
-                          isolated_aes=True
-                          ),
+        model_kwargs=dict(
+            n_channels=1, n_classes=1, bilinear=False,
+            batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
+            data_dimensions=settings.DATA_DIMENSIONS, da_block_cls=intra_model.MixedEmbeddedDABlock,
+            dsv=True, ae_loss=torch.nn.MSELoss(),  # torch.nn.L1Loss()
+            isolated_aes=True
+        ),
         # UNet_Att_DSV
         # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
         #                   attention_block_cls=SingleAttentionBlock, data_dimensions=settings.DATA_DIMENSIONS),
