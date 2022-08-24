@@ -149,7 +149,14 @@ class MultiPredsModelMGR(MultiPredsModelMGRMixin):
                 # FIXME try calculating the metric without the threshold
                 pred = (pred > self.mask_threshold).float()
 
-            getattr(self, f'valid_metrics{idx}').update(pred, true_masks)
+            if pred.shape != true_masks.shape:
+                true_masks_ = (F.interpolate(
+                    true_masks, size=pred.size()[2:], mode=interpolate_mode, align_corners=False
+                ) >= self.mask_threshold).float()
+            else:
+                true_masks_ = true_masks
+
+            getattr(self, f'valid_metrics{idx}').update(pred, true_masks_)
 
         extra_data = dict(
             imgs=imgs.detach().cpu(), pred=pred.detach().cpu(), true_masks=true_masks.detach().cpu(),
@@ -304,7 +311,15 @@ class MultiPredsModelMGR(MultiPredsModelMGRMixin):
             pred = torch.sigmoid(pred) if self.module.n_classes == 1 else torch.softmax(pred, dim=1)
             # FIXME try calculating the metric without the threshold
             pred = (pred > self.mask_threshold).float()
-            metrics.append(getattr(self, f'train_metrics{idx}')(pred, true_masks))
+
+            if pred.shape != true_masks.shape:
+                true_masks_ = (F.interpolate(
+                    true_masks, size=pred.size()[2:], mode=interpolate_mode, align_corners=False
+                ) >= self.mask_threshold).float()
+            else:
+                true_masks_ = true_masks
+
+            metrics.append(getattr(self, f'train_metrics{idx}')(pred, true_masks_))
 
         # NOTE: we return the last pred
 
