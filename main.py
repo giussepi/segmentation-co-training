@@ -965,7 +965,7 @@ def main():
     # image tiles, containing 24,319 exhaustively annotated nuclei with
     # associated class labels.
 
-    # consep 26 train 14 test
+    # consep 26 train 14 test, all 41 images extracted from 16 WSIs
     ###############################################################################
 
 
