@@ -671,7 +671,7 @@ def main():
             n_channels=1, n_classes=1, bilinear=False,
             batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
             data_dimensions=settings.DATA_DIMENSIONS, da_block_cls=intra_model.MixedEmbeddedDABlock,
-            dsv=True, isolated_aes=True
+            dsv=True, isolated_aes=False
         ),
         # Unet4Plus
         # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1,
