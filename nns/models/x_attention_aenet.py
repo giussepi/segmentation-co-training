@@ -206,7 +206,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             self.n_classes, self.data_dimensions
         )
         self.ae_up4 = OutConv(
-            self.up4.up_ae.in_channels if self.isolated_aes else self.up.ae.in_channels,
+            self.up4.up_ae.in_channels if self.isolated_aes else self.up4.ae.in_channels,
             self.n_classes, self.data_dimensions
         )
 
