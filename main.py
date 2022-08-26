@@ -560,72 +560,72 @@ def main():
     # model5.plot_and_save(None, 154)
 
     # model6 = dict(
-    model6 = ModelMGR(
-        model=XAttentionUNet_DSV2,  # XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
-        model_kwargs=dict(da_block_cls=intra_model.AttentionBlock,
-                          # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
-                          # da_block_config=dict(n_channels=-1),
-                          # is_deconv=True,
-                          # feature_scale=1, is_batchnorm=True,
-                          bilinear=False,  # XAttentionUNet only
-                          n_channels=3, n_classes=1,
-                          init_type=UNet3InitMethod.KAIMING,
-                          data_dimensions=settings.DATA_DIMENSIONS,
-                          batchnorm_cls=get_batchnormxd_class(),
-                          dsv=True,
-                          ),
-        cuda=settings.CUDA,
-        multigpus=settings.MULTIGPUS,
-        patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=20,  # 30
-        intrain_val=2,  # 2
-        optimizer=torch.optim.Adam,
-        optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
-        sanity_checks=False,
-        labels_data=BinaryCoNSeP,
-        data_dimensions=settings.DATA_DIMENSIONS,
-        dataset=OfflineCoNSePDataset,
-        dataset_kwargs={
-            'train_path': settings.CONSEP_TRAIN_PATH,
-            'val_path': settings.CONSEP_VAL_PATH,
-            'test_path': settings.CONSEP_TEST_PATH,
-            'cotraining': settings.COTRAINING,
-        },
-        train_dataloader_kwargs={
-            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
-        },
-        testval_dataloader_kwargs={
-            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-        },
-        lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
-        # TODO: the mode can change based on the quantity monitored
-        # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
-        lr_scheduler_track=LrShedulerTrack.LOSS,
-        criterions=[
-            # torch.nn.BCEWithLogitsLoss()
-            # torch.nn.CrossEntropyLoss()
-            loss_functions.BceDiceLoss(with_logits=True),
-            # BceDiceLoss(),
-            # loss_functions.SpecificityLoss(with_logits=True), # now it's throwing an exception :/
-        ],
-        mask_threshold=0.5,
-        metrics=settings.METRICS,
-        metric_mode=MetricEvaluatorMode.MAX,
-        earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
-        checkpoint_interval=0,
-        train_eval_chkpt=False,
-        last_checkpoint=True,
-        ini_checkpoint='',
-        dir_checkpoints=os.path.join(
-            settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'unet_3plus_intra_da'),
-        tensorboard=False,
-        # TODO: there a bug that appeared once when plotting to disk after a long training
-        # anyway I can always plot from the checkpoints :)
-        plot_to_disk=False,
-        plot_dir=settings.PLOT_DIRECTORY
-    )
-    model6()
+    # model6 = ModelMGR(
+    #     model=XAttentionUNet_DSV2,  # XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
+    #     model_kwargs=dict(da_block_cls=intra_model.AttentionBlock,
+    #                       # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
+    #                       # da_block_config=dict(n_channels=-1),
+    #                       # is_deconv=True,
+    #                       # feature_scale=1, is_batchnorm=True,
+    #                       bilinear=False,  # XAttentionUNet only
+    #                       n_channels=3, n_classes=1,
+    #                       init_type=UNet3InitMethod.KAIMING,
+    #                       data_dimensions=settings.DATA_DIMENSIONS,
+    #                       batchnorm_cls=get_batchnormxd_class(),
+    #                       dsv=True,
+    #                       ),
+    #     cuda=settings.CUDA,
+    #     multigpus=settings.MULTIGPUS,
+    #     patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+    #     epochs=20,  # 30
+    #     intrain_val=2,  # 2
+    #     optimizer=torch.optim.Adam,
+    #     optimizer_kwargs=dict(lr=1e-4),  # lr=1e-3
+    #     sanity_checks=False,
+    #     labels_data=BinaryCoNSeP,
+    #     data_dimensions=settings.DATA_DIMENSIONS,
+    #     dataset=OfflineCoNSePDataset,
+    #     dataset_kwargs={
+    #         'train_path': settings.CONSEP_TRAIN_PATH,
+    #         'val_path': settings.CONSEP_VAL_PATH,
+    #         'test_path': settings.CONSEP_TEST_PATH,
+    #         'cotraining': settings.COTRAINING,
+    #     },
+    #     train_dataloader_kwargs={
+    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+    #     },
+    #     testval_dataloader_kwargs={
+    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+    #     },
+    #     lr_scheduler=torch.optim.lr_scheduler.ReduceLROnPlateau,  # torch.optim.lr_scheduler.StepLR,
+    #     # TODO: the mode can change based on the quantity monitored
+    #     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+    #     lr_scheduler_kwargs={'mode': 'min', 'patience': 4},  # {'step_size': 10, 'gamma': 0.1},
+    #     lr_scheduler_track=LrShedulerTrack.LOSS,
+    #     criterions=[
+    #         # torch.nn.BCEWithLogitsLoss()
+    #         # torch.nn.CrossEntropyLoss()
+    #         loss_functions.BceDiceLoss(with_logits=True),
+    #         # BceDiceLoss(),
+    #         # loss_functions.SpecificityLoss(with_logits=True), # now it's throwing an exception :/
+    #     ],
+    #     mask_threshold=0.5,
+    #     metrics=settings.METRICS,
+    #     metric_mode=MetricEvaluatorMode.MAX,
+    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=10, metric=True),
+    #     checkpoint_interval=0,
+    #     train_eval_chkpt=False,
+    #     last_checkpoint=True,
+    #     ini_checkpoint='',
+    #     dir_checkpoints=os.path.join(
+    #         settings.DIR_CHECKPOINTS, 'consep', 'cotraining', 'exp109', 'unet_3plus_intra_da'),
+    #     tensorboard=False,
+    #     # TODO: there a bug that appeared once when plotting to disk after a long training
+    #     # anyway I can always plot from the checkpoints :)
+    #     plot_to_disk=False,
+    #     plot_dir=settings.PLOT_DIRECTORY
+    # )
+    # model6()
     # model6.print_data_logger_summary()
     # model6.plot_and_save(None, 154)
     # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
@@ -635,81 +635,76 @@ def main():
     #                           Working with 3D data                          #
     ###########################################################################
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
-    # model7 = ModelMGR(
-    #     model=XAttentionUNet_DSV2,  # UNet_Att_DSV,  # UNet_Grid_Attention,,  # XAttentionUNet,  # UNet3D,
-    #     # UNet3D
-    #     # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
-    #     # XAttentionUNet & XGridAttentionUNet
-    #     model_kwargs=dict(
-    #         n_channels=1, n_classes=1,
-    #         bilinear=False,
-    #         batchnorm_cls=get_batchnormxd_class(),
-    #         init_type=UNet3InitMethod.KAIMING,
-    #         data_dimensions=settings.DATA_DIMENSIONS,
-    #         da_block_cls=intra_model.CombinedDABlock,
-    #         da_block_config={'xi': 1.},
-    #         # da_block_config={'thresholds': (.25, .8), 'beta': -1},
-    #         dsv=True,
-    #     ),
-    #     # UNet_Att_DSV
-    #     # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
-    #     #                   attention_block_cls=SingleAttentionBlock, data_dimensions=settings.DATA_DIMENSIONS),
-    #     # UNet_Grid_Attention
-    #     # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
-    #     #                   data_dimensions=settings.DATA_DIMENSIONS),
-    #     cuda=settings.CUDA,
-    #     multigpus=settings.MULTIGPUS,
-    #     patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-    #     epochs=1000,  # 1000
-    #     intrain_val=2,
-    #     optimizer=torch.optim.Adam,
-    #     optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
-    #     sanity_checks=False,
-    #     labels_data=CT82Labels,
-    #     data_dimensions=settings.DATA_DIMENSIONS,
-    #     dataset=CT82Dataset,
-    #     dataset_kwargs={
-    #         'train_path': settings.CT82_TRAIN_PATH,
-    #         'val_path': settings.CT82_VAL_PATH,
-    #         'test_path': settings.CT82_TEST_PATH,
-    #         'cotraining': settings.COTRAINING,
-    #         'cache': settings.DB_CACHE,
-    #     },
-    #     train_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
-    #     },
-    #     testval_dataloader_kwargs={
-    #         'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
-    #     },
-    #     lr_scheduler=torch.optim.lr_scheduler.StepLR,
-    #     lr_scheduler_kwargs={'step_size': 250, 'gamma': 0.5},
-    #     # TODO: the mode can change based on the quantity monitored
-    #     # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-    #     lr_scheduler_track=LrShedulerTrack.NO_ARGS,
-    #     criterions=[
-    #         # torch.nn.BCEWithLogitsLoss()
-    #         # torch.nn.CrossEntropyLoss()
-    #         loss_functions.BceDiceLoss(with_logits=True),
-    #         # BceDiceLoss(),
-    #         # loss_functions.SpecificityLoss(with_logits=True),
-    #     ],
-    #     mask_threshold=0.5,
-    #     metrics=settings.METRICS,
-    #     metric_mode=MetricEvaluatorMode.MAX,
-    #     earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),  # patience=10
-    #     checkpoint_interval=0,
-    #     train_eval_chkpt=False,
-    #     last_checkpoint=True,
-    #     ini_checkpoint='',
-    #     dir_checkpoints=os.path.join(
-    #         settings.DIR_CHECKPOINTS, 'ct82',  'unet3d', 'exp1'),
-    #     tensorboard=False,
-    #     # TODO: there a bug that appeared once when plotting to disk after a long training
-    #     # anyway I can always plot from the checkpoints :)
-    #     plot_to_disk=False,
-    #     plot_dir=settings.PLOT_DIRECTORY
-    # )
-    # model7()
+    model7 = ModelMGR(
+        model=XAttentionUNet_DSV2,  # UNet_Att_DSV,  # UNet_Grid_Attention,,  # XAttentionUNet,  # UNet3D,
+        # UNet3D
+        # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
+        # XAttentionUNet & XGridAttentionUNet
+        model_kwargs=dict(
+            n_channels=1, n_classes=1, bilinear=False,
+            batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
+            data_dimensions=settings.DATA_DIMENSIONS, da_block_cls=intra_model.MixedEmbeddedDABlock,
+            dsv=True
+        ),
+        # UNet_Att_DSV
+        # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
+        #                   attention_block_cls=SingleAttentionBlock, data_dimensions=settings.DATA_DIMENSIONS),
+        # UNet_Grid_Attention
+        # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
+        #                   data_dimensions=settings.DATA_DIMENSIONS),
+        cuda=settings.CUDA,
+        multigpus=settings.MULTIGPUS,
+        patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+        epochs=1000,  # 1000
+        intrain_val=2,
+        optimizer=torch.optim.Adam,
+        optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
+        sanity_checks=False,
+        labels_data=CT82Labels,
+        data_dimensions=settings.DATA_DIMENSIONS,
+        dataset=CT82Dataset,
+        dataset_kwargs={
+            'train_path': settings.CT82_TRAIN_PATH,
+            'val_path': settings.CT82_VAL_PATH,
+            'test_path': settings.CT82_TEST_PATH,
+            'cotraining': settings.COTRAINING,
+            'cache': settings.DB_CACHE,
+        },
+        train_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+        },
+        testval_dataloader_kwargs={
+            'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+        },
+        lr_scheduler=torch.optim.lr_scheduler.StepLR,
+        lr_scheduler_kwargs={'step_size': 250, 'gamma': 0.5},
+        # TODO: the mode can change based on the quantity monitored
+        # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        lr_scheduler_track=LrShedulerTrack.NO_ARGS,
+        criterions=[
+            # torch.nn.BCEWithLogitsLoss()
+            # torch.nn.CrossEntropyLoss()
+            loss_functions.BceDiceLoss(with_logits=True),
+            # BceDiceLoss(),
+            # loss_functions.SpecificityLoss(with_logits=True),
+        ],
+        mask_threshold=0.5,
+        metrics=settings.METRICS,
+        metric_mode=MetricEvaluatorMode.MAX,
+        earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),  # patience=10
+        checkpoint_interval=0,
+        train_eval_chkpt=False,
+        last_checkpoint=True,
+        ini_checkpoint='',
+        dir_checkpoints=os.path.join(
+            settings.DIR_CHECKPOINTS, 'ct82',  'unet3d', 'exp1'),
+        tensorboard=False,
+        # TODO: there a bug that appeared once when plotting to disk after a long training
+        # anyway I can always plot from the checkpoints :)
+        plot_to_disk=False,
+        plot_dir=settings.PLOT_DIRECTORY
+    )
+    model7()
     # model7.print_data_logger_summary()
     # model7.plot_and_save(None, 154)
     # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
