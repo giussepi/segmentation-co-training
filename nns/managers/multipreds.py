@@ -27,6 +27,68 @@ class MultiPredsModelMGR(MultiPredsModelMGRMixin):
     representing the output masks. Thus, if the model returns 4 prediction masks, then its module_names
     attribute should have 4 names e.g. self.module_names = ['de1', 'de2', 'd3', 'd4']
 
+    Usage:
+        model7 = MultiPredsModelMGR(
+            model=XAttentionAENet,
+            model_kwargs=dict(
+                n_channels=1, n_classes=1, bilinear=False,
+                batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
+                data_dimensions=settings.DATA_DIMENSIONS, da_block_cls=intra_model.MixedEmbeddedDABlock,
+                dsv=True, isolated_aes=False
+            ),
+            cuda=settings.CUDA,
+            multigpus=settings.MULTIGPUS,
+            patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
+            epochs=1000,  # 1000
+            intrain_val=2,
+            optimizer=torch.optim.Adam,
+            optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
+            sanity_checks=False,
+            labels_data=CT82Labels,
+            data_dimensions=settings.DATA_DIMENSIONS,
+            dataset=CT82Dataset,
+            dataset_kwargs={
+                'train_path': settings.CT82_TRAIN_PATH,
+                'val_path': settings.CT82_VAL_PATH,
+                'test_path': settings.CT82_TEST_PATH,
+                'cotraining': settings.COTRAINING,
+                'cache': settings.DB_CACHE,
+            },
+            train_dataloader_kwargs={
+                'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False
+            },
+            testval_dataloader_kwargs={
+                'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS, 'pin_memory': False, 'drop_last': True
+            },
+            lr_scheduler=torch.optim.lr_scheduler.StepLR,
+            lr_scheduler_kwargs={'step_size': 250, 'gamma': 0.5},
+            # TODO: the mode can change based on the quantity monitored
+            # get inspiration from https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+            lr_scheduler_track=LrShedulerTrack.NO_ARGS,
+            criterions=[
+                # torch.nn.BCEWithLogitsLoss()
+                # torch.nn.CrossEntropyLoss()
+                loss_functions.BceDiceLoss(with_logits=True),
+                # BceDiceLoss(),
+                # loss_functions.SpecificityLoss(with_logits=True),
+            ],
+            mask_threshold=0.5,
+            metrics=settings.METRICS,
+            metric_mode=MetricEvaluatorMode.MAX,
+            earlystopping_kwargs=dict(min_delta=1e-3, patience=np.inf, metric=True),  # patience=10
+            checkpoint_interval=0,
+            train_eval_chkpt=False,
+            last_checkpoint=True,
+            ini_checkpoint='',
+            dir_checkpoints=os.path.join(
+                settings.DIR_CHECKPOINTS, 'ct82',  'unet3d', 'exp1'),
+            tensorboard=False,
+            # TODO: there a bug that appeared once when plotting to disk after a long training
+            # anyway I can always plot from the checkpoints :)
+            plot_to_disk=False,
+            plot_dir=settings.PLOT_DIRECTORY
+        )
+        model7()
     """
 
     def get_validation_data(self, batch):
