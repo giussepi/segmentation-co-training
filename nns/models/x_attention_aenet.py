@@ -2,7 +2,7 @@
 """ nns/models/x_attention_aenet """
 
 from collections import namedtuple
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union, Dict
 
 import torch
 from logzero import logger
@@ -10,6 +10,7 @@ from gtorch_utils.nns.models.segmentation.unet.unet_parts import DoubleConv, AED
     AEUpConcat, AEUpConcat2, UnetDsv, UnetGridGatingSignal
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from torch.nn.modules.batchnorm import _BatchNorm
+from torch.nn.modules.loss import _Loss
 
 from nns.models.layers.disagreement_attention.intra_model import AttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
@@ -30,7 +31,8 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
     Based on: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_model.py and
     https://github.com/ozan-oktay/Attention-Gated-Networks/blob/master/models/networks/unet_CT_single_att_dsv_3D.py
 
-    Use it with MultiPredsModelMGR
+    When true_aes = False use MultiPredsModelMGR
+         true_aes = True use AEsModelMGR
     """
 
     def __init__(
@@ -39,7 +41,8 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             data_dimensions: int = 2,
             da_block_cls: BaseDisagreementAttentionBlock = AttentionBlock,
             da_block_config: Optional[dict] = None,
-            dsv: bool = True, isolated_aes: bool = True
+            dsv: bool = True, isolated_aes: bool = True, true_aes: bool = False,
+            aes_loss: Optional[_Loss] = None
     ):
         """
         Initializes the object instance
@@ -62,7 +65,13 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
                                     They will be removed because they are properly defined per
                                     AttentionConvBlock. Default None
              dsv            <bool>: Whether or not apply deep supervision. Default True
-             isolated_aes   <bool>: Whether or not to use isolated AutoEncoders. Default True
+             isolated_aes   <bool>: Whether or not to use isolated AutoEncoders. Default True,
+             true_aes       <bool>: If True the AEs' inputs will be used as targets (normal AEs behaviour),
+                                    otherwrise, interpolated masks will be the targets.
+                                    Default False
+             aes_loss      <_Loss>: Instance of a subclass of _Loss to be used with the autoencoders.
+                                    This option is employed only when true_aes is True.
+                                    Default torch.nn.MSELoss()
         """
         super().__init__()
 
@@ -76,6 +85,8 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
         self.da_block_cls = da_block_cls
         self.dsv = dsv
         self.isolated_aes = isolated_aes
+        self.true_aes = true_aes
+        self.aes_loss = aes_loss if aes_loss else torch.nn.MSELoss()  # torch.nn.L1Loss()
 
         if da_block_config:
             assert isinstance(da_block_config, dict), type(da_block_config)
@@ -96,6 +107,8 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             f'{self.da_block_cls} is not a descendant of BaseDisagreementAttentionBlock'
         assert isinstance(self.dsv, bool), type(self.dsv)
         assert isinstance(self.isolated_aes, bool), type(self.isolated_aes)
+        assert isinstance(self.true_aes, bool), type(self.true_aes)
+        assert isinstance(self.aes_loss, _Loss), type(self.aes_loss)
 
         # adding extra configuration to da_block_config
         self.da_block_config['batchnorm_cls'] = self.batchnorm_cls
@@ -188,28 +201,6 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
 
         convxd = torch.nn.Conv2d if self.data_dimensions == 2 else torch.nn.Conv3d
 
-        # encoders outputs ####################################################
-        self.ae_down1 = OutConv(self.filters[0], self.n_classes, self.data_dimensions)
-        self.ae_down2 = OutConv(self.filters[1], self.n_classes, self.data_dimensions)
-        self.ae_down3 = OutConv(self.filters[2], self.n_classes, self.data_dimensions)
-        self.ae_down4 = OutConv(self.filters[3], self.n_classes, self.data_dimensions)
-        self.ae_up1 = OutConv(
-            self.up1_with_da.dattentionblock.m2_act if self.isolated_aes else self.up1_with_da.conv_in_channels,
-            self.n_classes, self.data_dimensions
-        )
-        self.ae_up2 = OutConv(
-            self.up2_with_da.dattentionblock.m2_act if self.isolated_aes else self.up2_with_da.conv_in_channels,
-            self.n_classes, self.data_dimensions
-        )
-        self.ae_up3 = OutConv(
-            self.up3_with_da.dattentionblock.m2_act if self.isolated_aes else self.up3_with_da.conv_in_channels,
-            self.n_classes, self.data_dimensions
-        )
-        self.ae_up4 = OutConv(
-            self.up4.up_ae.in_channels if self.isolated_aes else self.up4.ae.in_channels,
-            self.n_classes, self.data_dimensions
-        )
-
         if self.dsv:
             # deep supervision ################################################
             self.dsv1 = UnetDsv(
@@ -229,21 +220,45 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
         else:
             self.outc = OutConv(self.filters[0], self.n_classes, self.data_dimensions)
 
+        if not self.true_aes:
+            # encoders outputs ####################################################
+            self.ae_down1 = OutConv(self.filters[0], self.n_classes, self.data_dimensions)
+            self.ae_down2 = OutConv(self.filters[1], self.n_classes, self.data_dimensions)
+            self.ae_down3 = OutConv(self.filters[2], self.n_classes, self.data_dimensions)
+            self.ae_down4 = OutConv(self.filters[3], self.n_classes, self.data_dimensions)
+            self.ae_up1 = OutConv(
+                self.up1_with_da.dattentionblock.m2_act if self.isolated_aes else self.up1_with_da.conv_in_channels,
+                self.n_classes, self.data_dimensions
+            )
+            self.ae_up2 = OutConv(
+                self.up2_with_da.dattentionblock.m2_act if self.isolated_aes else self.up2_with_da.conv_in_channels,
+                self.n_classes, self.data_dimensions
+            )
+            self.ae_up3 = OutConv(
+                self.up3_with_da.dattentionblock.m2_act if self.isolated_aes else self.up3_with_da.conv_in_channels,
+                self.n_classes, self.data_dimensions
+            )
+            self.ae_up4 = OutConv(
+                self.up4.up_ae.in_channels if self.isolated_aes else self.up4.ae.in_channels,
+                self.n_classes, self.data_dimensions
+            )
+
+            # outputs names [required by MultiPredsModelMGR]
+            self.module_names = [
+                'ae_down1', 'ae_down2', 'ae_down3', 'ae_down4',
+                'ae_up1', 'ae_up2', 'ae_up3', 'ae_up4',
+                'outc'
+            ]
+
         # initializing weights ################################################
         self.initialize_weights(self.init_type, layers_cls=(convxd, self.batchnorm_cls))
 
-        # outputs names [required by MultiPredsModelMGR]
-        self.module_names = [
-            'ae_down1', 'ae_down2', 'ae_down3', 'ae_down4',
-            'ae_up1', 'ae_up2', 'ae_up3', 'ae_up4',
-            'outc'
-        ]
-
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Union[Tuple[torch.Tensor, Dict[str, Data]], Tuple[torch.Tensor]]:
         """
 
         Returns:
-            logits <Tuple[torch.Tensor]>
+            When self.true_aes == True:  Tuple[torch.Tensor, Dict[str, Data]]
+            When self.true_aes == False: logits <Tuple[torch.Tensor]>
         """
         # encoder #############################################################
         x1 = self.inc(x)
@@ -252,7 +267,9 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
         x4, x4ae = self.down3(x3)
         x5, x5ae = self.down4(x4)
         gating = self.gating(x5)
-        logits = [self.ae_down1(x2ae), self.ae_down2(x3ae), self.ae_down3(x4ae), self.ae_down4(x5ae)]
+
+        if not self.true_aes:
+            logits = [self.ae_down1(x2ae), self.ae_down2(x3ae), self.ae_down3(x4ae), self.ae_down4(x5ae)]
 
         # decoder ############################################################
         if self.isolated_aes:
@@ -261,15 +278,31 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             d2, d2ae = self.up2_with_da(d1, x3)
             d3, d3ae = self.up3_with_da(d2, x2)
             d4, d4ae = self.up4(d3, x1)
-            logits.extend([self.ae_up1(d1ae), self.ae_up2(d2ae), self.ae_up3(d3ae), self.ae_up4(d4ae)])
+
+            if self.true_aes:
+                aes_data = dict(
+                    down1=Data(x1, x2ae), down2=Data(x2, x3ae), down3=Data(x3, x4ae), down4=Data(x4, x5ae),
+                    up1da=Data(x5, d1ae), up2da=Data(d1, d2ae), up3da=Data(d2, d3ae),
+                    up4=Data(d3, d4ae)
+                )
+            else:
+                logits.extend([self.ae_up1(d1ae), self.ae_up2(d2ae), self.ae_up3(d3ae), self.ae_up4(d4ae)])
         else:
             # using AttentionAEConvBlock
             d1, d1ae_out, d1ae_in = self.up1_with_da(x5, x4, central_gating=gating)
             d2, d2ae_out, d2ae_in = self.up2_with_da(d1, x3)
             d3, d3ae_out, d3ae_in = self.up3_with_da(d2, x2)
             d4, d4ae_out, d4ae_in = self.up4(d3, x1)
-            logits.extend([self.ae_up1(d1ae_out), self.ae_up2(d2ae_out),
-                           self.ae_up3(d3ae_out), self.ae_up4(d4ae_out)])
+
+            if self.true_aes:
+                aes_data = dict(
+                    down1=Data(x1, x2ae), down2=Data(x2, x3ae), down3=Data(x3, x4ae), down4=Data(x4, x5ae),
+                    up1da=Data(d1ae_in, d1ae_out), up2da=Data(d2ae_in, d2ae_out),
+                    up3da=Data(d3ae_in, d3ae_out), up4=Data(d4ae_in, d4ae_out)
+                )
+            else:
+                logits.extend([self.ae_up1(d1ae_out), self.ae_up2(d2ae_out),
+                               self.ae_up3(d3ae_out), self.ae_up4(d4ae_out)])
 
         if self.dsv:
             # deep supervision ####################################################
@@ -277,8 +310,18 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             dsv2 = self.dsv2(d2)
             dsv3 = self.dsv3(d3)
             dsv4 = self.dsv4(d4)
-            logits.append(self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1)))
+
+            if self.true_aes:
+                logits = self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1))
+            else:
+                logits.append(self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1)))
         else:
-            logits.append(self.outc(d4))
+            if self.true_aes:
+                logits = self.outc(d4)
+            else:
+                logits.append(self.outc(d4))
+
+        if self.true_aes:
+            return logits, aes_data
 
         return tuple(logits)
