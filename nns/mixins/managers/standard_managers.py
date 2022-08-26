@@ -817,32 +817,38 @@ If true it track the loss values, else it tracks the metric values.
                         batch_loss_list.append(batch_train_loss.item())
 
                     # normal dsv ##############################################
+                    # summing the losses is not right, just use the batch_train_loss_list
                     # batch_train_loss = batch_train_loss_list[0] + batch_train_loss_list[1] + \
                     #     batch_train_loss_list[2] + batch_train_loss_list[3]
+                    batch_train_loss = batch_train_loss_list
                     # dsv modified 1 ##########################################
                     # selecting the loss with the maximum value, i.e. the one that requires
                     # the most to be decreased
                     # per epoch
-                    # batch_train_loss = batch_train_loss_list[np.argmax(epoch_train_loss_list)]
+                    # batch_train_loss = [batch_train_loss_list[np.argmax(epoch_train_loss_list)]]
                     # per batch
-                    # batch_train_loss = batch_train_loss_list[np.argmax(batch_loss_list)]
+                    # batch_train_loss = [batch_train_loss_list[np.argmax(batch_loss_list)]]
                     # dsv modified 2 ##########################################
-                    batch_train_loss = batch_train_loss_list[3]
-                    highest_dsv_loss = np.argmax(epoch_train_loss_list)  # per epoch
-                    # highest_dsv_loss = np.argmax(batch_loss_list)  # per batch
-                    # print(highest_dsv_loss, epoch_train_loss_list)
-                    if highest_dsv_loss != 3:
-                        batch_train_loss = batch_train_loss_list[highest_dsv_loss] + batch_train_loss
+                    # # running the last loss and the one that required the most to be decreased
+                    # # only if it's different than the last loss
+                    # batch_train_loss = batch_train_loss_list[3]
+                    # highest_dsv_loss = np.argmax(epoch_train_loss_list)  # per epoch
+                    # # highest_dsv_loss = np.argmax(batch_loss_list)  # per batch
+                    # # print(highest_dsv_loss, epoch_train_loss_list)
+                    # if highest_dsv_loss != 3:
+                    #     batch_train_loss = [batch_train_loss_list[highest_dsv_loss], batch_train_loss]
                     # end dsv modified 2 ######################################
 
                     optimizer.zero_grad()
                     if self.cuda:
-                        scaler.scale(batch_train_loss).backward(retain_graph=False)
+                        for bt_loss in batch_train_loss:
+                            scaler.scale(bt_loss).backward(retain_graph=True)
                         nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                         scaler.step(optimizer)
                         scaler.update()
                     else:
-                        batch_train_loss.backward(retain_graph=False)
+                        for bt_loss in batch_train_loss:
+                            bt_loss.backward(retain_graph=False)
                         nn.utils.clip_grad_value_(self.model.parameters(), 0.1)
                         optimizer.step()
 
