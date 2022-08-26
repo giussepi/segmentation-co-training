@@ -30,7 +30,7 @@ from ct82.processors import CT82MGR
 from ct82.settings import TRANSFORMS
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
-from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR
+from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
@@ -563,32 +563,25 @@ def main():
     # model6 = MultiPredsModelMGR(
     #     # XAttentionUNet,  # XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
     #     model=UNet4Plus,
-    #     # model_kwargs=dict(da_block_cls=intra_model.AttentionBlock,
-    #     #                   # da_block_config=dict(thresholds=(.25, .8), beta=.4, n_channels=-1),
-    #     #                   # da_block_config=dict(n_channels=-1),
-    #     #                   # is_deconv=True,
-    #     #                   # feature_scale=1, is_batchnorm=True,
-    #     #                   bilinear=False,  # XAttentionUNet only
-    #     #                   n_channels=3, n_classes=1,
-    #     #                   init_type=UNet3InitMethod.KAIMING,
-    #     #                   data_dimensions=settings.DATA_DIMENSIONS,
-    #     #                   batchnorm_cls=get_batchnormxd_class(),
-    #     #                   dsv=True,
-    #     #                   ),
+    #     # XAttentionAENet
+    #     # model_kwargs=dict(
+    #     #     n_channels=3, n_classes=1, bilinear=False,
+    #     #     batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
+    #     #     data_dimensions=settings.DATA_DIMENSIONS, da_block_cls=intra_model.AttentionBlock,
+    #     #     dsv=True, isolated_aes=False, true_aes=True, aes_loss=torch.nn.MSELoss()  # torch.nn.L1Loss()
+    #     # ),
     #     # UNet4Plus
-    #     model_kwargs=dict(feature_scale=1, n_channels=3, n_classes=1,
-    #                       data_dimensions=settings.DATA_DIMENSIONS,
-    #                       is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
-    #                       init_type=UNet3InitMethod.KAIMING,
-    #                       dsv=False, multi_preds=True
-    #                       ),
+    #     model_kwargs=dict(
+    #         feature_scale=1, n_channels=3, n_classes=1, data_dimensions=settings.DATA_DIMENSIONS,
+    #         is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
+    #         dsv=False, multi_preds=True
+    #     ),
     #     # ModularUNet4Plus
-    #     # model_kwargs=dict(feature_scale=1, n_channels=3, n_classes=1,
-    #     #                   data_dimensions=settings.DATA_DIMENSIONS,
-    #     #                   is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
-    #     #                   init_type=UNet3InitMethod.KAIMING,
-    #     #                   filters=[64, 128, 256, 512, 1024]
-    #     #                   ),
+    #     # model_kwargs=dict(
+    #     #     feature_scale=1, n_channels=3, n_classes=1, data_dimensions=settings.DATA_DIMENSIONS,
+    #     #     is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
+    #     #     filters=[64, 128, 256, 512, 1024]
+    #     # ),
     #     cuda=settings.CUDA,
     #     multigpus=settings.MULTIGPUS,
     #     patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
@@ -650,19 +643,15 @@ def main():
     #                           Working with 3D data                          #
     ###########################################################################
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
-    model7 = MultiPredsModelMGR(
+    model7 = AEsModelMGR(
         model=XAttentionAENet,
         # UNet3D
         # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
         # XAttentionUNet & XGridAttentionUNet
         # model_kwargs=dict(
-        #     n_channels=1, n_classes=1,
-        #     bilinear=False,
-        #     batchnorm_cls=get_batchnormxd_class(),
-        #     init_type=UNet3InitMethod.KAIMING,
-        #     data_dimensions=settings.DATA_DIMENSIONS,
-        #     da_block_cls=intra_model.CombinedDABlock,
-        #     da_block_config={'xi': 1.},
+        #     n_channels=1, n_classes=1, bilinear=False, batchnorm_cls=get_batchnormxd_class(),
+        #     init_type=UNet3InitMethod.KAIMING, data_dimensions=settings.DATA_DIMENSIONS,
+        #     da_block_cls=intra_model.CombinedDABlock, da_block_config={'xi': 1.},
         #     # da_block_config={'thresholds': (.25, .8), 'beta': -1},
         #     dsv=True,
         # ),
@@ -671,28 +660,30 @@ def main():
             n_channels=1, n_classes=1, bilinear=False,
             batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
             data_dimensions=settings.DATA_DIMENSIONS, da_block_cls=intra_model.MixedEmbeddedDABlock,
-            dsv=True, isolated_aes=False
+            dsv=True, isolated_aes=False, true_aes=True, aes_loss=torch.nn.MSELoss()  # torch.nn.L1Loss()
         ),
         # Unet4Plus
-        # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1,
-        #                   data_dimensions=settings.DATA_DIMENSIONS,
-        #                   is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
-        #                   init_type=UNet3InitMethod.KAIMING,
-        #                   dsv=False, multi_preds=True
-        #                   ),
+        # model_kwargs=dict(
+        #     feature_scale=1, n_channels=1, n_classes=1, data_dimensions=settings.DATA_DIMENSIONS,
+        #     is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
+        #     dsv=False, multi_preds=True
+        # ),
         # ModularUNet4Plus
-        # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, isolate=True,
-        #                   data_dimensions=settings.DATA_DIMENSIONS,
-        #                   is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(),
-        #                   init_type=UNet3InitMethod.KAIMING,
-        #                   filters=[64, 128, 256, 512, 1024]
-        #                   ),
+        # model_kwargs=dict(
+        #     feature_scale=1, n_channels=1, n_classes=1, isolate=True, data_dimensions=settings.DATA_DIMENSIONS,
+        #     is_batchnorm=True, batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
+        #     filters=[64, 128, 256, 512, 1024]
+        # ),
         # UNet_Att_DSV
-        # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
-        #                   attention_block_cls=SingleAttentionBlock, data_dimensions=settings.DATA_DIMENSIONS),
+        # model_kwargs=dict(
+        #     feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
+        #     attention_block_cls=SingleAttentionBlock, data_dimensions=settings.DATA_DIMENSIONS
+        # ),
         # UNet_Grid_Attention
-        # model_kwargs=dict(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
-        #                   data_dimensions=settings.DATA_DIMENSIONS),
+        # model_kwargs=dict(
+        #     feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True,
+        #     data_dimensions=settings.DATA_DIMENSIONS
+        # ),
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,

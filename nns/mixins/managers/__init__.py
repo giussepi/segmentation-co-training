@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """ nns/mixins/managers/__init__ """
 
+from nns.mixins.managers.aes_managers import AEsModelMGRMixin
 from nns.mixins.managers.da_managers import DAModelMGRMixin
 from nns.mixins.managers.modular_managers import ModularModelMGRMixin
 from nns.mixins.managers.multipreds_managers import MultiPredsModelMGRMixin
