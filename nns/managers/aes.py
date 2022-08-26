@@ -18,8 +18,8 @@ __all__ = ['AEsModelMGR']
 
 class AEsModelMGR(AEsModelMGRMixin):
     """
-    General segmentation manager class for models uses AutoEncoders with their own losses that
-    employs a single optimizers to update the model weights. All the AEs' losses including the general
+    General segmentation manager class for models that use AutoEncoders with their own losses and
+    with a single optimizer to update the model weights. All the AEs' losses including the general
     loss are backpropagated individually; then, the model's weights are updated using the unique optimizer.
 
     Note: the model must return
