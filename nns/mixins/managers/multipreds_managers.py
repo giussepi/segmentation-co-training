@@ -39,8 +39,17 @@ class MultiPredsModelMGRMixin(ModularTorchMetricsMixin, BaseModelMGR):
 
     Usage:
         class MyModelMGR(MultiPredsModelMGRMixin):
-           ...
-
+           def get_validation_data(self, batch):
+               <write some code>
+           def validation_step(self, **kwargs):
+               <write some code>
+           def validation_post(self, **kwargs):
+               <write some code>
+           def training_step(self, batch):
+               <write some code>
+           def predict_step(self, patch):
+               <write some code>
+           # overwrite as many methods as necessary/required
     """
 
     def validation(self, **kwargs):
