@@ -120,17 +120,17 @@ class MixedEmbeddedDABlock(BaseDisagreementAttentionBlock):
 
         # idea 1.1 ##############################################################
         # modifying act1 directly
-        if self.upsample:
-            wact2 = self.up(wact2)
-        skip_with_attention = 2 * wact2 + torch.abs(wact2-act1)
-        attention = skip_with_attention/act1
+        # if self.upsample:
+        #     wact2 = self.up(wact2)
+        # skip_with_attention = 2 * wact2 + torch.abs(wact2-act1)
+        # attention = skip_with_attention/act1
 
         # idea 1.2 ##############################################################
-        # attention = self.act_with_attention(2 * wact2 + torch.abs(wact2-wact1))
-        # if self.upsample:
-        #     attention = self.up(attention)
-        # skip_with_attention = act1 * attention
-        # skip_with_attention = self.output(skip_with_attention)
+        attention = self.act_with_attention(2 * wact2 + torch.abs(wact2-wact1))
+        if self.upsample:
+            attention = self.up(attention)
+        skip_with_attention = act1 * attention
+        skip_with_attention = self.output(skip_with_attention)
 
         # idea 2.1 ############################################################
         # if self.upsample:
