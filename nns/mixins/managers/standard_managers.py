@@ -654,8 +654,9 @@ If true it track the loss values, else it tracks the metric values.
                 batch=batch, testing=testing, plot_to_png=plot_to_png, imgs_counter=imgs_counter,
                 mask_plotter=mask_plotter
             )
-            for idx in range(len(loss_list)):
-                loss_list[idx] += loss_list_[idx]
+            if not testing:
+                for idx in range(len(loss_list)):
+                    loss_list[idx] += loss_list_[idx]
             imgs_counter += self.testval_dataloader_kwargs['batch_size']
 
         # total metrics over all validation batches
