@@ -105,15 +105,15 @@ class ModelMGR(ModelMGRMixin):
         assert isinstance(apply_threshold, bool), type(apply_threshold)
 
         loss = torch.tensor(0.)
+        downsample_mode = 'bilinear' if self.module.data_dimensions == 2 else 'trilinear'
 
         with torch.cuda.amp.autocast(enabled=USE_AMP):
             imgs, true_masks, masks_pred, labels, label_names, num_crops = self.get_validation_data(batch)
+            downsampled_true_masks = (F.interpolate(
+                true_masks, size=masks_pred[0].shape[2:], mode=downsample_mode, align_corners=False
+            ) >= self.mask_threshold).float()
 
             if not testing:
-                downsample_mode = 'bilinear' if self.module.data_dimensions == 2 else 'trilinear'
-                downsampled_true_masks = F.interpolate(
-                    true_masks, size=masks_pred[0].shape[2:], mode=downsample_mode, align_corners=False)
-                downsampled_true_masks = (downsampled_true_masks >= self.mask_threshold).float()
                 loss = torch.sum(torch.stack([
                     self.calculate_loss(self.criterions, masks, downsampled_true_masks) for masks in masks_pred
                 ]))
