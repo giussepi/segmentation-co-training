@@ -561,7 +561,7 @@ def main():
     # model5.plot_and_save(None, 154)
 
     # model6 = dict(
-    # model6 = AEsModelMGR(
+    # model6 = MultiPredsModelMGR(
     #     # XAttentionUNet,  # XAttentionUNet,  # UNet_Att_DSV,  # UNet2D,  # UNet_Grid_Attention,  # AttentionUNet2, # UNet_3Plus,
     #     model=XAttentionAENet,
     #     # XAttentionAENet
@@ -569,7 +569,7 @@ def main():
     #         n_channels=3, n_classes=1, bilinear=False,
     #         batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
     #         data_dimensions=settings.DATA_DIMENSIONS, da_block_cls=intra_model.AttentionBlock,
-    #         dsv=True, isolated_aes=False, true_aes=True, aes_loss=torch.nn.MSELoss(),  # torch.nn.L1Loss()
+    #         dsv=True, isolated_aes=False, true_aes=False, aes_loss=torch.nn.MSELoss(),  # torch.nn.L1Loss()
     #         out_ae_cls=MicroUpAE  # TinyUpAE, TinyAE, MicroUpAE, MicroAE
     #     ),
     #     # UNet4Plus
@@ -645,7 +645,7 @@ def main():
     #                           Working with 3D data                          #
     ###########################################################################
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
-    model7 = AEsModelMGR(
+    model7 = MultiPredsModelMGR(
         model=XAttentionAENet,
         # UNet3D
         # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
@@ -662,7 +662,7 @@ def main():
             n_channels=1, n_classes=1, bilinear=False,
             batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
             data_dimensions=settings.DATA_DIMENSIONS, da_block_cls=intra_model.MixedEmbeddedDABlock,
-            dsv=True, isolated_aes=False, true_aes=True, aes_loss=torch.nn.MSELoss(),  # torch.nn.L1Loss()
+            dsv=True, isolated_aes=False, true_aes=False, aes_loss=torch.nn.MSELoss(),  # torch.nn.L1Loss()
             out_ae_cls=MicroUpAE  # TinyUpAE, TinyAE, MicroUpAE, MicroAE
         ),
         # Unet4Plus

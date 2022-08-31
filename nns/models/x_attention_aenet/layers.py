@@ -284,7 +284,7 @@ class OutEncoder(torch.nn.Module):
                  data_dimensions: int = 2, ae_cls: torch.nn.Module = MicroUpAE):
         """
         Kwargs:
-            in_channels      <int>: in channels
+            in_channels      <int>: in channels (channels of x + channels of skip_connection)
             out_channels     <int>: out channels
             batchnom_cls <_BatchNorm>: Batch normalization class. Default torch.nn.BatchNorm2d or
                                     torch.nn.BatchNorm3d
@@ -323,8 +323,20 @@ class OutEncoder(torch.nn.Module):
 
         self.out = OutConv(self.in_channels, self.out_channels, self.data_dimensions)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        _, decoded = self.ae(x)
+    def forward(self, x: torch.Tensor, skip_connection: torch.Tensor, /) -> torch.Tensor:
+        """
+        Kwargs:
+            x               <torch.Tensor>: activation/feature maps
+            skip_connection <torch.Tensor>: skip connection containing activation/feature maps
+
+        Returns:
+            output <torch.Tensor>
+        """
+        assert isinstance(x, torch.Tensor), type(x)
+        assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
+
+        input_ = torch.cat((skip_connection, x), dim=1)
+        _, decoded = self.ae(input_)
         output = self.out(decoded)
 
         return output

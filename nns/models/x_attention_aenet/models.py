@@ -223,13 +223,14 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             )
             self.dsv4 = convxd(in_channels=self.filters[0], out_channels=self.n_classes, kernel_size=1)
             if self.out_ae_cls:
-                self.outc = OutEncoder(self.n_classes*4, self.n_classes, self.batchnorm_cls,
+                self.skip_connection_outc = OutConv(self.filters[0], self.n_classes, self.data_dimensions)
+                self.outc = OutEncoder(self.n_classes*5, self.n_classes, self.batchnorm_cls,
                                        self.data_dimensions, self.out_ae_cls)
             else:
                 self.outc = OutConv(self.n_classes*4, self.n_classes, self.data_dimensions)
         else:
             if self.out_ae_cls:
-                self.outc = OutEncoder(self.filters[0], self.n_classes, self.batchnom_cls,
+                self.outc = OutEncoder(self.filters[0]*2, self.n_classes, self.batchnorm_cls,
                                        self.data_dimensions, self.out_ae_cls)
             else:
                 self.outc = OutConv(self.filters[0], self.n_classes, self.data_dimensions)
@@ -325,17 +326,16 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             dsv3 = self.dsv3(d3)
             dsv4 = self.dsv4(d4)
 
-            if self.true_aes:
-                logits = self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1))
+            if self.out_ae_cls:
+                outc = self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1), self.skip_connection_outc(x1))
             else:
-                logits.append(self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1)))
+                outc = self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1), x1)
         else:
-            if self.true_aes:
-                logits = self.outc(d4)
-            else:
-                logits.append(self.outc(d4))
+            outc = self.outc(d4, x1)
 
         if self.true_aes:
-            return logits, aes_data
+            return outc, aes_data
+
+        logits.append(outc)
 
         return tuple(logits)
