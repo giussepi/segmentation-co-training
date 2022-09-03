@@ -288,7 +288,12 @@ class ModelMGR(ModelMGRMixin):
 
         # FIXME try calculating the metric without the threshold
         pred = (pred > self.mask_threshold).float()
-        metrics = self.train_metrics(pred, downsampled_true_masks)
+
+        # only calculating metrics from predictions with same shape as ground truth
+        if pred.shape == true_masks.shape:
+            metrics = self.train_metrics(pred, downsampled_true_masks)
+        else:
+            metrics = None
 
         return pred, true_masks, imgs, loss, metrics, labels, label_names
 
