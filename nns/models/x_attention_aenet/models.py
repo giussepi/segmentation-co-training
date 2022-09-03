@@ -56,7 +56,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             data_dimensions  <int>: Number of dimensions of the data. 2 for 2D [bacth, channel, height, width],
                                     3 for 3D [batch, channel, depth, height, width].
                                     Default 2
-            batchnom_cls <_BatchNorm>: Batch normalization class. Default torch.nn.BatchNorm2d or
+            batchnorm_cls <_BatchNorm>: Batch normalization class. Default torch.nn.BatchNorm2d or
                                        torch.nn.BatchNorm3d
             init_type        <int>: Initialization method. Default UNet3InitMethod.KAIMING
             da_block_cls <BaseDisagreementAttentionBlock>: Attention block to be used.
@@ -107,7 +107,7 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
         assert isinstance(self.n_classes, int), type(self.n_classes)
         assert isinstance(self.bilinear, bool), type(self.bilinear)
         assert self.data_dimensions in (2, 3), 'only 2d and 3d data is supported'
-        assert issubclass(self.batchnorm_cls, _BatchNorm), type(self.batchnom_cls)
+        assert issubclass(self.batchnorm_cls, _BatchNorm), type(self.batchnorm_cls)
         UNet3InitMethod.validate(self.init_type)
         assert issubclass(self.da_block_cls, BaseDisagreementAttentionBlock), \
             f'{self.da_block_cls} is not a descendant of BaseDisagreementAttentionBlock'
@@ -224,13 +224,13 @@ class XAttentionAENet(torch.nn.Module, InitMixin):
             self.dsv4 = convxd(in_channels=self.filters[0], out_channels=self.n_classes, kernel_size=1)
             if self.out_ae_cls:
                 self.skip_connection_outc = OutConv(self.filters[0], self.n_classes, self.data_dimensions)
-                self.outc = OutEncoder(self.n_classes*5, self.n_classes, self.batchnorm_cls,
+                self.outc = OutEncoder(self.n_classes*5, self.n_classes, self.n_classes, self.batchnorm_cls,
                                        self.data_dimensions, self.out_ae_cls)
             else:
                 self.outc = OutConv(self.n_classes*4, self.n_classes, self.data_dimensions)
         else:
             if self.out_ae_cls:
-                self.outc = OutEncoder(self.filters[0]*2, self.n_classes, self.batchnorm_cls,
+                self.outc = OutEncoder(self.filters[0]*2, self.n_classes, self.filters[0], self.batchnorm_cls,
                                        self.data_dimensions, self.out_ae_cls)
             else:
                 self.outc = OutConv(self.filters[0], self.n_classes, self.data_dimensions)

@@ -280,12 +280,14 @@ class OutEncoder(torch.nn.Module):
 
     SUPPORTED_AE_CLS = (TinyUpAE, TinyAE, MicroUpAE, MicroAE)
 
-    def __init__(self, in_channels: int, out_channels: int, batchnorm_cls: Optional[_BatchNorm] = None,
+    def __init__(self, in_channels: int, out_channels: int, skip_conn_channels: int,
+                 batchnorm_cls: Optional[_BatchNorm] = None,
                  data_dimensions: int = 2, ae_cls: torch.nn.Module = MicroUpAE):
         """
         Kwargs:
             in_channels      <int>: in channels (channels of x + channels of skip_connection)
             out_channels     <int>: out channels
+            skip_conn_channels <int>: number of channels of the skip connection
             batchnom_cls <_BatchNorm>: Batch normalization class. Default torch.nn.BatchNorm2d or
                                     torch.nn.BatchNorm3d
             data_dimensions  <int>: Number of dimensions of the data. 2 for 2D [bacth, channel, height, width],
@@ -300,6 +302,7 @@ class OutEncoder(torch.nn.Module):
 
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.skip_conn_channels = skip_conn_channels
         self.batchnorm_cls = batchnorm_cls
         self.data_dimensions = data_dimensions
         self.ae_cls = ae_cls
@@ -307,11 +310,17 @@ class OutEncoder(torch.nn.Module):
         if self.batchnorm_cls is None:
             self.batchnorm_cls = torch.nn.BatchNorm2d if self.data_dimensions == 2 else torch.nn.BatchNorm3d
 
-        assert isinstance(in_channels, int), type(in_channels)
-        assert isinstance(out_channels, int), type(out_channels)
+        assert isinstance(self.in_channels, int), type(self.in_channels)
+        assert isinstance(self.out_channels, int), type(self.out_channels)
+        assert isinstance(self.skip_conn_channels, int), type(self.skip_conn_channels)
         assert issubclass(self.batchnorm_cls, _BatchNorm), type(self.batchnom_cls)
         assert self.data_dimensions in (2, 3), 'only 2d and 3d data is supported'
         assert issubclass(self.ae_cls, self.SUPPORTED_AE_CLS), type(self.ae_cls)
+
+        self.refine = DoubleConv(
+            self.skip_conn_channels, self.skip_conn_channels, batchnorm_cls=self.batchnorm_cls,
+            data_dimensions=self.data_dimensions
+        )
 
         if self.ae_cls in (TinyAE, TinyUpAE):
             self.ae = self.ae_cls(self.in_channels, self.batchnorm_cls, self.data_dimensions)
@@ -335,7 +344,7 @@ class OutEncoder(torch.nn.Module):
         assert isinstance(x, torch.Tensor), type(x)
         assert isinstance(skip_connection, torch.Tensor), type(skip_connection)
 
-        input_ = torch.cat((skip_connection, x), dim=1)
+        input_ = torch.cat((self.refine(skip_connection), x), dim=1)
         _, decoded = self.ae(input_)
         output = self.out(decoded)
 
