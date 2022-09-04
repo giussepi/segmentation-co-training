@@ -218,16 +218,11 @@ class XAttentionUNet_ADSV(torch.nn.Module, InitMixin):
         d3 = self.up3_with_da(d2, x2)
         d4 = self.up4(d3, x1)
 
-        # TODO: somehow I need to make sure that self.outc4(self.dsv4(d4)) is excecuted
-        #       always at the end of each of the training dataset
         if self.dsv:
             # alternating deep supervision ####################################
-            # dsv1 = self.dsv1(d1)
-            # dsv2 = self.dsv2(d2)
-            # dsv3 = self.dsv3(d3)
-            # dsv4 = self.dsv4(d4)
-            # logits = self.outc(torch.cat([dsv1, dsv2, dsv3, dsv4], dim=1))
             if self.training:
+                # NOTE: During training you need to process 4 times each batch to make sure
+                # that all the DSVs have been applied sequencially
                 self.increase_fwd_counter()
                 if self.fwd_counter == 1:
                     logits = self.outc1(self.dsv1(d1))
