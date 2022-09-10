@@ -79,12 +79,12 @@ CONSEP_TEST_PATH = ''
 #                                     ct82                                    #
 ###############################################################################
 
-QUICK_TESTS = True
+CT82_QUICK_TESTS = True
 
 CT82_CROP_SHAPE = [32, 80, 80]  # [46, 80, 80] [96, 160, 160]
 CT82_NUM_CROPS = 3
 
-TRANSFORMS = {
+CT82_TRANSFORMS = {
     'train': ts.Compose([
         ts.ToTensord(keys=['img', 'mask']),
         # ts.AsChannelFirstd(keys=['img', 'mask'], channel_dim=-1),
@@ -135,6 +135,18 @@ TRANSFORMS = {
 CT82_TRAIN_PATH = os.path.join(PROJECT_PATH, 'CT-82-Pro', 'train')
 CT82_VAL_PATH = os.path.join(PROJECT_PATH, 'CT-82-Pro', 'val')
 CT82_TEST_PATH = os.path.join(PROJECT_PATH, 'CT-82-Pro', 'test')
+
+###############################################################################
+#                                    LiTS17                                   #
+###############################################################################
+
+LITS17_QUICK_TESTS = True  # tests not implemented yet :(
+LITS17_CROP_SHAPE = CT82_CROP_SHAPE
+LITS17_NUM_CROPS = CT82_NUM_CROPS
+LITS17_TRANSFORMS = CT82_TRANSFORMS
+LITS17_TRAIN_PATH = os.path.join(PROJECT_PATH, 'LITS17-Pro', 'train')
+LITS17_VAL_PATH = os.path.join(PROJECT_PATH, 'LITS17-Pro', 'val')
+LITS17_TEST_PATH = os.path.join(PROJECT_PATH, 'LITS17-Pro', 'test')
 
 ###############################################################################
 #                                  BACKBONES                                  #

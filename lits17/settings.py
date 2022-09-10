@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" ct82/settings """
+""" lits17/settings """
 
 from monai import transforms as ts
 
@@ -10,7 +10,7 @@ except ModuleNotFoundError:
     global_settings = None
 
 
-QUICK_TESTS = getattr(global_settings, 'CT82_QUICK_TESTS', False)
+QUICK_TESTS = getattr(global_settings, 'LITS17_QUICK_TESTS', False)
 
 DEFAULT_TRANSFORMS = {
     'train': ts.Compose([
@@ -60,4 +60,4 @@ DEFAULT_TRANSFORMS = {
     ])
 }
 
-TRANSFORMS = getattr(global_settings, 'CT82_TRANSFORMS', DEFAULT_TRANSFORMS)
+TRANSFORMS = getattr(global_settings, 'LITS17_TRANSFORMS', DEFAULT_TRANSFORMS)

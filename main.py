@@ -3,6 +3,9 @@
 
 import glob
 import os
+import re
+import shutil
+from collections import defaultdict
 
 import logzero
 import matplotlib.pyplot as plt
@@ -16,8 +19,10 @@ from gtorch_utils.segmentation import loss_functions
 from gtorch_utils.segmentation.loss_functions.dice import dice_coef_loss
 from gtorch_utils.segmentation.visualisation import plot_img_and_mask
 from PIL import Image
+from skimage.exposure import equalize_adapthist
 from torch.utils.data import DataLoader
 from torchinfo import summary
+from tqdm import tqdm
 
 import settings
 from consep.dataloaders import OnlineCoNSePDataset, SeedWorker, OfflineCoNSePDataset
@@ -29,6 +34,8 @@ from ct82.datasets import CT82Dataset, CT82Labels
 from ct82.images import NIfTI, ProNIfTI
 from ct82.processors import CT82MGR
 from ct82.settings import TRANSFORMS
+from lits17.processors import LiTS17MGR
+from lits17.datasets import LiTS17OnlyLiverLabels, LiTS17Dataset
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR
@@ -644,11 +651,12 @@ def main():
     ###########################################################################
     #                           Working with 3D data                          #
     ###########################################################################
+    # ValueError: The size of the proposed random crop ROI is larger than the image size.
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
-    model7 = AEsModelMGR(
-        model=XAttentionAENet,
+    model7 = ModelMGR(  # AEsModelMGR(
+        model=UNet3D,  # XAttentionAENet,
         # UNet3D
-        # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
+        model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
         # XAttentionUNet & XGridAttentionUNet
         # model_kwargs=dict(
         #     n_channels=1, n_classes=1, bilinear=False, batchnorm_cls=get_batchnormxd_class(),
@@ -658,13 +666,13 @@ def main():
         #     dsv=True,
         # ),
         # XAttentionAENet
-        model_kwargs=dict(
-            n_channels=1, n_classes=1, bilinear=False,
-            batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
-            data_dimensions=settings.DATA_DIMENSIONS, da_block_cls=intra_model.MixedEmbeddedDABlock,
-            dsv=True, isolated_aes=False, true_aes=True, aes_loss=torch.nn.MSELoss(),  # torch.nn.L1Loss()
-            out_ae_cls=MicroUpAE  # TinyUpAE, TinyAE, MicroUpAE, MicroAE
-        ),
+        # model_kwargs=dict(
+        #     n_channels=1, n_classes=1, bilinear=False,
+        #     batchnorm_cls=get_batchnormxd_class(), init_type=UNet3InitMethod.KAIMING,
+        #     data_dimensions=settings.DATA_DIMENSIONS, da_block_cls=intra_model.MixedEmbeddedDABlock,
+        #     dsv=True, isolated_aes=False, true_aes=True, aes_loss=torch.nn.MSELoss(),  # torch.nn.L1Loss()
+        #     out_ae_cls=MicroUpAE  # TinyUpAE, TinyAE, MicroUpAE, MicroAE
+        # ),
         # Unet4Plus
         # model_kwargs=dict(
         #     feature_scale=1, n_channels=1, n_classes=1, data_dimensions=settings.DATA_DIMENSIONS,
@@ -695,13 +703,13 @@ def main():
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
         sanity_checks=False,
-        labels_data=CT82Labels,
+        labels_data=LiTS17OnlyLiverLabels,  # CT82Labels,  # LiTS17OnlyLiverLabels
         data_dimensions=settings.DATA_DIMENSIONS,
-        dataset=CT82Dataset,
+        dataset=LiTS17Dataset,  # CT82Dataset,  # LiTS17Dataset
         dataset_kwargs={
-            'train_path': settings.CT82_TRAIN_PATH,
-            'val_path': settings.CT82_VAL_PATH,
-            'test_path': settings.CT82_TEST_PATH,
+            'train_path': settings.LITS17_TRAIN_PATH,  # settings.CT82_TRAIN_PATH,  # settings.LITS17_TRAIN_PATH
+            'val_path': settings.LITS17_VAL_PATH,  # settings.CT82_VAL_PATH,  # settings.LITS17_VAL_PATH
+            'test_path': settings.LITS17_TEST_PATH,  # settings.CT82_TEST_PATH,  # settings.LITS17_TEST_PATH
             'cotraining': settings.COTRAINING,
             'cache': settings.DB_CACHE,
         },
@@ -744,6 +752,7 @@ def main():
     # model7.plot_and_save(None, 154)
     # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
+    # settings.LITS17_CROP_SHAPE
     # summary(model7.module, (1, 1, *settings.CT82_CROP_SHAPE), depth=1, verbose=1)
     ##
 
@@ -850,17 +859,26 @@ def main():
     #     print(data['image'].min(), data['image'].max())
     #     print(data['mask'].min(), data['mask'].max())
 
-    #     img_id = np.random.randint(0, 72)
     #     if len(data['image'].shape) == 4:
+    #         img_id = np.random.randint(0, data['image'].shape[-3])
     #         fig, axis = plt.subplots(1, 2)
-    #         axis[0].imshow(data['image'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
-    #         axis[1].imshow(data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #         axis[0].imshow(
+    #             equalize_adapthist(data['image'].detach().numpy()).squeeze().transpose(1, 2, 0)[..., img_id],
+    #             cmap='gray'
+    #         )
+    #         axis[1].imshow(
+    #             data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
     #         plt.show()
     #     else:
     #         fig, axis = plt.subplots(2, 4)
-    #         for idx, i, m in zip([*range(4)], data['image'], data['mask']):
-    #             axis[0, idx].imshow(i.detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
-    #             axis[1, idx].imshow(m.detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #         for idx, d in zip([*range(4)], dataset):
+    #             img_id = np.random.randint(0, d['image'].shape[-3])
+    #             axis[0, idx].imshow(
+    #                 equalize_adapthist(d['image'].detach().numpy()).squeeze().transpose(1, 2, 0)[..., img_id],
+    #                 cmap='gray'
+    #             )
+    #             axis[1, idx].imshow(
+    #                 d['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
     #         plt.show()
     ###############################################################################
     #                                CT-82 dataset                                #
@@ -875,6 +893,95 @@ def main():
     # folders PANCREAS_0025 and PANCREAS_0070 are empty
     # MIN DICOMS per subject 181
     # MAX DICOMS per subject 466
+    ###########################################################################
+    #                                  LiTS17                                 #
+    ###########################################################################
+    # min val CT -10522, max val CT 27572
+    # min slices with label 1: 28, max slices with label 1: 299
+    # min slices with label 2: 0, max slices with label 2: 245
+    # label files without label 1: []
+    # label files without label 2: [32, 34, 38, 41, 47, 87, 89, 91, 105, 106, 114, 115, 119]
+    # min height: 512, min_width: 512, max_height: 512, max_width: 512
+    # labels files: 131, CT files: 131
+
+    # mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
+    #                 saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro',
+    #                 target_size=(368, 368, -1), only_liver=True, only_lesion=False)
+    # print(mgr.get_insights())
+    # print(mgr.get_lowest_highest_bounds())
+    # mgr()
+    # mgr.perform_visual_verification(68, scans=[40, 64], clahe=True)  # ppl 68 -> scans 64
+    # after manually removing files without the desired label
+    # mgr.split_processed_dataset(.20, .20, shuffle=True)
+
+    # min_ = float('inf')
+    # max_ = float('-inf')
+    # min_scans = float('inf')
+    # max_scans = float('-inf')
+    # for f in tqdm(glob.glob('/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/**/label_*.nii.gz', recursive=True)):
+    #     data = NIfTI(f).ndarray
+    #     num_scans_with_labels = data.sum(axis=0).sum(axis=0).astype(np.bool).sum()
+    #     min_scans = min(min_scans, data.shape[-1])
+    #     max_scans = max(max_scans, data.shape[-1])
+    #     min_ = min(min_, num_scans_with_labels)
+    #     max_ = max(max_, num_scans_with_labels)
+    #     assert 1 in np.unique(NIfTI(f).ndarray)
+    #     # print(np.unique(NIfTI(f).ndarray))
+    # print(min_, max_, min_scans, max_scans)
+    # @LiTS17Lesion-Pro the min, max number of scans with dataper label are  3 and 245 !!!!
+    #                       min, max scans are 29, 299
+
+    # analyzing number of scans on generated lists17 with only liver label ####
+    # counter = defaultdict(lambda: 0)
+    # for f in tqdm(glob.glob('/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/**/label_*.nii.gz', recursive=True)):
+    #     scans = NIfTI(f).shape[-1]
+    #     counter[scans] += 1
+    #     if scans == 29:
+    #         print(f)
+    # a = [*counter.keys()]
+    # a.sort()
+    # print(a)
+    # print(counter[29])
+    # @LiTS17Liver-Pro the labels are [29, 32, 26, ..., 299
+    # and we only have 3 cases with 29 scans so we can get rid of them to
+    # use the same crop size as CT-32
+    # these cases are the 000, 001, 054
+
+    # getting subdatasets and plotting some crops #############################
+    # train, val, test = LiTS17Dataset.get_subdatasets(
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/val',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/test'
+    # )
+    # for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
+    #     print(f'{db_name}: {len(dataset)}')
+    #     data = dataset[0]
+    #     print(data['image'].shape, data['mask'].shape)
+    #     print(data['label'], data['label_name'], data['updated_mask_path'], data['original_mask'])
+    #     print(data['image'].min(), data['image'].max())
+    #     print(data['mask'].min(), data['mask'].max())
+
+    #     if len(data['image'].shape) == 4:
+    #         img_id = np.random.randint(0, data['image'].shape[-3])
+    #         fig, axis = plt.subplots(1, 2)
+    #         axis[0].imshow(
+    #             equalize_adapthist(data['image'].detach().numpy()).squeeze().transpose(1, 2, 0)[..., img_id],
+    #             cmap='gray'
+    #         )
+    #         axis[1].imshow(data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #         plt.show()
+    #     else:
+    #         fig, axis = plt.subplots(2, 4)
+    #         for idx, d in zip([*range(4)], dataset):
+    #             img_id = np.random.randint(0, d['image'].shape[-3])
+    #             axis[0, idx].imshow(
+    #                 equalize_adapthist(d['image'].detach().numpy()).squeeze().transpose(1, 2, 0)[..., img_id],
+    #                 cmap='gray'
+    #             )
+    #             axis[1, idx].imshow(d['mask'].detach().numpy(
+    #             ).squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #         plt.show()
+
     ###############################################################################
     #                                     dpis                                    #
     # https://www.iprintfromhome.com/mso/understandingdpi.pdf very good explanantion of dpi
