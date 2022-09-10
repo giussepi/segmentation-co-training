@@ -206,7 +206,7 @@ class CT82MGR:
             subject_id  <int>: chosen id, without leading zeros, from the generated labels (label_<id>.nii.gz)
                                or CTs (CT_<id>.pro.nii.gz) to be analyzed.
             alpha     <float>: alpha channel value in range ]0, 1]. Default 0.9
-            scans <int, list>: If set to an integer it will be the number of scans to be analyzed. If
+            scans <int, list>: If set to an integer it will be the number of the scan to be analyzed. If
                                a single-element list is provided it will be the number of scans
                                to be analyzed, if a two-element list is provided it will be the interval
                                of slices to be analyzed. Default 1
