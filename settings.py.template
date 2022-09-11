@@ -79,8 +79,6 @@ CONSEP_TEST_PATH = ''
 #                                     ct82                                    #
 ###############################################################################
 
-CT82_QUICK_TESTS = True
-
 CT82_CROP_SHAPE = [32, 80, 80]  # [46, 80, 80] [96, 160, 160]
 CT82_NUM_CROPS = 3
 
@@ -140,7 +138,6 @@ CT82_TEST_PATH = os.path.join(PROJECT_PATH, 'CT-82-Pro', 'test')
 #                                    LiTS17                                   #
 ###############################################################################
 
-LITS17_QUICK_TESTS = True  # tests not implemented yet :(
 LITS17_CROP_SHAPE = CT82_CROP_SHAPE
 LITS17_NUM_CROPS = CT82_NUM_CROPS
 LITS17_TRANSFORMS = CT82_TRANSFORMS

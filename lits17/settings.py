@@ -10,8 +10,6 @@ except ModuleNotFoundError:
     global_settings = None
 
 
-QUICK_TESTS = getattr(global_settings, 'LITS17_QUICK_TESTS', False)
-
 DEFAULT_TRANSFORMS = {
     'train': ts.Compose([
         ts.ToTensord(keys=['img', 'mask']),
