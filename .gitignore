@@ -8,6 +8,8 @@ dataset*
 !ct82/datasets
 !ct82/datasets/datasets.py
 !consep/datasets
+!lits17/datasets
+!lits17/datasets/datasets.py
 consep_dataset*
 /settings.py
 runs*
