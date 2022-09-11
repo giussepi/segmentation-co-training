@@ -17,6 +17,7 @@ from gutils.decorators import timing
 from gutils.exceptions.common import ExclusiveArguments
 from gutils.files import get_filename_and_extension
 from gutils.folders import clean_create_folder
+from gutils.images.images import NIfTI
 from gutils.numpy_.numpy_ import scale_using_general_min_max_values
 from gutils.plots import BoxPlot
 from PIL import Image
@@ -24,7 +25,6 @@ from skimage.exposure import equalize_adapthist
 from tqdm import tqdm
 
 from lits17.constants import CT_MIN_VAL, CT_MAX_VAL
-from ct82.images import NIfTI
 
 
 __all__ = ['LiTS17MGR']

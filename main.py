@@ -18,6 +18,7 @@ from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitM
 from gtorch_utils.segmentation import loss_functions
 from gtorch_utils.segmentation.loss_functions.dice import dice_coef_loss
 from gtorch_utils.segmentation.visualisation import plot_img_and_mask
+from gutils.images.images import NIfTI, ProNIfTI
 from PIL import Image
 from skimage.exposure import equalize_adapthist
 from torch.utils.data import DataLoader
@@ -31,7 +32,6 @@ from consep.processors.offline import CreateDataset
 from consep.utils.patches.constants import PatchExtractType
 from consep.utils.patches.patches import ProcessDataset
 from ct82.datasets import CT82Dataset, CT82Labels
-from ct82.images import NIfTI, ProNIfTI
 from ct82.processors import CT82MGR
 from ct82.settings import TRANSFORMS
 from lits17.processors import LiTS17MGR

@@ -14,13 +14,13 @@ from gutils.datasets.utils.split import TrainValTestSplit
 from gutils.decorators import timing
 from gutils.files import get_filename_and_extension
 from gutils.folders import clean_create_folder
+from gutils.images.images import NIfTI, DICOM, ProNIfTI
 from gutils.numpy_.numpy_ import scale_using_general_min_max_values
 from PIL import Image
 from skimage.exposure import equalize_adapthist
 from tqdm import tqdm
 
 from ct82.constants import DICOM_MIN_VAL, DICOM_MAX_VAL
-from ct82.images import DICOM, NIfTI, ProNIfTI
 
 
 __all__ = ['CT82MGR']
@@ -125,7 +125,8 @@ class CT82MGR:
         ProNIfTI.create_save(
             selected_dicoms,
             processing={'resize': {'target': self.target_size[:2]}},
-            saving_path=os.path.join(self.saving_cts_folder, self.GEN_CT_FILENAME_TPL.format(label_id))
+            saving_path=os.path.join(self.saving_cts_folder, self.GEN_CT_FILENAME_TPL.format(label_id)),
+            dicom_min_val=DICOM_MIN_VAL, dicom_max_val=DICOM_MAX_VAL
         )
 
     @timing
@@ -167,7 +168,7 @@ class CT82MGR:
         max_dicom_val = max_slices_with_data = max_dicoms_per_subject = np.NINF
 
         for dicom_path in tqdm(dicoms, unit='DICOMs'):
-            dcm = DICOM(dicom_path)
+            dcm = DICOM(dicom_path, DICOM_MIN_VAL, DICOM_MAX_VAL)
             min_dicom_val = min(min_dicom_val, dcm.ndarray.min())
             max_dicom_val = max(max_dicom_val, dcm.ndarray.max())
 
