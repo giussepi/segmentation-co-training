@@ -11,3 +11,6 @@ dataset*
 consep_dataset*
 /settings.py
 runs*
+
+# test datasets
+gutils_test_datasets/

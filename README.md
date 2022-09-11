@@ -22,17 +22,23 @@
 
 The main rule is running everything from the `main.py`
 
-### Running the TensorBoard
-
-1. Make `run_tests.sh` executable:
-
-	`chmod +x run_tests.sh`
-
-2. Execute it
-
-	`./run_tests.sh`
-
 ### Running tests
+
+1. Make `get_test_datasets.sh` executable and download the testing datasets
+
+	``` shell
+	chmod +x get_test_datasets.sh
+	./get_test_datasets.sh
+	```
+
+2. Make `run_tests.sh` executable and run it:
+
+	```shell
+	chmod +x run_tests.sh
+	./run_tests.sh
+	```
+
+### Running TensorBoard
 
 1. Make `run_tensorboard.sh` executable:
 
