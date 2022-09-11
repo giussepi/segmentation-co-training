@@ -7,9 +7,9 @@ import shutil
 import unittest
 from unittest.mock import patch
 
+from gutils.images.images import NIfTI, ProNIfTI
 from gutils.mock import notqdm
 
-from ct82.images import NIfTI, ProNIfTI
 from ct82.processors import CT82MGR
 from ct82.constants import TEST_DATASET_PATH
 

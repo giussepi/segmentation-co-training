@@ -9,11 +9,11 @@ from collections import defaultdict
 import numpy as np
 import torch
 from gtorch_utils.datasets.segmentation import DatasetTemplate
+from gutils.images.images import NIfTI, ProNIfTI
 from gutils.numpy_.numpy_ import scale_using_general_min_max_values
 from logzero import logger
 
 from ct82.constants import DICOM_MAX_VAL, DICOM_MIN_VAL
-from ct82.images import NIfTI, ProNIfTI
 from ct82.settings import TRANSFORMS
 
 
