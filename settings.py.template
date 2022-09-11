@@ -141,9 +141,9 @@ CT82_TEST_PATH = os.path.join(PROJECT_PATH, 'CT-82-Pro', 'test')
 LITS17_CROP_SHAPE = CT82_CROP_SHAPE
 LITS17_NUM_CROPS = CT82_NUM_CROPS
 LITS17_TRANSFORMS = CT82_TRANSFORMS
-LITS17_TRAIN_PATH = os.path.join(PROJECT_PATH, 'LITS17-Pro', 'train')
-LITS17_VAL_PATH = os.path.join(PROJECT_PATH, 'LITS17-Pro', 'val')
-LITS17_TEST_PATH = os.path.join(PROJECT_PATH, 'LITS17-Pro', 'test')
+LITS17_TRAIN_PATH = os.path.join(PROJECT_PATH, 'LiTS17-Pro', 'train')
+LITS17_VAL_PATH = os.path.join(PROJECT_PATH, 'LiTS17-Pro', 'val')
+LITS17_TEST_PATH = os.path.join(PROJECT_PATH, 'LiTS17-Pro', 'test')
 
 ###############################################################################
 #                                  BACKBONES                                  #
