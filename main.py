@@ -39,14 +39,14 @@ from lits17.datasets import LiTS17OnlyLiverLabels, LiTS17Dataset
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR, \
-    ADSVModelMGR
+    ADSVModelMGR, SDSVModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
     UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS, UNet_3Plus_Intra_DA_GS_HDX, XAttentionUNet, UNet2D, \
     UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
     MultiAttentionBlock, UNet3D, XGridAttentionUNet, UNet4Plus, ModularUNet4Plus, XAttentionAENet, \
-    XAttentionUNet_ADSV
+    XAttentionUNet_ADSV, XAttentionUNet_SDSV
 from nns.models.layers.disagreement_attention import inter_model
 from nns.models.layers.disagreement_attention import intra_model
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
@@ -655,8 +655,8 @@ def main():
     ###########################################################################
     # ValueError: The size of the proposed random crop ROI is larger than the image size.
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
-    model7 = ADSVModelMGR(  # AEsModelMGR(
-        model=XAttentionUNet_ADSV,
+    model7 = SDSVModelMGR(  # AEsModelMGR(
+        model=XAttentionUNet_SDSV,
         # UNet3D
         # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
         # XAttentionUNet & XGridAttentionUNet & XAttentionUNet_ADSV

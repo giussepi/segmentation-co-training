@@ -5,7 +5,7 @@ from typing import Union, Optional
 
 import torch
 from torch.nn.modules.batchnorm import _BatchNorm
-from gtorch_utils.nns.models.segmentation.unet.unet_parts import DoubleConv
+from gtorch_utils.nns.models.segmentation.unet.unet_parts import XConv
 from gutils.exceptions.common import ExclusiveArguments
 
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
@@ -138,7 +138,7 @@ class AttentionConvBlock(torch.nn.Module):
     def __init__(
             self, dablock_obj: torch.nn.Module, conv_in_channels: int, conv_out_channels: int, /, *,
             only_attention: bool = False, batchnorm_cls: Optional[_BatchNorm] = None,
-            data_dimensions: int = 2
+            data_dimensions: int = 2, conv_layers: int = 2
     ):
         """
         Kwargs:
@@ -154,6 +154,7 @@ class AttentionConvBlock(torch.nn.Module):
                                        3 for 3D [batch, channel, depth, height, width]. This argument will
                                        determine to use conv2d or conv3d.
                                        Default 2
+            conv_layers         <int>: Number of convolutional layers to stack. Default 2
         """
         super().__init__()
         self.dattentionblock = dablock_obj
@@ -161,6 +162,7 @@ class AttentionConvBlock(torch.nn.Module):
         self.only_attention = only_attention
         self.batchnorm_cls = batchnorm_cls
         self.data_dimensions = data_dimensions
+        self.conv_layers = conv_layers
 
         if self.batchnorm_cls is None:
             self.batchnorm_cls = torch.nn.BatchNorm2d if self.data_dimensions == 2 else torch.nn.BatchNorm3d
@@ -172,13 +174,15 @@ class AttentionConvBlock(torch.nn.Module):
         assert isinstance(only_attention, bool), type(only_attention)
         assert issubclass(batchnorm_cls, _BatchNorm), type(batchnorm_cls)
         assert self.data_dimensions in (2, 3), 'only 2d and 3d data is supported'
+        assert isinstance(self.conv_layers, int), type(self.conv_layers)
+        assert self.conv_layers > 0, self.conv_layers
 
         mode = 'bilinear' if self.data_dimensions == 2 else 'trilinear'
 
         self.up = torch.nn.Upsample(scale_factor=2, mode=mode, align_corners=False)
-        self.conv_block = DoubleConv(
+        self.conv_block = XConv(
             conv_in_channels, conv_out_channels, batchnorm_cls=self.batchnorm_cls,
-            data_dimensions=self.data_dimensions
+            data_dimensions=self.data_dimensions, conv_layers=self.conv_layers
         )
 
     def forward(self, x: torch.Tensor, skip_connection: torch.Tensor, /, *, disable_attention: bool = False,

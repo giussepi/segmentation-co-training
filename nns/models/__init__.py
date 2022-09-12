@@ -16,4 +16,5 @@ from nns.models.unet4plus import UNet4Plus
 from nns.models.x_attention_aenet import XAttentionAENet
 from nns.models.x_attention_unet import XAttentionUNet
 from nns.models.x_attention_unet_adsv import XAttentionUNet_ADSV
+from nns.models.x_attention_unet_sdsv import XAttentionUNet_SDSV
 from nns.models.x_grid_attention_unet import XGridAttentionUNet
