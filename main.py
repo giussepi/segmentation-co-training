@@ -38,13 +38,15 @@ from lits17.processors import LiTS17MGR
 from lits17.datasets import LiTS17OnlyLiverLabels, LiTS17Dataset
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
-from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR
+from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR, \
+    ADSVModelMGR
 from nns.mixins.constants import LrShedulerTrack
 from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
     UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS, UNet_3Plus_Intra_DA_GS_HDX, XAttentionUNet, UNet2D, \
     UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
-    MultiAttentionBlock, UNet3D, XGridAttentionUNet, UNet4Plus, ModularUNet4Plus, XAttentionAENet
+    MultiAttentionBlock, UNet3D, XGridAttentionUNet, UNet4Plus, ModularUNet4Plus, XAttentionAENet, \
+    XAttentionUNet_ADSV
 from nns.models.layers.disagreement_attention import inter_model
 from nns.models.layers.disagreement_attention import intra_model
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
@@ -653,18 +655,18 @@ def main():
     ###########################################################################
     # ValueError: The size of the proposed random crop ROI is larger than the image size.
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
-    model7 = ModelMGR(  # AEsModelMGR(
-        model=UNet3D,  # XAttentionAENet,
+    model7 = ADSVModelMGR(  # AEsModelMGR(
+        model=XAttentionUNet_ADSV,
         # UNet3D
-        model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
-        # XAttentionUNet & XGridAttentionUNet
-        # model_kwargs=dict(
-        #     n_channels=1, n_classes=1, bilinear=False, batchnorm_cls=get_batchnormxd_class(),
-        #     init_type=UNet3InitMethod.KAIMING, data_dimensions=settings.DATA_DIMENSIONS,
-        #     da_block_cls=intra_model.CombinedDABlock, da_block_config={'xi': 1.},
-        #     # da_block_config={'thresholds': (.25, .8), 'beta': -1},
-        #     dsv=True,
-        # ),
+        # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
+        # XAttentionUNet & XGridAttentionUNet & XAttentionUNet_ADSV
+        model_kwargs=dict(
+            n_channels=1, n_classes=1, bilinear=False, batchnorm_cls=get_batchnormxd_class(),
+            init_type=UNet3InitMethod.KAIMING, data_dimensions=settings.DATA_DIMENSIONS,
+            da_block_cls=intra_model.CombinedDABlock, da_block_config={'xi': 1.},
+            # da_block_config={'thresholds': (.25, .8), 'beta': -1},
+            dsv=True,
+        ),
         # XAttentionAENet
         # model_kwargs=dict(
         #     n_channels=1, n_classes=1, bilinear=False,
@@ -703,13 +705,13 @@ def main():
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
         sanity_checks=False,
-        labels_data=LiTS17OnlyLiverLabels,  # CT82Labels,  # LiTS17OnlyLiverLabels
+        labels_data=CT82Labels,  # LiTS17OnlyLiverLabels
         data_dimensions=settings.DATA_DIMENSIONS,
-        dataset=LiTS17Dataset,  # CT82Dataset,  # LiTS17Dataset
+        dataset=CT82Dataset,  # LiTS17Dataset
         dataset_kwargs={
-            'train_path': settings.LITS17_TRAIN_PATH,  # settings.CT82_TRAIN_PATH,  # settings.LITS17_TRAIN_PATH
-            'val_path': settings.LITS17_VAL_PATH,  # settings.CT82_VAL_PATH,  # settings.LITS17_VAL_PATH
-            'test_path': settings.LITS17_TEST_PATH,  # settings.CT82_TEST_PATH,  # settings.LITS17_TEST_PATH
+            'train_path': settings.CT82_TRAIN_PATH,  # settings.LITS17_TRAIN_PATH
+            'val_path': settings.CT82_VAL_PATH,  # settings.LITS17_VAL_PATH
+            'test_path': settings.CT82_TEST_PATH,  # settings.LITS17_TEST_PATH
             'cotraining': settings.COTRAINING,
             'cache': settings.DB_CACHE,
         },
