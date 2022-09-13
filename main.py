@@ -35,7 +35,7 @@ from ct82.datasets import CT82Dataset, CT82Labels
 from ct82.processors import CT82MGR
 from ct82.settings import TRANSFORMS
 from lits17.processors import LiTS17MGR
-from lits17.datasets import LiTS17OnlyLiverLabels, LiTS17Dataset
+from lits17.datasets import LiTS17OnlyLiverLabels, LiTS17Dataset, LiTS17OnlyLesionLabels
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR, \
@@ -653,7 +653,6 @@ def main():
     ###########################################################################
     #                           Working with 3D data                          #
     ###########################################################################
-    # ValueError: The size of the proposed random crop ROI is larger than the image size.
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
     model7 = SDSVModelMGR(  # AEsModelMGR(
         model=XAttentionUNet_SDSV,
@@ -705,13 +704,13 @@ def main():
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
         sanity_checks=False,
-        labels_data=CT82Labels,  # LiTS17OnlyLiverLabels
+        labels_data=LiTS17OnlyLesionLabels,  # CT82Labels,  # LiTS17OnlyLiverLabels
         data_dimensions=settings.DATA_DIMENSIONS,
-        dataset=CT82Dataset,  # LiTS17Dataset
+        dataset=LiTS17Dataset,  # CT82Dataset,  # LiTS17Dataset
         dataset_kwargs={
-            'train_path': settings.CT82_TRAIN_PATH,  # settings.LITS17_TRAIN_PATH
-            'val_path': settings.CT82_VAL_PATH,  # settings.LITS17_VAL_PATH
-            'test_path': settings.CT82_TEST_PATH,  # settings.LITS17_TEST_PATH
+            'train_path': settings.LITS17_TRAIN_PATH,  # settings.CT82_TRAIN_PATH,  # settings.LITS17_TRAIN_PATH
+            'val_path': settings.LITS17_VAL_PATH,  # settings.CT82_VAL_PATH,  # settings.LITS17_VAL_PATH
+            'test_path': settings.LITS17_TEST_PATH,  # settings.CT82_TEST_PATH,  # settings.LITS17_TEST_PATH
             'cotraining': settings.COTRAINING,
             'cache': settings.DB_CACHE,
         },
@@ -907,13 +906,15 @@ def main():
     # labels files: 131, CT files: 131
 
     # mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
-    #                 saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro',
-    #                 target_size=(368, 368, -1), only_liver=True, only_lesion=False)
+    #                 saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro',
+    #                 target_size=(368, 368, -1), only_liver=False, only_lesion=True)
     # print(mgr.get_insights())
     # print(mgr.get_lowest_highest_bounds())
     # mgr()
     # mgr.perform_visual_verification(68, scans=[40, 64], clahe=True)  # ppl 68 -> scans 64
-    # after manually removing files without the desired label
+    # after manually removing files without the desired label and less scans than 32
+    # (000, 001, 054 had 29 scans) we ended up with 230 FILES @ LiTS17 only lesion and
+    # 256 files @ LiTS17 only liver
     # mgr.split_processed_dataset(.20, .20, shuffle=True)
 
     # min_ = float('inf')
@@ -922,12 +923,13 @@ def main():
     # max_scans = float('-inf')
     # for f in tqdm(glob.glob('/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/**/label_*.nii.gz', recursive=True)):
     #     data = NIfTI(f).ndarray
-    #     num_scans_with_labels = data.sum(axis=0).sum(axis=0).astype(np.bool).sum()
+    #     num_scans_with_labels = data.sum(axis=0).sum(axis=0).astype(bool).sum()
     #     min_scans = min(min_scans, data.shape[-1])
     #     max_scans = max(max_scans, data.shape[-1])
     #     min_ = min(min_, num_scans_with_labels)
     #     max_ = max(max_, num_scans_with_labels)
-    #     assert 1 in np.unique(NIfTI(f).ndarray)
+    #     assert len(np.unique(data)) == 2
+    #     assert 1 in np.unique(data)
     #     # print(np.unique(NIfTI(f).ndarray))
     # print(min_, max_, min_scans, max_scans)
     # @LiTS17Lesion-Pro the min, max number of scans with dataper label are  3 and 245 !!!!
