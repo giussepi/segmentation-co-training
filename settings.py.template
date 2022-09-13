@@ -93,7 +93,7 @@ CT82_TRANSFORMS = {
             keys=['img', 'mask'],
             prob=1.,
             rotate_range=0.261799,  # 15 degrees
-            translate_range=[0.1*368, 0.1*368, 0.1*368],  # 368 is the image width|height
+            translate_range=[0*368, 0.1*368, 0.1*368],  # 368 is the image width|height
             scale_range=((-0.3,  0.3), (-0.3, 0.3), (-0.3, 0.3)),
             mode=["bilinear", "nearest"]
         ),
