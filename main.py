@@ -47,6 +47,7 @@ from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3
     UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
     MultiAttentionBlock, UNet3D, XGridAttentionUNet, UNet4Plus, ModularUNet4Plus, XAttentionAENet, \
     XAttentionUNet_ADSV, XAttentionUNet_SDSV
+from nns.mixins.images_types import CT3DNIfTIMixin
 from nns.models.layers.disagreement_attention import inter_model
 from nns.models.layers.disagreement_attention import intra_model
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
@@ -654,18 +655,21 @@ def main():
     #                           Working with 3D data                          #
     ###########################################################################
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
-    model7 = SDSVModelMGR(  # AEsModelMGR(
-        model=XAttentionUNet_SDSV,
+    class CTModelMGR(CT3DNIfTIMixin, ModelMGR):
+        pass
+
+    model7 = CTModelMGR(  # AEsModelMGR(
+        model=UNet3D,
         # UNet3D
-        # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
+        model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
         # XAttentionUNet & XGridAttentionUNet & XAttentionUNet_ADSV
-        model_kwargs=dict(
-            n_channels=1, n_classes=1, bilinear=False, batchnorm_cls=get_batchnormxd_class(),
-            init_type=UNet3InitMethod.KAIMING, data_dimensions=settings.DATA_DIMENSIONS,
-            da_block_cls=intra_model.CombinedDABlock, da_block_config={'xi': 1.},
-            # da_block_config={'thresholds': (.25, .8), 'beta': -1},
-            dsv=True,
-        ),
+        # model_kwargs=dict(
+        #     n_channels=1, n_classes=1, bilinear=False, batchnorm_cls=get_batchnormxd_class(),
+        #     init_type=UNet3InitMethod.KAIMING, data_dimensions=settings.DATA_DIMENSIONS,
+        #     da_block_cls=intra_model.MixedEmbeddedDABlock,  # da_block_config={'xi': 1.},
+        #     # da_block_config={'thresholds': (.25, .8), 'beta': -1},
+        #     dsv=True,
+        # ),
         # XAttentionAENet
         # model_kwargs=dict(
         #     n_channels=1, n_classes=1, bilinear=False,
@@ -704,7 +708,7 @@ def main():
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
         sanity_checks=False,
-        labels_data=LiTS17OnlyLesionLabels,  # CT82Labels,  # LiTS17OnlyLiverLabels
+        labels_data=LiTS17OnlyLiverLabels,  # CT82Labels,  # LiTS17OnlyLiverLabels
         data_dimensions=settings.DATA_DIMENSIONS,
         dataset=LiTS17Dataset,  # CT82Dataset,  # LiTS17Dataset
         dataset_kwargs={
@@ -739,7 +743,7 @@ def main():
         checkpoint_interval=0,
         train_eval_chkpt=False,
         last_checkpoint=True,
-        ini_checkpoint='',
+        ini_checkpoint='/media/giussepi/TOSHIBA EXT/lits_weights/UNet3D/app3/unet3d/exp1/best_chkpt.pth.tar',
         dir_checkpoints=os.path.join(
             settings.DIR_CHECKPOINTS, 'ct82',  'unet3d', 'exp1'),
         tensorboard=False,
@@ -748,9 +752,16 @@ def main():
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    model7()
+    # model7()
     # model7.print_data_logger_summary()
     # model7.plot_and_save(None, 154)
+    model7.predict('/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/CT_119.nii.gz')
+    id_ = '119'  # '091'
+    model7.plot_2D_ct_gt_preds(
+        ct_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/CT_{id_}.nii.gz',
+        gt_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/label_{id_}.nii.gz',
+        pred_path=f'pred_CT_{id_}.nii.gz'
+    )
     # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
     # settings.LITS17_CROP_SHAPE
@@ -854,6 +865,12 @@ def main():
     # for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
     #     print(f'{db_name}: {len(dataset)}')
     #     data = dataset[0]
+
+    #     # NIfTI.save_numpy_as_nifti(data['image'].detach().cpu().squeeze().permute(
+    #     #     1, 2, 0).numpy(), f'{db_name}_img_patch.nii.gz')
+    #     # NIfTI.save_numpy_as_nifti(data['mask'].detach().cpu().squeeze().permute(
+    #     #     1, 2, 0).numpy(), f'{db_name}_mask_patch.nii.gz')
+
     #     print(data['image'].shape, data['mask'].shape)
     #     print(data['label'], data['label_name'], data['updated_mask_path'], data['original_mask'])
 
