@@ -743,7 +743,7 @@ def main():
         checkpoint_interval=0,
         train_eval_chkpt=False,
         last_checkpoint=True,
-        ini_checkpoint='/media/giussepi/TOSHIBA EXT/lits_weights/UNet3D/app3/unet3d/exp1/best_chkpt.pth.tar',
+        ini_checkpoint='',  # '/media/giussepi/TOSHIBA EXT/lits_weights/UNet3D/app3/unet3d/exp1/best_chkpt.pth.tar',
         dir_checkpoints=os.path.join(
             settings.DIR_CHECKPOINTS, 'ct82',  'unet3d', 'exp1'),
         tensorboard=False,
@@ -752,16 +752,16 @@ def main():
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    # model7()
+    model7()
     # model7.print_data_logger_summary()
     # model7.plot_and_save(None, 154)
-    model7.predict('/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/CT_119.nii.gz')
-    id_ = '119'  # '091'
-    model7.plot_2D_ct_gt_preds(
-        ct_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/CT_{id_}.nii.gz',
-        gt_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/label_{id_}.nii.gz',
-        pred_path=f'pred_CT_{id_}.nii.gz'
-    )
+    # model7.predict('/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/CT_119.nii.gz')
+    # id_ = '119'  # '091'
+    # model7.plot_2D_ct_gt_preds(
+    #     ct_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/CT_{id_}.nii.gz',
+    #     gt_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/label_{id_}.nii.gz',
+    #     pred_path=f'pred_CT_{id_}.nii.gz'
+    # )
     # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
     # settings.LITS17_CROP_SHAPE
