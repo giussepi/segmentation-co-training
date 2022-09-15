@@ -272,7 +272,7 @@ mymodel = CTModelMGR(
 3. Make the 3D mask prediction
 
 ``` python
-model7.predict('<path to your CT folder>/CT_119.nii.gz')
+mymodel.predict('<path to your CT folder>/CT_119.nii.gz')
 ```
 
 4. Visualize all the 2D masks
@@ -280,7 +280,7 @@ model7.predict('<path to your CT folder>/CT_119.nii.gz')
 ``` python
 id_ = '119'
 
-model7.plot_2D_ct_gt_preds(
+mymodel.plot_2D_ct_gt_preds(
 	ct_path=f'<path to your CT folder>/CT_{id_}.nii.gz',
 	gt_path=f'<path to your CT folder>/label_{id_}.nii.gz',
     pred_path=f'pred_CT_{id_}.nii.gz'
