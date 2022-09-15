@@ -251,6 +251,42 @@ for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
         plt.show()
 ```
 
+#### Predict masks for whole CT scans and visualize them
+1. Modify your model manager to support these feature using the `CT3DNIfTIMixin`. E.g.:
+
+``` python
+class CTModelMGR(CT3DNIfTIMixin, ModelMGR):
+    pass
+```
+
+2. Replace your old ModelMGR by the new one and provide and initial weights
+
+``` python
+mymodel = CTModelMGR(
+	...
+	ini_checkpoint='<path to your best checkpoint>',
+	...
+)
+```
+
+3. Make the 3D mask prediction
+
+``` python
+model7.predict('<path to your CT folder>/CT_119.nii.gz')
+```
+
+4. Visualize all the 2D masks
+
+``` python
+id_ = '119'
+
+model7.plot_2D_ct_gt_preds(
+	ct_path=f'<path to your CT folder>/CT_{id_}.nii.gz',
+	gt_path=f'<path to your CT folder>/label_{id_}.nii.gz',
+    pred_path=f'pred_CT_{id_}.nii.gz'
+)
+```
+
 ### Training, Testing and Plotting on TensorBoard
 Use the `ModelMGR` to train models and make predictions.
 
