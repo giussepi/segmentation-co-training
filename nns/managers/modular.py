@@ -47,10 +47,8 @@ class ModularModelMGR(ModularModelMGRMixin):
         # for i in range(labels.shape[0]):
         #     assert true_masks[i][labels[i]].max() == 1, labels[i].item()
 
-        num_crops = 1
-
         # TODO: see how to use and process label_names
-        imgs, labels, true_masks, _ = self.reshape_data(imgs, labels, true_masks)
+        imgs, labels, true_masks, _, num_crops = self.reshape_data(imgs, labels, true_masks)
 
         if imgs.shape[1] != self.module.n_channels:
             raise ModelMGRImageChannelsError(self.module.n_channels, imgs.shape[1])
@@ -243,10 +241,8 @@ class ModularModelMGR(ModularModelMGRMixin):
         # for i in range(labels.shape[0]):
         #     assert true_masks[i][labels[i]].max() == 1, labels[i].item()
 
-        num_crops = 1
-
         # TODO: see how to use and process label_names
-        imgs, labels, true_masks, _ = self.reshape_data(imgs, labels, true_masks)
+        imgs, labels, true_masks, _, num_crops = self.reshape_data(imgs, labels, true_masks)
 
         if imgs.shape[1] != self.module.n_channels:
             raise ModelMGRImageChannelsError(self.module.n_channels, imgs.shape[1])
