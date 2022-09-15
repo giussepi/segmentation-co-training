@@ -79,7 +79,8 @@ CONSEP_TEST_PATH = ''
 #                                     ct82                                    #
 ###############################################################################
 
-CT82_CROP_SHAPE = [32, 80, 80]  # [46, 80, 80] [96, 160, 160]
+CT82_SIZE = [368, 368, -1]  # [height, width, scans]
+CT82_CROP_SHAPE = [32, 80, 80]  # [46, 80, 80] [96, 160, 160] [scans, heigh, width]
 CT82_NUM_CROPS = 3
 
 CT82_TRANSFORMS = {
@@ -93,7 +94,7 @@ CT82_TRANSFORMS = {
             keys=['img', 'mask'],
             prob=1.,
             rotate_range=0.261799,  # 15 degrees
-            translate_range=[0*368, 0.1*368, 0.1*368],  # 368 is the image width|height
+            translate_range=[0*CT82_SIZE[2], 0.1*CT82_SIZE[0], 0.1*CT82_SIZE[1]],
             scale_range=((-0.3,  0.3), (-0.3, 0.3), (-0.3, 0.3)),
             mode=["bilinear", "nearest"]
         ),
@@ -101,8 +102,8 @@ CT82_TRANSFORMS = {
             keys=['img', 'mask'],
             label_key='mask',
             spatial_size=CT82_CROP_SHAPE,
-            pos=1,
-            neg=0,
+            pos=.5,
+            neg=.5,
             num_samples=CT82_NUM_CROPS,
         ),
         # ts.RandSpatialCropd(
@@ -119,8 +120,8 @@ CT82_TRANSFORMS = {
             keys=['img', 'mask'],
             label_key='mask',
             spatial_size=CT82_CROP_SHAPE,
-            pos=1,
-            neg=0,
+            pos=.5,
+            neg=.5,
             num_samples=CT82_NUM_CROPS,
         ),
         # ts.RandSpatialCropd(
@@ -138,6 +139,7 @@ CT82_TEST_PATH = os.path.join(PROJECT_PATH, 'CT-82-Pro', 'test')
 #                                    LiTS17                                   #
 ###############################################################################
 
+LITS17_SIZE = CT82_SIZE
 LITS17_CROP_SHAPE = CT82_CROP_SHAPE
 LITS17_NUM_CROPS = CT82_NUM_CROPS
 LITS17_TRANSFORMS = CT82_TRANSFORMS
