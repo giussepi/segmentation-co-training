@@ -369,7 +369,7 @@ If true it track the loss values, else it tracks the metric values.
 
         Returns:
             imgs <torch.Tensor>, labels<torch.Tensor, list>, true_masks<torch.Tensor, None>,
-            filepaths<torch.Tensor, list, None>
+            filepaths<torch.Tensor, list, None>, num_crops<int>
         """
         assert torch.is_tensor(imgs)
         assert isinstance(labels, (torch.Tensor, list))
@@ -377,6 +377,8 @@ If true it track the loss values, else it tracks the metric values.
             '2D imgs tensor must be [batches, crops, channels, height, width] or'
             '[batches, channels, height, width]'
         )
+
+        num_crops = 1
 
         if true_masks is not None:
             assert torch.is_tensor(true_masks)
@@ -386,6 +388,7 @@ If true it track the loss values, else it tracks the metric values.
                 true_masks = true_masks.reshape((-1, *true_masks.shape[2:]))
 
         if len(imgs.shape) == 5:  # [batches, crops, channels, height, width]
+            num_crops = imgs.shape[1]
             imgs = imgs.reshape((-1, *imgs.shape[2:]))
 
         # TODO: determine how to reshape filepaths
@@ -399,7 +402,7 @@ If true it track the loss values, else it tracks the metric values.
         if torch.is_tensor(labels):
             labels = labels.squeeze()
 
-        return imgs, labels, true_masks, filepaths
+        return imgs, labels, true_masks, filepaths, num_crops
 
     @staticmethod
     def reshape_3D_data(
@@ -420,7 +423,7 @@ If true it track the loss values, else it tracks the metric values.
 
         Returns:
             imgs <torch.Tensor>, labels<torch.Tensor, list>, true_masks<torch.Tensor, None>,
-            filepaths<torch.Tensor, list, None>
+            filepaths<torch.Tensor, list, None>, num_crops<int>
         """
         assert torch.is_tensor(imgs)
         assert isinstance(labels, (torch.Tensor, list))
@@ -428,6 +431,8 @@ If true it track the loss values, else it tracks the metric values.
             '3D imgs tensor must be [batches, crops, channels, depth, height, width] or'
             '[batches, channels, depth, height, width]'
         )
+
+        num_crops = 1
 
         if true_masks is not None:
             assert torch.is_tensor(true_masks)
@@ -437,6 +442,7 @@ If true it track the loss values, else it tracks the metric values.
                 true_masks = true_masks.reshape((-1, *true_masks.shape[2:]))
 
         if len(imgs.shape) == 6:  # [batches, crops, channels, depth, height, width]
+            num_crops = imgs.shape[1]
             imgs = imgs.reshape((-1, *imgs.shape[2:]))
 
         # TODO: determine how to reshape filepaths
@@ -450,7 +456,7 @@ If true it track the loss values, else it tracks the metric values.
         if torch.is_tensor(labels):
             labels = labels.squeeze()
 
-        return imgs, labels, true_masks, filepaths
+        return imgs, labels, true_masks, filepaths, num_crops
 
     @staticmethod
     def basic_preprocess(img):
