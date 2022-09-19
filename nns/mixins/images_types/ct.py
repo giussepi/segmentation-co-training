@@ -183,8 +183,11 @@ class CT3DNIfTIMixin:
         def plot_img_mask_pred(scan: int, img: NIfTI, gt: NIfTI, pred: NIfTI):
             fig, axis = plt.subplots(1, 3)
             axis[0].imshow(img.ndarray[..., scan], cmap='gray')
+            axis[0].set_title('CT')
             axis[1].imshow(gt.ndarray[..., scan], cmap='gray')
+            axis[1].set_title('GT')
             axis[2].imshow(pred.ndarray[..., scan], cmap='gray')
+            axis[2].set_title('Pred')
             plt.show()
 
         for scan in range(ct.shape[-1]):
