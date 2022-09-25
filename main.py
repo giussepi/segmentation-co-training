@@ -34,8 +34,8 @@ from consep.utils.patches.patches import ProcessDataset
 from ct82.datasets import CT82Dataset, CT82Labels
 from ct82.processors import CT82MGR
 from ct82.settings import TRANSFORMS
-from lits17.processors import LiTS17MGR
-from lits17.datasets import LiTS17OnlyLiverLabels, LiTS17Dataset, LiTS17OnlyLesionLabels
+from lits17.processors import LiTS17MGR, LiTS17CropMGR
+from lits17.datasets import LiTS17OnlyLiverLabels, LiTS17Dataset, LiTS17OnlyLesionLabels, LiTS17CropDataset
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR, \
@@ -708,7 +708,7 @@ def main():
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
         sanity_checks=False,
-        labels_data=LiTS17OnlyLiverLabels,  # CT82Labels,  # LiTS17OnlyLiverLabels
+        labels_data=LiTS17OnlyLesionLabels,  # CT82Labels,  # LiTS17OnlyLiverLabels
         data_dimensions=settings.DATA_DIMENSIONS,
         dataset=LiTS17Dataset,  # CT82Dataset,  # LiTS17Dataset
         dataset_kwargs={
@@ -743,7 +743,7 @@ def main():
         checkpoint_interval=0,
         train_eval_chkpt=False,
         last_checkpoint=True,
-        ini_checkpoint='',  # '/media/giussepi/TOSHIBA EXT/lits_weights/UNet3D/app3/unet3d/exp1/best_chkpt.pth.tar',
+        ini_checkpoint='/media/giussepi/TOSHIBA EXT/lits_weights/UNet3D_4crops_train_dot5_val_dot5/app4/best_chkpt.pth.tar',
         dir_checkpoints=os.path.join(
             settings.DIR_CHECKPOINTS, 'ct82',  'unet3d', 'exp1'),
         tensorboard=False,
@@ -752,15 +752,15 @@ def main():
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    model7()
+    # model7()
     # model7.print_data_logger_summary()
     # model7.plot_and_save(None, 154)
-    # model7.predict('/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/CT_119.nii.gz')
-    # id_ = '119'  # '091'
+    # model7.predict('/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/train/cv_fold_2/CT_48.nii.gz')
+    # id_ = '48'  # '043'  # '119'  # '091'
     # model7.plot_2D_ct_gt_preds(
-    #     ct_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/CT_{id_}.nii.gz',
-    #     gt_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train/cv_fold_3/label_{id_}.nii.gz',
-    #     pred_path=f'pred_CT_{id_}.nii.gz'
+    #     ct_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/train/cv_fold_2/CT_{id_}.nii.gz',
+    #     gt_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/train/cv_fold_2/label_{id_}.nii.gz',
+    #     pred_path=f'pred_CT_{id_}_01.nii.gz'
     # )
     # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
@@ -970,9 +970,9 @@ def main():
 
     # getting subdatasets and plotting some crops #############################
     # train, val, test = LiTS17Dataset.get_subdatasets(
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/train',
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/val',
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/test'
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/train',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/val',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/test'
     # )
     # for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
     #     print(f'{db_name}: {len(dataset)}')
@@ -992,16 +992,107 @@ def main():
     #         axis[1].imshow(data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
     #         plt.show()
     #     else:
-    #         fig, axis = plt.subplots(2, 4)
-    #         for idx, d in zip([*range(4)], dataset):
-    #             img_id = np.random.randint(0, d['image'].shape[-3])
-    #             axis[0, idx].imshow(
-    #                 equalize_adapthist(d['image'].detach().numpy()).squeeze().transpose(1, 2, 0)[..., img_id],
-    #                 cmap='gray'
-    #             )
-    #             axis[1, idx].imshow(d['mask'].detach().numpy(
-    #             ).squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
-    #         plt.show()
+    #         num_crops = dataset[0]['image'].shape[0]
+    #         imgs_per_row = 4
+    #         for ii in range(0, len(dataset), imgs_per_row):
+    #             fig, axis = plt.subplots(2, imgs_per_row*num_crops)
+    #             # for idx, d in zip([*range(imgs_per_row)], dataset):
+    #             for idx in range(imgs_per_row):
+    #                 d = dataset[idx+ii]
+    #                 for cidx in range(num_crops):
+    #                     img_id = np.random.randint(0, d['image'].shape[-3])
+    #                     axis[0, idx*num_crops+cidx].imshow(
+    #                         equalize_adapthist(d['image'][cidx].detach().numpy()
+    #                                            ).squeeze().transpose(1, 2, 0)[..., img_id],
+    #                         cmap='gray'
+    #                     )
+    #                     axis[0, idx*num_crops+cidx].set_title(f'CT{idx}-{cidx}')
+    #                     axis[1, idx*num_crops+cidx].imshow(d['mask'][cidx].detach().numpy(
+    #                     ).squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #                     axis[1, idx*num_crops+cidx].set_title(f'Mask{idx}-{cidx}')
+
+    #             fig.suptitle('CTs and Masks')
+    #             plt.show()
+
+    # generating crops ########################################################
+    # Total crops: 3853
+    # Label 2 crops: 0
+    # Label 1 crops: 1553
+    # Label 0 crops: 2300
+    # LiTS17CropMGR(
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro',
+    #     patch_size=tuple([*settings.LITS17_CROP_SHAPE[1:], settings.LITS17_CROP_SHAPE[0]]),
+    #     patch_overlapping=(.25, .25, .25), min_mask_area=25e-4, min_crop_mean=0.41, crops_per_label=20,
+    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20Crops'
+    # )()
+    # return 1
+    # min_mask_area 25e-4: 15, 25, 73 has 1 label file  # slice area 80x80x25e-4 = 16
+    # min_mask_area 1e-15: 73 -> 1
+    # getting subdatasets and plotting some crops #############################
+    train, val, test = LiTS17CropDataset.get_subdatasets(
+        '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20Crops/train',
+        '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20Crops/val',
+        '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20Crops/test'
+    )
+    for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
+        print(f'{db_name}: {len(dataset)}')
+        # for _ in tqdm(dataset):
+        #     pass
+        # data = dataset[0]
+
+        for data_idx in range(len(dataset)):
+            data = dataset[data_idx]
+            # print(data['image'].shape, data['mask'].shape)
+            # print(data['label'], data['label_name'], data['updated_mask_path'], data['original_mask'])
+            # print(data['image'].min(), data['image'].max())
+            # print(data['mask'].min(), data['mask'].max())
+
+            if len(data['image'].shape) == 4:
+                img_ids = [np.random.randint(0, data['image'].shape[-3])]
+
+                # # plotting only crops with masks
+                # if 1 not in data['mask'].unique():
+                #     continue
+                # else:
+                #     # selecting an idx containing part of the mask
+                #     img_ids = data['mask'].squeeze().sum(axis=-1).sum(axis=-1).nonzero().squeeze()
+
+                std, mean = torch.std_mean(data['image'], unbiased=False)
+                print(f"SUM: {data['image'].sum()}")
+                print(f"STD MEAN: {std} {mean}")
+
+                for img_id in img_ids:
+                    fig, axis = plt.subplots(1, 2)
+                    axis[0].imshow(
+                        equalize_adapthist(data['image'].detach().numpy()).squeeze().transpose(1, 2, 0)[..., img_id],
+                        cmap='gray'
+                    )
+                    axis[1].imshow(data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+                    plt.show()
+                    plt.clf()
+                    plt.close()
+            else:
+                num_crops = dataset[0]['image'].shape[0]
+                imgs_per_row = 4
+                for ii in range(0, len(dataset), imgs_per_row):
+                    fig, axis = plt.subplots(2, imgs_per_row*num_crops)
+                    # for idx, d in zip([*range(imgs_per_row)], dataset):
+                    for idx in range(imgs_per_row):
+                        d = dataset[idx+ii]
+                        for cidx in range(num_crops):
+                            img_id = np.random.randint(0, d['image'].shape[-3])
+                            axis[0, idx*num_crops+cidx].imshow(
+                                equalize_adapthist(d['image'][cidx].detach().numpy()
+                                                   ).squeeze().transpose(1, 2, 0)[..., img_id],
+                                cmap='gray'
+                            )
+                            axis[0, idx*num_crops+cidx].set_title(f'CT{idx}-{cidx}')
+                            axis[1, idx*num_crops+cidx].imshow(d['mask'][cidx].detach().numpy(
+                            ).squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+                            axis[1, idx*num_crops+cidx].set_title(f'Mask{idx}-{cidx}')
+
+                    fig.suptitle('CTs and Masks')
+                    plt.show()
 
     ###############################################################################
     #                                     dpis                                    #
