@@ -1050,7 +1050,7 @@ def main():
             if len(data['image'].shape) == 4:
                 img_ids = [np.random.randint(0, data['image'].shape[-3])]
 
-                # # plotting only crops with masks
+                # uncomment these lines to only plot crops with masks
                 # if 1 not in data['mask'].unique():
                 #     continue
                 # else:
