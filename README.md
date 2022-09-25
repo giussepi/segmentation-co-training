@@ -287,6 +287,157 @@ mymodel.plot_2D_ct_gt_preds(
 )
 ```
 
+### LiTS17 [^4]
+#### Getting the data
+1. Download it from [https://competitions.codalab.org/competitions/17094](https://competitions.codalab.org/competitions/17094)
+
+2. Create a new folder `LITS` at the main directory of this project
+
+3. Uncompress `Training_Batch1.zip` and `Training_Batch2.zip` and move all the segmentation and volume NIfTI files to a new folder `train` inside `LITS`.
+
+#### Creating basic training dataset
+The `LiTS17MGR` has options to create multiclass or binary datasets. Review its definition to use it properly. In the next lines we show an example to create a binary dataset (train, validation and test sub-datasets) using the lesion label.
+
+``` python
+    mgr = LiTS17MGR('LITS/train',
+                    saving_path='LiTS17Lesion-Pro',
+                    target_size=(368, 368, -1), only_liver=False, only_lesion=True)
+    print(mgr.get_insights())
+    print(mgr.get_lowest_highest_bounds())
+    mgr()
+    mgr.perform_visual_verification(68, scans=[40, 64], clahe=True)  # ppl 68 -> scans 64
+    # after manually removing files without the desired label and less scans than 32
+    # (000, 001, 054 had 29 scans) we ended up with 230 FILES @ LiTS17 only lesion and
+    # 256 files @ LiTS17 only liver
+    mgr.split_processed_dataset(.20, .20, shuffle=True)
+
+    # getting subdatasets and plotting some crops #############################
+    train, val, test = LiTS17Dataset.get_subdatasets(
+        'LiTS17Lesion-Pro/train',
+        'LiTS17Lesion-Pro/val',
+        'LiTS17Lesion-Pro/test'
+    )
+    for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
+        print(f'{db_name}: {len(dataset)}')
+        data = dataset[0]
+        print(data['image'].shape, data['mask'].shape)
+        print(data['label'], data['label_name'], data['updated_mask_path'], data['original_mask'])
+        print(data['image'].min(), data['image'].max())
+        print(data['mask'].min(), data['mask'].max())
+
+        if len(data['image'].shape) == 4:
+            img_id = np.random.randint(0, data['image'].shape[-3])
+            fig, axis = plt.subplots(1, 2)
+            axis[0].imshow(
+                equalize_adapthist(data['image'].detach().numpy()).squeeze().transpose(1, 2, 0)[..., img_id],
+                cmap='gray'
+            )
+            axis[1].imshow(data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+            plt.show()
+        else:
+            num_crops = dataset[0]['image'].shape[0]
+            imgs_per_row = 4
+            for ii in range(0, len(dataset), imgs_per_row):
+                fig, axis = plt.subplots(2, imgs_per_row*num_crops)
+                # for idx, d in zip([*range(imgs_per_row)], dataset):
+                for idx in range(imgs_per_row):
+                    d = dataset[idx+ii]
+                    for cidx in range(num_crops):
+                        img_id = np.random.randint(0, d['image'].shape[-3])
+                        axis[0, idx*num_crops+cidx].imshow(
+                            equalize_adapthist(d['image'][cidx].detach().numpy()
+                                               ).squeeze().transpose(1, 2, 0)[..., img_id],
+                            cmap='gray'
+                        )
+                        axis[0, idx*num_crops+cidx].set_title(f'CT{idx}-{cidx}')
+                        axis[1, idx*num_crops+cidx].imshow(d['mask'][cidx].detach().numpy(
+                        ).squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+                        axis[1, idx*num_crops+cidx].set_title(f'Mask{idx}-{cidx}')
+
+                fig.suptitle('CTs and Masks')
+                plt.show()
+```
+
+#### Creating crops dataset
+You just need to use the `LiTS17CropMGR` over the ouput of `LiTS17MGR`.
+Bear in mind that the default values to filter non-relevant crops work only when using RandAxisFlipd as the solely data-augmentation method.
+
+``` python
+    LiTS17CropMGR(
+        'LiTS17Lesion-Pro',
+        patch_size=tuple([*settings.LITS17_CROP_SHAPE[1:], settings.LITS17_CROP_SHAPE[0]]),
+        patch_overlapping=(.25, .25, .25), min_mask_area=25e-4, min_crop_mean=0.41, crops_per_label=20,
+        saving_path='LiTS17Lesion-Pro-20Crops'
+    )()
+
+    # getting subdatasets and plotting some crops #############################
+    train, val, test = LiTS17CropDataset.get_subdatasets(
+        'LiTS17Lesion-Pro-20Crops/train',
+        'LiTS17Lesion-Pro-20Crops/val',
+        'LiTS17Lesion-Pro-20Crops/test'
+    )
+    for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
+        print(f'{db_name}: {len(dataset)}')
+        # for _ in tqdm(dataset):
+        #     pass
+        # data = dataset[0]
+
+        for data_idx in range(len(dataset)):
+            data = dataset[data_idx]
+            # print(data['image'].shape, data['mask'].shape)
+            # print(data['label'], data['label_name'], data['updated_mask_path'], data['original_mask'])
+            # print(data['image'].min(), data['image'].max())
+            # print(data['mask'].min(), data['mask'].max())
+
+            if len(data['image'].shape) == 4:
+                img_ids = [np.random.randint(0, data['image'].shape[-3])]
+
+                # uncomment these lines to only plot crops with masks
+                # if 1 not in data['mask'].unique():
+                #     continue
+                # else:
+                #     # selecting an idx containing part of the mask
+                #     img_ids = data['mask'].squeeze().sum(axis=-1).sum(axis=-1).nonzero().squeeze()
+
+                std, mean = torch.std_mean(data['image'], unbiased=False)
+                print(f"SUM: {data['image'].sum()}")
+                print(f"STD MEAN: {std} {mean}")
+
+                for img_id in img_ids:
+                    fig, axis = plt.subplots(1, 2)
+                    axis[0].imshow(
+                        equalize_adapthist(data['image'].detach().numpy()).squeeze().transpose(1, 2, 0)[..., img_id],
+                        cmap='gray'
+                    )
+                    axis[1].imshow(data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+                    plt.show()
+                    plt.clf()
+                    plt.close()
+            else:
+                num_crops = dataset[0]['image'].shape[0]
+                imgs_per_row = 4
+                for ii in range(0, len(dataset), imgs_per_row):
+                    fig, axis = plt.subplots(2, imgs_per_row*num_crops)
+                    # for idx, d in zip([*range(imgs_per_row)], dataset):
+                    for idx in range(imgs_per_row):
+                        d = dataset[idx+ii]
+                        for cidx in range(num_crops):
+                            img_id = np.random.randint(0, d['image'].shape[-3])
+                            axis[0, idx*num_crops+cidx].imshow(
+                                equalize_adapthist(d['image'][cidx].detach().numpy()
+                                                   ).squeeze().transpose(1, 2, 0)[..., img_id],
+                                cmap='gray'
+                            )
+                            axis[0, idx*num_crops+cidx].set_title(f'CT{idx}-{cidx}')
+                            axis[1, idx*num_crops+cidx].imshow(d['mask'][cidx].detach().numpy(
+                            ).squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+                            axis[1, idx*num_crops+cidx].set_title(f'Mask{idx}-{cidx}')
+
+                    fig.suptitle('CTs and Masks')
+                    plt.show()
+
+```
+
 ### Training, Testing and Plotting on TensorBoard
 Use the `ModelMGR` to train models and make predictions.
 
@@ -639,3 +790,6 @@ This application is using [logzero](https://logzero.readthedocs.io/en/latest/). 
 [^1]: Holger R. Roth, Amal Farag, Evrim B. Turkbey, Le Lu, Jiamin Liu, and Ronald M. Summers. (2016). Data From Pancreas-CT. The Cancer Imaging Archive. [https://doi.org/10.7937/K9/TCIA.2016.tNB1kqBU](https://doi.org/10.7937/K9/TCIA.2016.tNB1kqBU)
 [^2]: Roth HR, Lu L, Farag A, Shin H-C, Liu J, Turkbey EB, Summers RM. DeepOrgan: Multi-level Deep Convolutional Networks for Automated Pancreas Segmentation. N. Navab et al. (Eds.): MICCAI 2015, Part I, LNCS 9349, pp. 556–564, 2015.  ([paper](http://arxiv.org/pdf/1506.06448.pdf))
 [^3]: Clark K, Vendt B, Smith K, Freymann J, Kirby J, Koppel P, Moore S, Phillips S, Maffitt D, Pringle M, Tarbox L, Prior F. The Cancer Imaging Archive (TCIA): Maintaining and Operating a Public Information Repository, Journal of Digital Imaging, Volume 26, Number 6, December, 2013, pp 1045-1057. DOI: [https://doi.org/10.1007/s10278-013-9622-7](https://doi.org/10.1007/s10278-013-9622-7)
+[^4]: P. Bilic et al., “The liver tumor segmentation benchmark (LiTS),”
+arXiv e-prints, p. arXiv:1901.04056, Jan. 2019. [Online]. Available:
+https://arxiv.org/abs/1901.04056
