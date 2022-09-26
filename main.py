@@ -1014,7 +1014,7 @@ def main():
     #             fig.suptitle('CTs and Masks')
     #             plt.show()
 
-    # generating crops ########################################################
+    # generating crops dataset ################################################
     # Total crops: 3853
     # Label 2 crops: 0
     # Label 1 crops: 1553
