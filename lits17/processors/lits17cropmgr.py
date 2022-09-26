@@ -42,7 +42,7 @@ class LiTS17CropMGR:
     def __init__(
             self, db_path: str, /, *, patch_size: Tuple[int] = None, patch_overlapping: Tuple[float] = None,
             min_mask_area: float = 25e-4, min_crop_mean: float = .41, crops_per_label: int = 20,
-            saving_path='LiTS17-Pro-Crops', verbose=True
+            saving_path: str = 'LiTS17-Pro-Crops', adjust_depth: bool = True, verbose: bool = True
     ):
         """
         Initializes the object instance
@@ -65,6 +65,9 @@ class LiTS17CropMGR:
                                    Default 20
             saving_path     <str>: Path to the folder where the processed labels and CTs will be stored
                                    Default LiTS17-Pro-Crops
+            adjust_depth   <bool>: If True, the depth axis will be modified to get a centred mask. Bear in mind
+                                   that this could lead to crops with a depth (number of scans or slices) lower
+                                   than the desired. Default True
             verbose        <bool>: Whether or not print crops processing information. Default True
         """
         patch_size = patch_size if patch_size else (80, 80, 32)
@@ -80,6 +83,7 @@ class LiTS17CropMGR:
         assert isinstance(crops_per_label, int), type(crops_per_label)
         assert crops_per_label == -1 or crops_per_label >= 1
         assert isinstance(saving_path, str), type(str)
+        assert isinstance(adjust_depth, bool), type(adjust_depth)
         assert isinstance(verbose, bool), type(verbose)
 
         self.db_path = db_path
@@ -89,6 +93,7 @@ class LiTS17CropMGR:
         self.min_crop_mean = min_crop_mean
         self.crops_per_label = crops_per_label
         self.saving_path = saving_path
+        self.adjust_depth = adjust_depth
         self.verbose = verbose
 
         self.generic_pattern = re.compile(self.GENERIC_REGEX)
@@ -225,7 +230,11 @@ class LiTS17CropMGR:
 
         new_iy = max(0, absolute_min_y - (self.patch_size[0] - mask_bbox_height) // 2)
         new_ix = max(0, absolute_min_x - (self.patch_size[1] - mask_bbox_width) // 2)
-        new_iz = max(0, absolute_min_z - (self.patch_size[2] - mask_bbox_depth) // 2)
+
+        if self.adjust_depth:
+            new_iz = max(0, absolute_min_z - (self.patch_size[2] - mask_bbox_depth) // 2)
+        else:
+            new_iz = iz
 
         return new_iy, new_ix, new_iz
 
