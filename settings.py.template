@@ -146,13 +146,16 @@ LITS17_TRANSFORMS = {
         # comment for LiTS17CropDataset
         ts.CropForegroundd(keys=['img', 'mask'], source_key='img', select_fn=lambda x: x > .5),
         ts.RandAxisFlipd(keys=['img', 'mask'], prob=.5),
-        # comment for LiTS17CropDataset
         ts.RandAffined(
             keys=['img', 'mask'],
             prob=1.,
             rotate_range=0.261799,  # 15 degrees
+            # comment for LiTS17CropDataset
             translate_range=[0.1*LITS17_SIZE[2], 0.1*LITS17_SIZE[0], 0.1*LITS17_SIZE[1]],
+            # comment for LiTS17CropDataset
             scale_range=((-0.3,  0.3), (-0.3, 0.3), (-0.3, 0.3)),
+            # uncomment for LiTS17CropDataset
+            # scale_range=((-0.3, 0), (-0.3, 0), (-0.3, 0)),
             mode=["bilinear", "nearest"]
         ),
         # comment for LiTS17CropDataset
