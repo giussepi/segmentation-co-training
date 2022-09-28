@@ -364,17 +364,18 @@ Bear in mind that the default values to filter non-relevant crops work only when
 
 ``` python
     LiTS17CropMGR(
-        'LiTS17Lesion-Pro',
+        '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro',
         patch_size=tuple([*settings.LITS17_CROP_SHAPE[1:], settings.LITS17_CROP_SHAPE[0]]),
-        patch_overlapping=(.25, .25, .25), min_mask_area=25e-4, min_crop_mean=0.41, crops_per_label=20,
-        saving_path='LiTS17Lesion-Pro-20Crops'
+        patch_overlapping=(.25, .25, .25), only_crops_with_masks=True, min_mask_area=25e-4,
+        min_crop_mean=0.41, crops_per_label=20, adjust_depth=False,
+        saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops'
     )()
 
     # getting subdatasets and plotting some crops #############################
     train, val, test = LiTS17CropDataset.get_subdatasets(
-        'LiTS17Lesion-Pro-20Crops/train',
-        'LiTS17Lesion-Pro-20Crops/val',
-        'LiTS17Lesion-Pro-20Crops/test'
+        '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops/train',
+        '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops/val',
+        '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops/test'
     )
     for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
         print(f'{db_name}: {len(dataset)}')
@@ -388,7 +389,6 @@ Bear in mind that the default values to filter non-relevant crops work only when
             # print(data['label'], data['label_name'], data['updated_mask_path'], data['original_mask'])
             # print(data['image'].min(), data['image'].max())
             # print(data['mask'].min(), data['mask'].max())
-
             if len(data['image'].shape) == 4:
                 img_ids = [np.random.randint(0, data['image'].shape[-3])]
 
