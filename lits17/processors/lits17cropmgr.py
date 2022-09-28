@@ -41,8 +41,9 @@ class LiTS17CropMGR:
 
     def __init__(
             self, db_path: str, /, *, patch_size: Tuple[int] = None, patch_overlapping: Tuple[float] = None,
-            min_mask_area: float = 25e-4, min_crop_mean: float = .41, crops_per_label: int = 20,
-            saving_path: str = 'LiTS17-Pro-Crops', adjust_depth: bool = True, verbose: bool = True
+            only_crops_with_masks: bool = True, min_mask_area: float = 25e-4, min_crop_mean: float = .41,
+            crops_per_label: int = 20, saving_path: str = 'LiTS17-Pro-Crops', adjust_depth: bool = True,
+            verbose: bool = True
     ):
         """
         Initializes the object instance
@@ -51,11 +52,10 @@ class LiTS17CropMGR:
             db_path         <str>: Path to the main folder containing the dataset processed by LiTS17MGR
             patch_size    <tuple>: size of patches (height, width, scans). Default (80, 80, 32)
             patch_overlapping <tuple>: overlapping of patches (height, width, scans). Default (.25, .25, .25)
+            only_crops_with_masks <bool>: If True, only crops containing non-zero labels are  extracted.
+                                   Default True
             min_mask_area <float>: mininum percentage (in range ]0, 1[) of crop area containing the labels.
-                                   When using all the crops this number refers to the minimum area with
-                                   labels different than zero; on the other hand, when using a number of
-                                   random crops it refers to the minimum area per label.
-                                   Default 25e-4,
+                                   i.e. The minimum area per label. Default 25e-4,
             min_crop_mean <float>: minimum mean of scaled image crops. This helps to avoid some crops
                                    containing mostly not relevant areas. Using the default configuration
                                    plus the flip transform we choose 0.41 as an acceptable default value.
@@ -78,6 +78,7 @@ class LiTS17CropMGR:
         assert len(patch_size) == 3, 'patch_size must be tuple (height, width, scans)'
         assert isinstance(patch_overlapping, tuple), type(patch_overlapping)
         assert len(patch_overlapping) == 3, 'patch_overlapping must be tuple (height, width, scans)'
+        assert isinstance(only_crops_with_masks, bool), type(only_crops_with_masks)
         assert 0 < min_mask_area < 1, min_mask_area
         assert 0 <= min_crop_mean < 1, min_crop_mean
         assert isinstance(crops_per_label, int), type(crops_per_label)
@@ -89,6 +90,7 @@ class LiTS17CropMGR:
         self.db_path = db_path
         self.patch_size = patch_size
         self.patch_overlapping = patch_overlapping
+        self.only_crops_with_masks = only_crops_with_masks
         self.min_mask_area = min_mask_area
         self.min_crop_mean = min_crop_mean
         self.crops_per_label = crops_per_label
@@ -135,6 +137,35 @@ class LiTS17CropMGR:
             logger.info(f'Label 1 crops: {label1_crops}')
             logger.info(f'Label 0 crops: {label0_crops}')
 
+    def _save_from_coords(
+            self, img: np.ndarray, mask: np.ndarray, crops_dir: str,  label_id: int, crop_counter: int,
+            iy: int, ix: int, iz: int):
+        """
+        Saves the CT and segmenation crops based on the provided coordinates
+
+        Kwargs:
+            img   <np.ndarray>:
+            mask  <np.ndarray>:
+            crops_dir    <str>:
+            label_id     <int>:
+            crop_counter <int>:
+            iy           <int>: y crop coordinate
+            ix           <int>: x crop coordinate
+            iz           <int>: z crop coordinate
+        """
+        img_crop = img.ndarray[
+            iy: iy+self.patch_size[0], ix:ix+self.patch_size[1], iz:iz+self.patch_size[2]]
+        mask_crop = mask.ndarray[
+            iy: iy+self.patch_size[0], ix:ix+self.patch_size[1], iz:iz+self.patch_size[2]]
+        NIfTI.save_numpy_as_nifti(
+            img_crop,
+            os.path.join(crops_dir, self.GEN_CT_FILENAME_TPL.format(label_id, crop_counter))
+        )
+        NIfTI.save_numpy_as_nifti(
+            mask_crop,
+            os.path.join(crops_dir, self.GEN_MASK_FILENAME_TPL.format(label_id, crop_counter))
+        )
+
     def _create_all_crops(self, label_file_path: str):
         """
         Creates crops using the sliding window technique
@@ -178,22 +209,23 @@ class LiTS17CropMGR:
                         feats_range=(0, 1)
                     )
 
-                    # making sure the img crop mean is bigger or equal to min_crop_mean
-                    # and that at least one mask slice ([height, width]) contains
-                    # one crop with a label area bigger or equal than min_area
-                    if scaled_img_crop.mean() >= self.min_crop_mean and \
-                       (mask_crop > 0).sum(axis=-1).astype(bool).sum() >= self.min_area:
-                        img_crop = img.ndarray[
-                            ix: ix+self.patch_size[0], iy:iy+self.patch_size[1], iz:iz+self.patch_size[2]]
-                        crop_counter += 1
-                        NIfTI.save_numpy_as_nifti(
-                            img_crop,
-                            os.path.join(crops_dir, self.GEN_CT_FILENAME_TPL.format(label_id, crop_counter))
-                        )
-                        NIfTI.save_numpy_as_nifti(
-                            mask_crop,
-                            os.path.join(crops_dir, self.GEN_MASK_FILENAME_TPL.format(label_id, crop_counter))
-                        )
+                    # making sure the scaled img crop mean is bigger or equal to min_crop_mean
+                    if scaled_img_crop.mean() >= self.min_crop_mean:
+                        # making sure that at least one mask slice ([height, width]) contains
+                        # one crop with a label area bigger or equal than min_area
+                        if (mask_crop == 2).sum(axis=-1).astype(bool).sum() >= self.min_area:
+                            ciy, cix, ciz = self.get_centred_mask_crop(mask_crop, 2, iy, ix, iz)
+                            crop_counter += 1
+                            self._save_from_coords(img, mask, crops_dir, label_id, crop_counter, ciy, cix, ciz)
+                        if (mask_crop == 1).sum(axis=-1).astype(bool).sum() >= self.min_area:
+                            ciy, cix, ciz = self.get_centred_mask_crop(mask_crop, 1, iy, ix, iz)
+                            crop_counter += 1
+                            self._save_from_coords(img, mask, crops_dir, label_id, crop_counter, ciy, cix, ciz)
+                        if self.only_crops_with_masks:
+                            continue
+                        if (mask_crop == 0).sum(axis=-1).astype(bool).sum() >= self.min_area:
+                            crop_counter += 1
+                            self._save_from_coords(img, mask, crops_dir, label_id, crop_counter, iy, ix, iz)
 
         return crop_counter
 
@@ -249,7 +281,6 @@ class LiTS17CropMGR:
         Returns:
             total_crops<int>, label2_crops<int>, label1_crops<int>, label0_crops<int>
         """
-
         assert os.path.isfile(label_file_path)
 
         result = self.generic_pattern.match(label_file_path)
@@ -295,6 +326,8 @@ class LiTS17CropMGR:
                             two_labels.append(self.get_centred_mask_crop(mask_crop, 2, iy, ix, iz))
                         if (mask_crop == 1).sum(axis=-1).astype(bool).sum() >= self.min_area:
                             one_labels.append(self.get_centred_mask_crop(mask_crop, 1, iy, ix, iz))
+                        if self.only_crops_with_masks:
+                            continue
                         if (mask_crop == 0).sum(axis=-1).astype(bool).sum() >= self.min_area:
                             zero_labels.append((iy, ix, iz))
 
@@ -316,19 +349,7 @@ class LiTS17CropMGR:
             logger.warning(f'{label_file_path} - label 0 - total label files {len(zero_labels)}: {e}')
 
         for iy, ix, iz in chain(two_labels, one_labels, zero_labels):
-            img_crop = img.ndarray[
-                iy: iy+self.patch_size[0], ix:ix+self.patch_size[1], iz:iz+self.patch_size[2]]
-            mask_crop = mask.ndarray[
-                iy: iy+self.patch_size[0], ix:ix+self.patch_size[1], iz:iz+self.patch_size[2]]
-
             crop_counter += 1
-            NIfTI.save_numpy_as_nifti(
-                img_crop,
-                os.path.join(crops_dir, self.GEN_CT_FILENAME_TPL.format(label_id, crop_counter))
-            )
-            NIfTI.save_numpy_as_nifti(
-                mask_crop,
-                os.path.join(crops_dir, self.GEN_MASK_FILENAME_TPL.format(label_id, crop_counter))
-            )
+            self._save_from_coords(img, mask, crops_dir, label_id, crop_counter, iy, ix, iz)
 
         return crop_counter, len(two_labels), len(one_labels), len(zero_labels)

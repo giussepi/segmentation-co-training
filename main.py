@@ -666,7 +666,7 @@ def main():
         # model_kwargs=dict(
         #     n_channels=1, n_classes=1, bilinear=False, batchnorm_cls=get_batchnormxd_class(),
         #     init_type=UNet3InitMethod.KAIMING, data_dimensions=settings.DATA_DIMENSIONS,
-        #     da_block_cls=intra_model.MixedEmbeddedDABlock,  # da_block_config={'xi': 1.},
+        #     da_block_cls=intra_model.AttentionBlock,  # da_block_config={'xi': 1.},
         #     # da_block_config={'thresholds': (.25, .8), 'beta': -1},
         #     dsv=True,
         # ),
@@ -1020,20 +1020,25 @@ def main():
     # Label 1 crops: 1553
     # Label 0 crops: 2300
     # train 2291, val 762, test 800
+    # Total crops: 1553
+    # Label 2 crops: 0
+    # Label 1 crops: 1553
+    # all crops with masks [I 220928 18:17:29 lits17cropmgr:133] Total crops: 2683
     # LiTS17CropMGR(
     #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro',
     #     patch_size=tuple([*settings.LITS17_CROP_SHAPE[1:], settings.LITS17_CROP_SHAPE[0]]),
-    #     patch_overlapping=(.25, .25, .25), min_mask_area=25e-4, min_crop_mean=0.41, crops_per_label=20,
-    #     adjust_depth=False, saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20Crops'
+    #     patch_overlapping=(.25, .25, .25), only_crops_with_masks=True, min_mask_area=25e-4,
+    #     min_crop_mean=0.41, crops_per_label=20, adjust_depth=False,
+    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops'
     # )()
     # return 1
     # min_mask_area 25e-4: 15, 25, 73 has 1 label file  # slice area 80x80x25e-4 = 16
     # min_mask_area 1e-15: 73 -> 1
     # getting subdatasets and plotting some crops #############################
     # train, val, test = LiTS17CropDataset.get_subdatasets(
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20Crops/train',
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20Crops/val',
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20Crops/test'
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops/train',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops/val',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops/test'
     # )
     # for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
     #     print(f'{db_name}: {len(dataset)}')
@@ -1047,7 +1052,6 @@ def main():
     #         # print(data['label'], data['label_name'], data['updated_mask_path'], data['original_mask'])
     #         # print(data['image'].min(), data['image'].max())
     #         # print(data['mask'].min(), data['mask'].max())
-
     #         if len(data['image'].shape) == 4:
     #             img_ids = [np.random.randint(0, data['image'].shape[-3])]
 
