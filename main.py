@@ -752,7 +752,7 @@ def main():
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    model7()
+    # model7()
     # model7.print_data_logger_summary()
     # model7.plot_and_save(None, 154)
     # model7.predict('/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/train/cv_fold_2/CT_48.nii.gz')
@@ -914,18 +914,27 @@ def main():
     ###########################################################################
     #                                  LiTS17                                 #
     ###########################################################################
-    # min val CT -10522, max val CT 27572
-    # min slices with label 1: 28, max slices with label 1: 299
-    # min slices with label 2: 0, max slices with label 2: 245
-    # label files without label 1: []
-    # label files without label 2: [32, 34, 38, 41, 47, 87, 89, 91, 105, 106, 114, 115, 119]
-    # min height: 512, min_width: 512, max_height: 512, max_width: 512
     # labels files: 131, CT files: 131
+    #                           value
+    # ------------------------  ---------------------------------------------------------
+    # Files without label 1     []
+    # Files without label 2     [32, 34, 38, 41, 47, 87, 89, 91, 105, 106, 114, 115, 119]
+    # Total CT files            131
+    # Total segmentation files  131
+    #
+    #                         min    max
+    # -------------------  ------  -----
+    # Image value          -10522  27572
+    # Slices with label 1      28    299
+    # Slices with label 2       0    245
+    # Height                  512    512
+    # Width                   512    512
+    # Depth                    74    987
 
-    # mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
-    #                 saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro',
-    #                 target_size=(368, 368, -1), only_liver=False, only_lesion=True)
-    # print(mgr.get_insights())
+    mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
+                    saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-160x160x96',
+                    target_size=(368, 368, -1), only_liver=False, only_lesion=True)
+    mgr.get_insights(verbose=True)
     # print(mgr.get_lowest_highest_bounds())
     # mgr()
     # mgr.perform_visual_verification(68, scans=[40, 64], clahe=True)  # ppl 68 -> scans 64

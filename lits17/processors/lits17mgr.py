@@ -22,6 +22,7 @@ from gutils.numpy_.numpy_ import scale_using_general_min_max_values
 from gutils.plots import BoxPlot
 from PIL import Image
 from skimage.exposure import equalize_adapthist
+from tabulate import tabulate
 from tqdm import tqdm
 
 from lits17.constants import CT_MIN_VAL, CT_MAX_VAL
@@ -132,26 +133,31 @@ class LiTS17MGR:
             self._process_labels_cts(labels_file)
 
     @timing
-    def get_insights(self):
+    def get_insights(self, *, verbose: bool = False):
         """
         Browse all LiTS17 files from self.db_path and returns the min/max image values,
         min/max number of NIfTI files per label with data/masks, files without label 1,
-        files without label 2, and total files analyzed
+        files without label 2, min/max height, width and depth; total number of CTs and
+        segmentation files analized
+
+        Kwargs:
+            verbose <bool>: If True prints all data found. Default False
 
         Returns:
             min_image_val<int>, max_image_val<int>,
             min_slices_with_label_1<int>, max_slices_with_label_1<int>,
             min_slices_with_label_2<int>, max_slices_with_label_2<int>,
             files_without_label_1<List[int]>, files_wihout_label_2<List[int]>,
-            min_height<int>, min_width<int>, max_height<int>, max_width<int>,
+            min_height<int>, min_width<int>, min_depth,
+            max_height<int>, max_width<int>, max_depth,
             img_counter<int>, label_counter<int>
         """
         wildcard = os.path.join(self.db_path, '*.nii')
         files_ = glob.glob(wildcard)
         min_image_val = min_slices_with_label_1 = min_slices_with_label_2 = \
-            min_width = min_height = float('inf')
+            min_width = min_height = min_depth = float('inf')
         max_image_val = max_slices_with_label_1 = max_slices_with_label_2 = \
-            max_width = max_height = float('-inf')
+            max_width = max_height = max_depth = float('-inf')
         files_without_label_1 = []
         files_without_label_2 = []
         img_counter = label_counter = 0
@@ -161,15 +167,17 @@ class LiTS17MGR:
             result = self.generic_pattern.match(filename)
 
             if not result:
-                logger.warning(f'{filename} not analyzed because it does not match the generic '
-                               f'file pattern {self.GENERIC_REGEX}')
+                logger.warning('%s not analyzed because it does not match the generic '
+                               'file pattern %s', filename, self.GENERIC_REGEX)
                 continue
 
             nifti = NIfTI(file_)
             min_height = min(min_height, nifti.shape[0])
             min_width = min(min_width, nifti.shape[1])
+            min_depth = min(min_depth, nifti.shape[2])
             max_height = max(max_height, nifti.shape[0])
             max_width = max(max_width, nifti.shape[1])
+            max_depth = max(max_depth, nifti.shape[2])
 
             if result.groupdict()['type'] == 'volume':
                 min_image_val = min(min_image_val, nifti.ndarray.min())
@@ -194,12 +202,33 @@ class LiTS17MGR:
 
         if img_counter != label_counter:
             logger.warning(
-                f'Number of images {img_counter} does not match the numeb of labels {label_counter}')
+                'Number of images %s does not match the number of labels %s', img_counter, label_counter)
+
+        if verbose:
+            table = [
+                ['', 'value'],
+                ['Files without label 1', files_without_label_1],
+                ['Files without label 2', files_without_label_2],
+                ['Total CT files', img_counter],
+                ['Total segmentation files', label_counter]
+            ]
+            logger.info('\n%s', str(tabulate(table, headers="firstrow")))
+
+            table = [
+                ['', 'min', 'max'],
+                ['Image value', min_image_val, max_image_val],
+                ['Slices with label 1', min_slices_with_label_1, max_slices_with_label_1],
+                ['Slices with label 2', min_slices_with_label_2, max_slices_with_label_2],
+                ['Height', min_height, max_height],
+                ['Width', min_width, max_width],
+                ['Depth', min_depth, max_depth],
+            ]
+            logger.info('\n%s', str(tabulate(table, headers="firstrow")))
 
         return min_image_val, max_image_val, min_slices_with_label_1, max_slices_with_label_1, \
             min_slices_with_label_2, max_slices_with_label_2,  \
-            files_without_label_1, files_without_label_2, min_height, min_width, max_height, max_width, \
-            img_counter, label_counter
+            files_without_label_1, files_without_label_2, min_height, min_width, min_depth, \
+            max_height, max_width, max_depth, img_counter, label_counter
 
     def get_lowest_highest_bounds(self):
         """
