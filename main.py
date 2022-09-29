@@ -931,10 +931,13 @@ def main():
     # Width                   512    512
     # Depth                    74    987
 
+    # mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
+    #                 saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro',
+    #                 target_size=(368, 368, -1), only_liver=False, only_lesion=True)
     mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
-                    saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-160x160x96',
-                    target_size=(368, 368, -1), only_liver=False, only_lesion=True)
-    mgr.get_insights(verbose=True)
+                    saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro',
+                    target_size=(368, 368, -2), only_liver=False, only_lesion=True)
+    # mgr.get_insights(verbose=True)
     # print(mgr.get_lowest_highest_bounds())
     # mgr()
     # mgr.perform_visual_verification(68, scans=[40, 64], clahe=True)  # ppl 68 -> scans 64

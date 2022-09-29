@@ -58,7 +58,9 @@ class LiTS17MGR:
                                Default LiTS17-Pro
             target_size <tuple>: target size of the 3D data height x width x slices. If the value of the
                                third dimension is -1, the target size per subject will be
-                               (height, width, num_slices_with_data).
+                               (height, width, num_slices_with_data). When the value is -2, only the
+                               height and width will be scaled; thus, the target size per subject will
+                               be (height, width, original_depth).
                                Default (368, 368, 96)
             only_liver <bool>: If True, the masks will have only two labels: Other and liver
             only_lesion <bool>: If True, the masks will have only two labels: Other and lesion
@@ -73,6 +75,7 @@ class LiTS17MGR:
         assert isinstance(self.saving_path, str), type(self.saving_path)
         assert isinstance(self.target_size, tuple), type(tuple)
         assert len(self.target_size) == 3, len(self.target_size)
+        assert self.target_size[2] in (-1, -2) or self.target_size[2] > 0
         assert isinstance(self.only_liver, bool), type(self.only_liver)
         if self.only_lesion and self.only_liver:
             raise ExclusiveArguments(['only_liver', 'only_lesion'])
@@ -88,7 +91,9 @@ class LiTS17MGR:
         Processes the label and CT associated with 'labels_file', the saves the results
         """
         labels = NIfTI(labels_file)
-        _, selected_data_idx = labels.clean_3d_ndarray(height=self.target_size[2], inplace=True)
+
+        if self.target_size[2] != -2:
+            _, selected_data_idx = labels.clean_3d_ndarray(height=self.target_size[2], inplace=True)
 
         # NOTE: we modify the labels after selecting the data because we must
         #       work over continuos data always; otherwise, subsequent
@@ -99,10 +104,12 @@ class LiTS17MGR:
             labels.ndarray = (labels.ndarray > 1).astype(np.int)
 
         image = NIfTI(labels_file.replace('segmentation', 'volume'))
-        image.ndarray = image.ndarray[..., selected_data_idx]
+
+        if self.target_size[2] != -2:
+            image.ndarray = image.ndarray[..., selected_data_idx]
 
         # then we apply the resize over the annotated area (ROI)
-        if self.target_size[2] == -1:
+        if self.target_size[2] in (-1, -2):
             labels.resize((*self.target_size[:2], labels.shape[2]), inplace=True)
             image.resize((*self.target_size[:2], image.shape[2]), inplace=True)
         else:
@@ -233,7 +240,7 @@ class LiTS17MGR:
     def get_lowest_highest_bounds(self):
         """
         Analyzes all the volume NIFTI files from self.db_path and returns the lowest and highets bounds
-        (form boxplots)
+        (from boxplots)
 
         Returns:
             lowest_bound<int>, highest_bound<int>
@@ -287,7 +294,6 @@ class LiTS17MGR:
         label = NIfTI(os.path.join(self.saving_path, self.GEN_LABEL_FILENAME_TPL.format(subject_id)))
         ct = NIfTI(os.path.join(self.saving_path, self.GEN_CT_FILENAME_TPL.format(subject_id)))
         # print(ct.shape)
-
         scans = [scans] if isinstance(scans, int) else [*range(*scans)]
 
         for scan in scans:
