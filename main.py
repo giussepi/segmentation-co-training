@@ -752,7 +752,7 @@ def main():
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    # model7()
+    model7()
     # model7.print_data_logger_summary()
     # model7.plot_and_save(None, 154)
     # model7.predict('/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/train/cv_fold_2/CT_48.nii.gz')
@@ -1045,28 +1045,34 @@ def main():
     # min_mask_area 1e-15: 73 -> 1
 
     # creating crop lesion dataset 64x160x160 #################################
-    mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
-                    saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro',
-                    target_size=(368, 368, -2), only_liver=False, only_lesion=True)
+    # mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
+    # saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro',
+    # target_size=(368, 368, -2), only_liver=False, only_lesion=True)
     # mgr.get_insights(verbose=True)
     # print(mgr.get_lowest_highest_bounds())
     # mgr()
-    mgr.verify_generated_db_target_size()
+    # mgr.verify_generated_db_target_size()
     # mgr.perform_visual_verification(68, scans=[40, 64], clahe=True)  # ppl 68 -> scans 64
     # after manually removing Files without label 2
     # [32, 34, 38, 41, 47, 87, 89, 91, 105, 106, 114, 115, 119]
     # mgr.split_processed_dataset(.20, .20, shuffle=True)
-    # LiTS17CropMGR(
+    # mgr = LiTS17CropMGR(
     #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro',
     #     patch_size=tuple([*settings.LITS17_CROP_SHAPE[1:], settings.LITS17_CROP_SHAPE[0]]),
     #     patch_overlapping=(.25, .25, .25), only_crops_with_masks=True, min_mask_area=625e-6,
-    #     min_crop_mean=0, crops_per_label=20, adjust_depth=False,
-    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops64x160x160'
+    #     min_crop_mean=0, crops_per_label=8, adjust_depth=True,
+    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-8PositiveCrops64x160x160'
     # )()
     # return 1
+    # crops_per_label=20
     # Total crops: 1212
     # Label 2 crops: 0
     # Label 1 crops: 1212
+    # Label 0 crops: 0
+    # crops_per_label=8
+    # Total crops created: 754
+    # Label 2 crops: 0
+    # Label 1 crops: 754
     # Label 0 crops: 0
     # getting subdatasets and plotting some crops #############################
     # train, val, test = LiTS17CropDataset.get_subdatasets(

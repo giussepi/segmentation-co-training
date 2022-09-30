@@ -65,9 +65,8 @@ class LiTS17CropMGR:
                                    Default 20
             saving_path     <str>: Path to the folder where the processed labels and CTs will be stored
                                    Default LiTS17-Pro-Crops
-            adjust_depth   <bool>: If True, the depth axis will be modified to get a centred mask. Bear in mind
-                                   that this could lead to crops with a depth (number of scans or slices) lower
-                                   than the desired. Default True
+            adjust_depth   <bool>: If set to False, the depth axis will not be modified when centering
+                                   the crop mask. Default True
             verbose        <bool>: Whether or not print crops processing information. Default True
         """
         patch_size = patch_size if patch_size else (80, 80, 32)
@@ -104,7 +103,11 @@ class LiTS17CropMGR:
         self.min_area = reduce(operator.mul, self.patch_size[:2]) * self.min_mask_area
 
     def __call__(self):
+        """
+        Generates the crops dataset and verifies all crops dimensions
+        """
         self.process()
+        self.verify_generated_db_dimensions()
 
     @timing
     def process(self):
@@ -117,6 +120,7 @@ class LiTS17CropMGR:
         clean_create_folder(self.saving_path)
         total_crops = label2_crops = label1_crops = label0_crops = 0
 
+        logger.info('Generating crops:')
         for label_file_path in tqdm(labels_files):
             if self.crops_per_label == -1:
                 total_crops += self._create_all_crops(label_file_path)
@@ -130,12 +134,12 @@ class LiTS17CropMGR:
         if not self.verbose:
             return
 
-        logger.info(f'Total crops: {total_crops}')
+        logger.info('Total crops created: %s', total_crops)
 
         if self.crops_per_label != -1:
-            logger.info(f'Label 2 crops: {label2_crops}')
-            logger.info(f'Label 1 crops: {label1_crops}')
-            logger.info(f'Label 0 crops: {label0_crops}')
+            logger.info('Label 2 crops: %s', label2_crops)
+            logger.info('Label 1 crops: %s', label1_crops)
+            logger.info('Label 0 crops: %s', label0_crops)
 
     def _save_from_coords(
             self, img: np.ndarray, mask: np.ndarray, crops_dir: str,  label_id: int, crop_counter: int,
@@ -214,11 +218,11 @@ class LiTS17CropMGR:
                         # making sure that at least one mask slice ([height, width]) contains
                         # one crop with a label area bigger or equal than min_area
                         if (mask_crop == 2).sum(axis=-1).astype(bool).sum() >= self.min_area:
-                            ciy, cix, ciz = self.get_centred_mask_crop(mask_crop, 2, iy, ix, iz)
+                            ciy, cix, ciz = self.get_centred_mask_crop(mask_crop, 2, iy, ix, iz, mask.shape)
                             crop_counter += 1
                             self._save_from_coords(img, mask, crops_dir, label_id, crop_counter, ciy, cix, ciz)
                         if (mask_crop == 1).sum(axis=-1).astype(bool).sum() >= self.min_area:
-                            ciy, cix, ciz = self.get_centred_mask_crop(mask_crop, 1, iy, ix, iz)
+                            ciy, cix, ciz = self.get_centred_mask_crop(mask_crop, 1, iy, ix, iz, mask.shape)
                             crop_counter += 1
                             self._save_from_coords(img, mask, crops_dir, label_id, crop_counter, ciy, cix, ciz)
                         if self.only_crops_with_masks:
@@ -229,25 +233,34 @@ class LiTS17CropMGR:
 
         return crop_counter
 
-    def get_centred_mask_crop(self, mask_crop: np.ndarray, label: int, iy: int, ix: int, iz: int):
+    def get_centred_mask_crop(
+            self, mask_crop: np.ndarray, label: int, iy: int, ix: int, iz: int, mask_shape: tuple):
         """
         Centers the mask and returns the new crop coordinates
 
         Kwargs:
             mask_crop <np.ndarray>:
-            label <int>:
-            iy <int>: y crop coordinate
-            ix <int>: x crop coordinate
-            iz <int>: z crop coordinate
-
+            label        <int>:
+            iy           <int>: y crop coordinate
+            ix           <int>: x crop coordinate
+            iz           <int>: z crop coordinate
+            mask_shape <tuple>: shape of the original mask utilised to create the mask_crop
         Returns:
             new_iy<int>, new_ix<int>, new_iz<int>
         """
+        assert isinstance(mask_crop, np.ndarray), type(mask_crop)
+        assert isinstance(label, int), type(label)
+        assert isinstance(iy, int), type(iy)
+        assert isinstance(ix, int), type(ix)
+        assert isinstance(iz, int), type(iz)
+        assert isinstance(mask_shape, tuple), type(mask_shape)
+        assert len(mask_shape) == 3, len(mask_shape)
+
         merged_height_width_mask = (mask_crop == label).sum(axis=-1)
         merged_depth_mask = (mask_crop == label).sum(axis=0).sum(axis=0)
-        labelled_y = merged_height_width_mask.sum(axis=1).nonzero()[0]
+        labelled_y = merged_height_width_mask.sum(axis=0).nonzero()[0]
         relative_min_y, relative_max_y = labelled_y[0], labelled_y[-1]
-        labelled_x = merged_height_width_mask.sum(axis=0).nonzero()[0]
+        labelled_x = merged_height_width_mask.sum(axis=1).nonzero()[0]
         relative_min_x, relative_max_x = labelled_x[0], labelled_x[-1]
         labelled_z = merged_depth_mask.nonzero()[0]
         relative_min_z, relative_max_z = labelled_z[0], labelled_z[-1]
@@ -260,11 +273,22 @@ class LiTS17CropMGR:
         absolute_min_x = ix + relative_min_x
         absolute_min_z = iz + relative_min_z
 
+        # problem located hereee
         new_iy = max(0, absolute_min_y - (self.patch_size[0] - mask_bbox_height) // 2)
+
+        if new_iy + self.patch_size[0] > mask_shape[0]:
+            new_iy = mask_shape[0] - self.patch_size[0]
+
         new_ix = max(0, absolute_min_x - (self.patch_size[1] - mask_bbox_width) // 2)
+
+        if new_ix + self.patch_size[1] > mask_shape[1]:
+            new_ix = mask_shape[1] - self.patch_size[1]
 
         if self.adjust_depth:
             new_iz = max(0, absolute_min_z - (self.patch_size[2] - mask_bbox_depth) // 2)
+
+            if new_iz + self.patch_size[2] > mask_shape[2]:
+                new_iz = mask_shape[2] - self.patch_size[2]
         else:
             new_iz = iz
 
@@ -323,9 +347,9 @@ class LiTS17CropMGR:
                         # making sure that at least one mask slice ([height, width]) contains
                         # one crop with a label area bigger or equal than min_area
                         if (mask_crop == 2).sum(axis=-1).astype(bool).sum() >= self.min_area:
-                            two_labels.append(self.get_centred_mask_crop(mask_crop, 2, iy, ix, iz))
+                            two_labels.append(self.get_centred_mask_crop(mask_crop, 2, iy, ix, iz, mask.shape))
                         if (mask_crop == 1).sum(axis=-1).astype(bool).sum() >= self.min_area:
-                            one_labels.append(self.get_centred_mask_crop(mask_crop, 1, iy, ix, iz))
+                            one_labels.append(self.get_centred_mask_crop(mask_crop, 1, iy, ix, iz, mask.shape))
                         if self.only_crops_with_masks:
                             continue
                         if (mask_crop == 0).sum(axis=-1).astype(bool).sum() >= self.min_area:
@@ -336,21 +360,33 @@ class LiTS17CropMGR:
             try:
                 two_labels = sample(two_labels, k=self.crops_per_label)
             except ValueError as e:
-                logger.warning(f'{label_file_path} - label 2 - total label files {len(two_labels)}: {e}')
+                logger.warning('%s - label 2 - total label files %s: %s', label_file_path, len(two_labels), e)
 
         try:
             one_labels = sample(one_labels, k=self.crops_per_label)
         except ValueError as e:
-            logger.warning(f'{label_file_path} - label 1 - total label files {len(one_labels)}: {e}')
+            logger.warning('%s - label 1 - total label files %s: %s', label_file_path, len(one_labels), e)
 
         if zero_labels:
             try:
                 zero_labels = sample(zero_labels, k=self.crops_per_label)
             except ValueError as e:
-                logger.warning(f'{label_file_path} - label 0 - total label files {len(zero_labels)}: {e}')
+                logger.warning('%s - label 0 - total label files %s: %s', label_file_path, len(zero_labels), e)
 
         for iy, ix, iz in chain(two_labels, one_labels, zero_labels):
             crop_counter += 1
             self._save_from_coords(img, mask, crops_dir, label_id, crop_counter, iy, ix, iz)
 
         return crop_counter, len(two_labels), len(one_labels), len(zero_labels)
+
+    def verify_generated_db_dimensions(self):
+        """
+        Verifies all the generated crops have the right patch size
+        """
+        wildcard = os.path.join(self.saving_path, '**/*.nii.gz')
+        file_list = glob.glob(wildcard, recursive=True)
+
+        logger.info('Verifying dimensions from generated crops')
+        for file_path in tqdm(file_list, unit='NIfTI files'):
+            nifti = NIfTI(file_path)
+            assert nifti.shape == self.patch_size, (file_path, nifti.shape)
