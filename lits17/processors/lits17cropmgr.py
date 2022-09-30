@@ -343,10 +343,11 @@ class LiTS17CropMGR:
         except ValueError as e:
             logger.warning(f'{label_file_path} - label 1 - total label files {len(one_labels)}: {e}')
 
-        try:
-            zero_labels = sample(zero_labels, k=self.crops_per_label)
-        except ValueError as e:
-            logger.warning(f'{label_file_path} - label 0 - total label files {len(zero_labels)}: {e}')
+        if zero_labels:
+            try:
+                zero_labels = sample(zero_labels, k=self.crops_per_label)
+            except ValueError as e:
+                logger.warning(f'{label_file_path} - label 0 - total label files {len(zero_labels)}: {e}')
 
         for iy, ix, iz in chain(two_labels, one_labels, zero_labels):
             crop_counter += 1
