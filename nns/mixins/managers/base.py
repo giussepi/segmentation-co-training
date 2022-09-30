@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import openslide as ops
 import torch
-from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping
+from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping, MemoryPrint
 from gutils.decorators import timing
 from gutils.folders import clean_create_folder
 from gutils.images.processing import get_slices_coords
@@ -105,6 +105,7 @@ class BaseModelMGR(SanityChecksMixin, CheckPointMixin, DataLoggerMixin, SubDatas
             # anyway I can always plot from the checkpoints :)
             plot_to_disk=False,
             plot_dir=settings.PLOT_DIRECTORY
+            memory_print=dict(epochs=5),
         )()
     """
 
@@ -187,6 +188,10 @@ If true it track the loss values, else it tracks the metric values.
             plot_to_disk <bool>: Whether or not plot data training data and save it as images.
                                  Default True
             plot_dir      <str>: Directory where the training plots will be saved. Default 'plots'
+            memory_print <dict>: Dictionary comprising the number of epochs to wait until printing
+                                 memory stats and (optinally) the shell command to get the stats.
+                                 To disable it set epochs to 0.
+                                 Default dict(epochs=0, command='')
         """
         self.model = kwargs.get('model')
         self.model_kwargs = kwargs.get('model_kwargs')
@@ -226,6 +231,7 @@ If true it track the loss values, else it tracks the metric values.
         self.tensorboard = kwargs.get('tensorboard', True)
         self.plot_to_disk = kwargs.get('plot_to_disk', True)
         self.plot_dir = kwargs.get('plot_dir', 'plots')
+        self.memory_print = kwargs.get('memory_print', dict(epochs=0, command=''))
 
         assert issubclass(self.model, nn.Module), type(self.model)
         assert isinstance(self.model_kwargs, dict), type(self.model_kwargs)
@@ -261,6 +267,7 @@ If true it track the loss values, else it tracks the metric values.
         assert isinstance(self.tensorboard, bool), type(self.tensorboard)
         assert isinstance(self.plot_to_disk, bool), type(self.plot_to_disk)
         assert isinstance(self.plot_dir, str), type(self.plot_dir)
+        assert isinstance(self.memory_print, dict), type(self.memory_print)
 
         # updating the earlystopping patience according to the number of 'intrain_val'
         # to stop, if necessary, the whole process after 'patience' epochs
@@ -274,6 +281,9 @@ If true it track the loss values, else it tracks the metric values.
         if self.plot_to_disk and self.plot_dir and not os.path.isdir(self.plot_dir):
             os.makedirs(self.plot_dir)
 
+        self.memory_printer = MemoryPrint(
+            self.memory_print['epochs'], self.memory_print.get('command', ''), self.cuda)
+        self.memory_printer(0, initial_stats=True)
         self.model = self.model(**self.model_kwargs)
 
         if self.cuda:
@@ -290,7 +300,7 @@ If true it track the loss values, else it tracks the metric values.
                 self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
             if self.device == "cpu":
-                logger.warning("CUDA is not available. Using CPU")
+                raise RuntimeError("CUDA is not available. Try using cuda=False")
         else:
             self.device = "cpu"
 
@@ -803,6 +813,7 @@ If true it track the loss values, else it tracks the metric values.
             epoch_train_loss = 0
             intrain_chkpt_counter = 0
             intrain_val_counter = 0
+            self.memory_printer(epoch)
 
             with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img',
                       disable=DISABLE_PROGRESS_BAR) as pbar:
