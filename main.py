@@ -703,7 +703,7 @@ def main():
         cuda=settings.CUDA,
         multigpus=settings.MULTIGPUS,
         patch_replication_callback=settings.PATCH_REPLICATION_CALLBACK,
-        epochs=1000,
+        epochs=settings.EPOCHS,
         intrain_val=2,
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
@@ -750,7 +750,8 @@ def main():
         # TODO: there a bug that appeared once when plotting to disk after a long training
         # anyway I can always plot from the checkpoints :)
         plot_to_disk=False,
-        plot_dir=settings.PLOT_DIRECTORY
+        plot_dir=settings.PLOT_DIRECTORY,
+        memory_print=dict(epochs=settings.EPOCHS//2),
     )
     model7()
     # model7.print_data_logger_summary()
