@@ -752,7 +752,7 @@ def main():
         plot_to_disk=False,
         plot_dir=settings.PLOT_DIRECTORY
     )
-    # model7()
+    model7()
     # model7.print_data_logger_summary()
     # model7.plot_and_save(None, 154)
     # model7.predict('/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/train/cv_fold_2/CT_48.nii.gz')
@@ -934,9 +934,6 @@ def main():
     # mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
     #                 saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro',
     #                 target_size=(368, 368, -1), only_liver=False, only_lesion=True)
-    mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
-                    saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro',
-                    target_size=(368, 368, -2), only_liver=False, only_lesion=True)
     # mgr.get_insights(verbose=True)
     # print(mgr.get_lowest_highest_bounds())
     # mgr()
@@ -1027,6 +1024,14 @@ def main():
     #             plt.show()
 
     # generating crops dataset ################################################
+    # LiTS17CropMGR(
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro',
+    #     patch_size=tuple([*settings.LITS17_CROP_SHAPE[1:], settings.LITS17_CROP_SHAPE[0]]),
+    #     patch_overlapping=(.25, .25, .25), only_crops_with_masks=True, min_mask_area=25e-4,
+    #     min_crop_mean=0.41, crops_per_label=20, adjust_depth=False,
+    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops'
+    # )()
+    # return 1
     # Total crops: 3853
     # Label 2 crops: 0
     # Label 1 crops: 1553
@@ -1036,21 +1041,32 @@ def main():
     # Label 2 crops: 0
     # Label 1 crops: 1553
     # all crops with masks [I 220928 18:17:29 lits17cropmgr:133] Total crops: 2683
-    # LiTS17CropMGR(
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro',
-    #     patch_size=tuple([*settings.LITS17_CROP_SHAPE[1:], settings.LITS17_CROP_SHAPE[0]]),
-    #     patch_overlapping=(.25, .25, .25), only_crops_with_masks=True, min_mask_area=25e-4,
-    #     min_crop_mean=0.41, crops_per_label=20, adjust_depth=False,
-    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops'
-    # )()
-    # return 1
     # min_mask_area 25e-4: 15, 25, 73 has 1 label file  # slice area 80x80x25e-4 = 16
     # min_mask_area 1e-15: 73 -> 1
+
+    # creating crop lesion dataset 64x160x160 #################################
+    # mgr = LiTS17MGR('/media/giussepi/TOSHIBA EXT/LITS/train',
+    #                 saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro',
+    #                 target_size=(368, 368, -2), only_liver=False, only_lesion=True)
+    # Total crops: 1212
+    # Label 2 crops: 0
+    # Label 1 crops: 1212
+    # Label 0 crops: 0
+    # after manually removing Files without label 2
+    # [32, 34, 38, 41, 47, 87, 89, 91, 105, 106, 114, 115, 119]
+    # LiTS17CropMGR(
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro',
+    #     patch_size=tuple([*settings.LITS17_CROP_SHAPE[1:], settings.LITS17_CROP_SHAPE[0]]),
+    #     patch_overlapping=(.25, .25, .25), only_crops_with_masks=True, min_mask_area=625e-6,
+    #     min_crop_mean=0, crops_per_label=20, adjust_depth=False,
+    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops64x160x160'
+    # )()
+    # return 1
     # getting subdatasets and plotting some crops #############################
     # train, val, test = LiTS17CropDataset.get_subdatasets(
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops/train',
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops/val',
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops/test'
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops64x160x160/train',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops64x160x160/val',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops64x160x160/test'
     # )
     # for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
     #     print(f'{db_name}: {len(dataset)}')
