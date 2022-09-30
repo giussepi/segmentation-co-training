@@ -21,7 +21,7 @@ class ModelMGRMixin(BaseModelMGR):
             cuda=True,
             multigpus=True,
             patch_replication_callback=False,
-            epochs=10,
+            epochs=settings.EPOCHS,
             intrain_val=2,
             optimizer=torch.optim.Adam,
             optimizer_kwargs=dict(lr=1e-3),
@@ -74,6 +74,7 @@ class ModelMGRMixin(BaseModelMGR):
             # TODO: there a bug that appeared once when plotting to disk after a long training
             # anyway I can always plot from the checkpoints :)
             plot_to_disk=False,
-            plot_dir=settings.PLOT_DIRECTORY
+            plot_dir=settings.PLOT_DIRECTORY,
+            memory_print=dict(epochs=settings.EPOCHS//2),
         )()
     """
