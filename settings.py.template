@@ -22,6 +22,7 @@ LOG_LEVEL = logging.INFO
 CUDA = True
 MULTIGPUS = True
 PATCH_REPLICATION_CALLBACK = True
+EPOCHS = 1000
 COTRAINING = True
 # ORIGINAL_MASKS: if True the CoTraining will merge the original masks
 #                 (not the co-training masks) with the new predictions;
