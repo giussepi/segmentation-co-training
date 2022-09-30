@@ -388,3 +388,14 @@ class LiTS17MGR:
                     filepath,
                     os.path.join(folder, '.'.join(get_filename_and_extension(filepath)))
                 )
+
+    def verify_generated_db_target_size(self):
+        """ Verifies that all generated files have the right target size """
+        cts_wildcard = os.path.join(self.saving_path, '**/*.nii.gz')
+
+        for file_path in tqdm(glob.glob(cts_wildcard, recursive=True), unit='NIfTI files'):
+            img = NIfTI(file_path)
+            if self.target_size[2] in (-1, -2):
+                assert img.shape[:2] == self.target_size[:2], (file_path, img.shape)
+            else:
+                assert img.shape == self.target_size, (file_path, img.shape)
