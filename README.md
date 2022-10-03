@@ -60,13 +60,11 @@ Just open your `settings.py` and set `DEBUG = True`. This will set the log level
 ### [CoNSep](https://warwick.ac.uk/fac/cross_fac/tia/data/hovernet/) dataset
 See [consep/README.md](consep/README.md)
 
-### TCIA Pancreas CT-82 [^1][^2][^3]
+### TCIA Pancreas CT-82 dataset [^1][^2][^3]
 See [ct82/README.md](ct82/README.md)
 
-
-### LiTS17 [^4]
+### LiTS17 dataset [^4]
 See [lits17/docs/README.md](lits17/README.md)
-
 
 ### Predict masks for whole CT scans and visualize them
 1. Modify your model manager to support these feature using the `CT3DNIfTIMixin`. E.g.:
