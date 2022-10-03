@@ -3,7 +3,10 @@
 This example shows the code to calculate a proper `min_crop_mean` for a LiTS17 crop
 dataset.
 
-1. Create your lesion dataset of `368x368x<original number of scans>`.
+1. Create your lesion dataset of `368x368x<original number of scans>`. In this
+   example, we chose to only modify resize the height and width (that's why set
+   -2 to the depth). However, `LiTS17MGR` offers more interesting options. You
+   can review its documentation and applied the most suitable for your goals.
    ``` python
     import matplotlib.pyplot as plt
 	import numpy as np
@@ -44,8 +47,9 @@ dataset.
 
 5. Use the following code to plot crops along with their masks and foreground
    masks. Do not forget to jot down the foreground mask mean for good and bad
-   foreground masks.
-
+   foreground masks. In this example the LiTS17CropDataset applies RandAxisFlipd
+   (from monai) as the solely data-augmentation method (not using it will also
+   work)
 
    ``` python
     train, val, test = LiTS17CropDataset.get_subdatasets(
