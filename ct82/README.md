@@ -1,12 +1,12 @@
-### TCIA Pancreas CT-82 [^1][^2][^3]
-#### Getting the data
+# TCIA Pancreas CT-82 [^1][^2][^3]
+## Getting the data
 1. Download it from [https://wiki.cancerimagingarchive.net/display/Public/Pancreas-CT#2251404047e506d05d9b43829c2200c8c77afe3b](https://wiki.cancerimagingarchive.net/display/Public/Pancreas-CT#2251404047e506d05d9b43829c2200c8c77afe3b)
 
 2. Move it inside the main directory of this project
 
 3. Rename it to `CT-82`
 
-#### Process the dataset
+## Process the dataset
 
 ``` python
 import glob
@@ -31,7 +31,7 @@ files_idx = [*range(1, 83)]
         assert labels.shape == cts.shape == target_size
 ```
 
-#### Perform visual verification
+## Perform visual verification
 To see the changes open visual_verification.png (it is created right after you execute the folliwing lines) and it will be continuosly updated with new mask data.
 
 ``` python
@@ -47,7 +47,7 @@ mgr.perform_visual_verification(1, scans=[72], clahe=True)
 # os.remove(mgr.VERIFICATION_IMG)
 ```
 
-#### Split into train, validation, test
+## Split into train, validation, test
 ```python
 from ct82.processors import CT82MGR
 
@@ -61,7 +61,7 @@ mgr = CT82MGR(
 mgr.split_processed_dataset(.15, .2, shuffle=False)
 ```
 
-#### Load and verify train, val and test subdatasets
+## Load and verify train, val and test subdatasets
 ``` python
 import matplotlib.pyplot as plt
 import numpy as np
