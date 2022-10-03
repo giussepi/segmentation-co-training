@@ -17,6 +17,7 @@ from gutils.images.images import NIfTI
 from gutils.images.processing import get_slices_coords
 from gutils.numpy_.numpy_ import scale_using_general_min_max_values
 from logzero import logger
+from monai.transforms import ForegroundMask
 from tqdm import tqdm
 
 from lits17.constants import CT_MIN_VAL, CT_MAX_VAL
@@ -41,25 +42,37 @@ class LiTS17CropMGR:
 
     def __init__(
             self, db_path: str, /, *, patch_size: Tuple[int] = None, patch_overlapping: Tuple[float] = None,
-            only_crops_with_masks: bool = True, min_mask_area: float = 25e-4, min_crop_mean: float = .41,
-            crops_per_label: int = 20, saving_path: str = 'LiTS17-Pro-Crops', adjust_depth: bool = True,
-            verbose: bool = True
+            only_crops_with_masks: bool = True, min_mask_area: float = 625e-6,
+            foregroundmask_threshold: float = .59, min_crop_mean: float = .63,
+            crops_per_label: int = 4, saving_path: str = 'LiTS17-Pro-Crops', adjust_depth: bool = True,
+            centre_masks: bool = True, verbose: bool = True
     ):
         """
         Initializes the object instance
 
         Kwargs:
             db_path         <str>: Path to the main folder containing the dataset processed by LiTS17MGR
-            patch_size    <tuple>: size of patches (height, width, scans). Default (80, 80, 32)
-            patch_overlapping <tuple>: overlapping of patches (height, width, scans). Default (.25, .25, .25)
+            patch_size    <tuple>: size of patches (height, width, scans). Default (160, 160, 32)
+            patch_overlapping <tuple>: overlapping of patches (height, width, scans). Default (.75, .75, .75)
             only_crops_with_masks <bool>: If True, only crops containing non-zero labels are  extracted.
                                    Default True
             min_mask_area <float>: mininum percentage (in range ]0, 1[) of crop area containing the labels.
-                                   i.e. The minimum area per label. Default 25e-4,
+                                   We merge all the mask from the depth or scan axis into a unique 2D mask
+                                   (height, width) and calculate the min area using this merged 2D mask.
+                                   By default we aim to have an area of 16, so for 80x80 and 160x160 crops
+                                   the min_mask_are values are 25e-4 and 625e-6, respectively.
+                                   Default 625e-6
+            foregroundmask_threshold <float>: After calculating the ForegroundMask from the scaled image crop
+                                   and inverting its intensity range, all values less than this threshold are
+                                   considereded as foreground. This value helps to select areas or interest
+                                   that then are used along with min_crop_mean to select or discard a patch.
+                                   Default .59
             min_crop_mean <float>: minimum mean of scaled image crops. This helps to avoid some crops
                                    containing mostly not relevant areas. Using the default configuration
-                                   plus the flip transform we choose 0.41 as an acceptable default value.
+                                   plus only the flip transform we choose .63 as an acceptable default value.
                                    To disable this filter just set it to 0.
+                                   An example of how to find a proper value for this variable can be found
+                                   at lits17/docs/calculate_min_crop_mean.md
             crops_per_label <int>: maximum number of random crops per label. In some cases it could be less,
                                    so proper warning messages will be shown. Set it to -1 to use all crops.
                                    Default 20
@@ -67,10 +80,11 @@ class LiTS17CropMGR:
                                    Default LiTS17-Pro-Crops
             adjust_depth   <bool>: If set to False, the depth axis will not be modified when centering
                                    the crop mask. Default True
+            centre_masks   <bool>: Whether or not try to centre the masks from crops. Default True
             verbose        <bool>: Whether or not print crops processing information. Default True
         """
-        patch_size = patch_size if patch_size else (80, 80, 32)
-        patch_overlapping = patch_overlapping if patch_overlapping else (.25, .25, .25)
+        patch_size = patch_size if patch_size else (160, 160, 32)
+        patch_overlapping = patch_overlapping if patch_overlapping else (.75, .75, .75)
 
         assert os.path.isdir(db_path), f'{db_path} does not point to a directory'
         assert isinstance(patch_size, tuple), type(patch_size)
@@ -79,11 +93,13 @@ class LiTS17CropMGR:
         assert len(patch_overlapping) == 3, 'patch_overlapping must be tuple (height, width, scans)'
         assert isinstance(only_crops_with_masks, bool), type(only_crops_with_masks)
         assert 0 < min_mask_area < 1, min_mask_area
+        assert 0 < foregroundmask_threshold < 1, foregroundmask_threshold
         assert 0 <= min_crop_mean < 1, min_crop_mean
         assert isinstance(crops_per_label, int), type(crops_per_label)
         assert crops_per_label == -1 or crops_per_label >= 1
         assert isinstance(saving_path, str), type(str)
         assert isinstance(adjust_depth, bool), type(adjust_depth)
+        assert isinstance(centre_masks, bool), type(centre_masks)
         assert isinstance(verbose, bool), type(verbose)
 
         self.db_path = db_path
@@ -91,6 +107,7 @@ class LiTS17CropMGR:
         self.patch_overlapping = patch_overlapping
         self.only_crops_with_masks = only_crops_with_masks
         self.min_mask_area = min_mask_area
+        self.foregroundmask_threshold = foregroundmask_threshold
         self.min_crop_mean = min_crop_mean
         self.crops_per_label = crops_per_label
         self.saving_path = saving_path
@@ -101,6 +118,8 @@ class LiTS17CropMGR:
         self.overlapping = (np.array(self.patch_size) * np.array(self.patch_overlapping)).astype(int)
         # defining the min_area per scan/slide
         self.min_area = reduce(operator.mul, self.patch_size[:2]) * self.min_mask_area
+        self.centre_masks = centre_masks
+        self.foregroundmask_transform = ForegroundMask(threshold=self.foregroundmask_threshold, invert=True)
 
     def __call__(self):
         """
@@ -208,13 +227,14 @@ class LiTS17CropMGR:
                         iy: iy+self.patch_size[0], ix:ix+self.patch_size[1], iz:iz+self.patch_size[2]]
                     img_crop = img.ndarray[
                         iy: iy+self.patch_size[0], ix:ix+self.patch_size[1], iz:iz+self.patch_size[2]]
-                    scaled_img_crop = scale_using_general_min_max_values(
+                    curated_img_crop = scale_using_general_min_max_values(
                         img_crop.clip(CT_MIN_VAL, CT_MAX_VAL), min_val=CT_MIN_VAL, max_val=CT_MAX_VAL,
                         feats_range=(0, 1)
                     )
+                    curated_img_crop = self.foregroundmask_transform(curated_img_crop[np.newaxis, ...])
 
                     # making sure the scaled img crop mean is bigger or equal to min_crop_mean
-                    if scaled_img_crop.mean() >= self.min_crop_mean:
+                    if curated_img_crop.mean() >= self.min_crop_mean:
                         # making sure that at least one mask slice ([height, width]) contains
                         # one crop with a label area bigger or equal than min_area
                         if (mask_crop == 2).sum(axis=-1).astype(bool).sum() >= self.min_area:
@@ -256,6 +276,9 @@ class LiTS17CropMGR:
         assert isinstance(mask_shape, tuple), type(mask_shape)
         assert len(mask_shape) == 3, len(mask_shape)
 
+        if not self.centre_masks:
+            return iy, ix, iz
+
         merged_height_width_mask = (mask_crop == label).sum(axis=-1)
         merged_depth_mask = (mask_crop == label).sum(axis=0).sum(axis=0)
         labelled_y = merged_height_width_mask.sum(axis=0).nonzero()[0]
@@ -272,8 +295,6 @@ class LiTS17CropMGR:
         absolute_min_y = iy + relative_min_y
         absolute_min_x = ix + relative_min_x
         absolute_min_z = iz + relative_min_z
-
-        # problem located hereee
         new_iy = max(0, absolute_min_y - (self.patch_size[0] - mask_bbox_height) // 2)
 
         if new_iy + self.patch_size[0] > mask_shape[0]:
@@ -337,13 +358,14 @@ class LiTS17CropMGR:
                         iy: iy+self.patch_size[0], ix:ix+self.patch_size[1], iz:iz+self.patch_size[2]]
                     img_crop = img.ndarray[
                         iy: iy+self.patch_size[0], ix:ix+self.patch_size[1], iz:iz+self.patch_size[2]]
-                    scaled_img_crop = scale_using_general_min_max_values(
+                    curated_img_crop = scale_using_general_min_max_values(
                         img_crop.clip(CT_MIN_VAL, CT_MAX_VAL), min_val=CT_MIN_VAL, max_val=CT_MAX_VAL,
                         feats_range=(0, 1)
                     )
+                    curated_img_crop = self.foregroundmask_transform(curated_img_crop[np.newaxis, ...])
 
                     # making sure the scaled img crop mean is bigger or equal to min_crop_mean
-                    if scaled_img_crop.mean() >= self.min_crop_mean:
+                    if curated_img_crop.mean() >= self.min_crop_mean:
                         # making sure that at least one mask slice ([height, width]) contains
                         # one crop with a label area bigger or equal than min_area
                         if (mask_crop == 2).sum(axis=-1).astype(bool).sum() >= self.min_area:

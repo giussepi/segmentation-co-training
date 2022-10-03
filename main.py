@@ -19,6 +19,7 @@ from gtorch_utils.segmentation import loss_functions
 from gtorch_utils.segmentation.loss_functions.dice import dice_coef_loss
 from gtorch_utils.segmentation.visualisation import plot_img_and_mask
 from gutils.images.images import NIfTI, ProNIfTI
+from monai.transforms import ForegroundMask
 from PIL import Image
 from skimage.exposure import equalize_adapthist
 from torch.utils.data import DataLoader
@@ -1057,12 +1058,17 @@ def main():
     # after manually removing Files without label 2
     # [32, 34, 38, 41, 47, 87, 89, 91, 105, 106, 114, 115, 119]
     # mgr.split_processed_dataset(.20, .20, shuffle=True)
-    # mgr = LiTS17CropMGR(
+    # we aim to work with crops masks with an minimum area of 16 so min_mask_area
+    # for the following heightxheight crops are:
+    # 80x80x25e-4 = 16
+    # 160x160x625e-6 = 16
+    # LiTS17CropMGR(
     #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro',
     #     patch_size=tuple([*settings.LITS17_CROP_SHAPE[1:], settings.LITS17_CROP_SHAPE[0]]),
-    #     patch_overlapping=(.25, .25, .25), only_crops_with_masks=True, min_mask_area=625e-6,
-    #     min_crop_mean=0, crops_per_label=8, adjust_depth=True,
-    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-8PositiveCrops64x160x160'
+    #     patch_overlapping=(.75, .75, .75), only_crops_with_masks=True, min_mask_area=625e-6,
+    #     foregroundmask_threshold=.59, min_crop_mean=.63, crops_per_label=4, adjust_depth=True,
+    #     centre_masks=True,
+    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-4PositiveCrops32x160x160'
     # )()
     # return 1
     # crops_per_label=20
@@ -1075,11 +1081,16 @@ def main():
     # Label 2 crops: 0
     # Label 1 crops: 754
     # Label 0 crops: 0
+    # crops per lael = 4
+    # Total crops created: 472
+    # Label 2 crops: 0
+    # Label 1 crops: 472
+    # Label 0 crops: 0
     # getting subdatasets and plotting some crops #############################
     # train, val, test = LiTS17CropDataset.get_subdatasets(
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops64x160x160/train',
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops64x160x160/val',
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-20PositiveCrops64x160x160/test'
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-4PositiveCrops32x160x160/train',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-4PositiveCrops32x160x160/val',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-4PositiveCrops32x160x160/test'
     # )
     # for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
     #     print(f'{db_name}: {len(dataset)}')
@@ -1103,17 +1114,33 @@ def main():
     #             #     # selecting an idx containing part of the mask
     #             #     img_ids = data['mask'].squeeze().sum(axis=-1).sum(axis=-1).nonzero().squeeze()
 
+    #             foreground_mask = ForegroundMask(threshold=.59, invert=True)(data['image'])
     #             std, mean = torch.std_mean(data['image'], unbiased=False)
+    #             fstd, fmean = torch.std_mean(foreground_mask, unbiased=False)
+
+    #             # once you have chosen a good mean, uncomment the following
+    #             # lines and replace .63 with your chosen mean to verify that
+    #             # only good crops are displayed.
+    #             # if fmean < .63:
+    #             #     continue
+
     #             print(f"SUM: {data['image'].sum()}")
     #             print(f"STD MEAN: {std} {mean}")
+    #             print(f"SUM: {foreground_mask.sum()}")
+    #             print(f"foreground mask STD MEAN: {fstd} {fmean}")
 
     #             for img_id in img_ids:
-    #                 fig, axis = plt.subplots(1, 2)
+    #                 fig, axis = plt.subplots(1, 3)
     #                 axis[0].imshow(
     #                     equalize_adapthist(data['image'].detach().numpy()).squeeze().transpose(1, 2, 0)[..., img_id],
     #                     cmap='gray'
     #                 )
+    #                 axis[0].set_title('Img')
     #                 axis[1].imshow(data['mask'].detach().numpy().squeeze().transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #                 axis[1].set_title('mask')
+    #                 axis[2].imshow(foreground_mask.detach().numpy().squeeze()
+    #                                .transpose(1, 2, 0)[..., img_id], cmap='gray')
+    #                 axis[2].set_title('foreground_mask')
     #                 plt.show()
     #                 plt.clf()
     #                 plt.close()
