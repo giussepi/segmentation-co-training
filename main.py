@@ -1073,9 +1073,9 @@ def main():
     #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro',
     #     patch_size=tuple([*settings.LITS17_CROP_SHAPE[1:], settings.LITS17_CROP_SHAPE[0]]),
     #     patch_overlapping=(.75, .75, .75), only_crops_with_masks=True, min_mask_area=625e-6,
-    #     foregroundmask_threshold=.59, min_crop_mean=.63, crops_per_label=4, adjust_depth=True,
+    #     foregroundmask_threshold=.59, min_crop_mean=.63, crops_per_label=16, adjust_depth=True,
     #     centre_masks=True,
-    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-4PositiveCrops32x160x160'
+    #     saving_path='/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-16PositiveCrops32x160x160'
     # )()
     # return 1
     # crops_per_label=20
@@ -1093,11 +1093,16 @@ def main():
     # Label 2 crops: 0
     # Label 1 crops: 472
     # Label 0 crops: 0
+    # crops per label = 16
+    # Total crops created: 1888
+    # Label 2 crops: 0
+    # Label 1 crops: 1888
+    # Label 0 crops: 0
     # getting subdatasets and plotting some crops #############################
     # train, val, test = LiTS17CropDataset.get_subdatasets(
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-4PositiveCrops32x160x160/train',
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-4PositiveCrops32x160x160/val',
-    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-4PositiveCrops32x160x160/test'
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-16PositiveCrops32x160x160/train',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-16PositiveCrops32x160x160/val',
+    #     '/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro-16PositiveCrops32x160x160/test'
     # )
     # for db_name, dataset in zip(['train', 'val', 'test'], [train, val, test]):
     #     print(f'{db_name}: {len(dataset)}')
