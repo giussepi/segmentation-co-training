@@ -15,7 +15,7 @@ from gtorch_utils.constants import DB
 from gtorch_utils.nns.models.segmentation import UNet, UNet_3Plus_DeepSup, UNet_3Plus, UNet_3Plus_DeepSup_CGM
 from gtorch_utils.nns.models.segmentation.unet.unet_parts import TinyUpAE, TinyAE, MicroUpAE, MicroAE
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
-from gtorch_utils.nns.utils.reproducibility import Reproducibility
+# from gtorch_utils.nns.utils.reproducibility import Reproducibility
 from gtorch_utils.segmentation import loss_functions
 from gtorch_utils.segmentation.loss_functions.dice import dice_coef_loss
 from gtorch_utils.segmentation.visualisation import plot_img_and_mask
@@ -59,10 +59,10 @@ from nns.utils.sync_batchnorm import get_batchnormxd_class
 
 
 logzero.loglevel(settings.LOG_LEVEL)
-reproducibility = Reproducibility(
-    cuda=True, disable_cuda_benchmark=True, deterministic_algorithms=False, cublas_env_vars=True,
-    cuda_conv_determinism=True
-)
+# reproducibility = Reproducibility(
+#     cuda=True, disable_cuda_benchmark=True, deterministic_algorithms=False, cublas_env_vars=True,
+#     cuda_conv_determinism=True
+# )
 
 
 def bce_dice_loss(inputs, target):
@@ -726,11 +726,11 @@ def main():
         },
         train_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': True, 'num_workers': settings.NUM_WORKERS,
-            'pin_memory': False, **reproducibility.dataloader_kwargs
+            'pin_memory': False,  # **reproducibility.dataloader_kwargs
         },
         testval_dataloader_kwargs={
             'batch_size': settings.TOTAL_BATCH_SIZE, 'shuffle': False, 'num_workers': settings.NUM_WORKERS,
-            'pin_memory': False, 'drop_last': True, **reproducibility.dataloader_kwargs
+            'pin_memory': False, 'drop_last': True,  # **reproducibility.dataloader_kwargs
         },
         lr_scheduler=torch.optim.lr_scheduler.StepLR,
         lr_scheduler_kwargs={'step_size': 250, 'gamma': 0.5},
