@@ -764,12 +764,12 @@ def main():
     model7()
     # model7.print_data_logger_summary()
     # model7.plot_and_save(None, 154)
-    # model7.predict('/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/train/cv_fold_2/CT_48.nii.gz')
-    # id_ = '48'  # '043'  # '119'  # '091'
+    # id_ = '000'
+    # model7.predict(f'/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro/test/cv_fold_5/CT_{id_}.nii.gz')
     # model7.plot_2D_ct_gt_preds(
-    #     ct_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/train/cv_fold_2/CT_{id_}.nii.gz',
-    #     gt_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Lesion-Pro/train/cv_fold_2/label_{id_}.nii.gz',
-    #     pred_path=f'pred_CT_{id_}_01.nii.gz'
+    #     ct_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro/test/cv_fold_5/CT_{id_}.nii.gz',
+    #     gt_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro/test/cv_fold_5/label_{id_}.nii.gz',
+    #     pred_path=f'pred_CT_{id_}.nii.gz'
     # )
     # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
