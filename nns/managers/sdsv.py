@@ -10,13 +10,13 @@ from torch.utils.tensorboard import SummaryWriter
 
 from settings import USE_AMP
 from nns.callbacks.plotters.masks import MaskPlotter
-from nns.mixins.managers import SDSVModelMGRMixin
+from nns.mixins.managers import SDSVModelMGRMixin2  # , SDSVModelMGRMixin
 
 
 __all__ = ['SDSVModelMGR']
 
 
-class SDSVModelMGR(SDSVModelMGRMixin):
+class SDSVModelMGR(SDSVModelMGRMixin2):
     """ Selective Deep Supervision Model Manager """
 
     def get_validation_data(self, batch):
