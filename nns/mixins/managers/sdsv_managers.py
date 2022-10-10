@@ -28,6 +28,8 @@ class SDSVModelMGRMixin(BaseModelMGR):
     """
     General Selective Deep Supervision segmentation model manager
 
+    This class back-progagates all the losses and then update the weights
+
     Usage:
         class MyModelMGR(SDSVModelMGRMixin):
            ...
@@ -247,6 +249,7 @@ class SDSVModelMGRMixin(BaseModelMGR):
             epoch_train_loss_list = [0]*4
             intrain_chkpt_counter = 0
             intrain_val_counter = 0
+            self.memory_printer(epoch)
 
             with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img',
                       disable=DISABLE_PROGRESS_BAR) as pbar:

@@ -28,6 +28,9 @@ class SDSVModelMGRMixin2(BaseModelMGR):
     """
     General Selective Deep Supervision segmentation model manager
 
+    This class back-propagates and updates the each loss separately. Thus, for the global/last loss
+    a second full pass through the batch is performed
+
     Usage:
         class MyModelMGR(SDSVModelMGRMixin):
            ...
@@ -249,6 +252,7 @@ class SDSVModelMGRMixin2(BaseModelMGR):
             intrain_chkpt_counter = 0
             intrain_val_counter = 0
             retrain_batch = False
+            self.memory_printer(epoch)
 
             with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img',
                       disable=DISABLE_PROGRESS_BAR) as pbar:

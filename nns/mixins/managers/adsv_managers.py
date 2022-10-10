@@ -149,6 +149,7 @@ class ADSVModelMGRMixin(BaseModelMGR):
             epoch_train_loss = 0
             intrain_chkpt_counter = 0
             intrain_val_counter = 0
+            self.memory_printer(epoch)
 
             with tqdm(total=self.n_train, desc=f'Epoch {epoch + 1}/{self.epochs}', unit='img',
                       disable=DISABLE_PROGRESS_BAR) as pbar:
