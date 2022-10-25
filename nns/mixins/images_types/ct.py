@@ -188,6 +188,7 @@ class CT3DNIfTIMixin:
             axis[1].set_title('GT')
             axis[2].imshow(pred.ndarray[..., scan], cmap='gray')
             axis[2].set_title('Pred')
+            plt.suptitle(f'slice {scan}')
             plt.show()
 
         for scan in range(ct.shape[-1]):
