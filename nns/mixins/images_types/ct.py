@@ -162,7 +162,9 @@ class CT3DNIfTIMixin:
 
     @staticmethod
     def plot_2D_ct_gt_preds(
-            *, ct_path: str, gt_path: str, pred_path: str, only_slices_with_masks: bool = False):
+            *, ct_path: str, gt_path: str, pred_path: str, only_slices_with_masks: bool = False,
+            save_to_disk: bool = False, dpi: int = 300, no_axis: bool = False, tight_layout: bool = True
+    ):
         """
         Plot all 2D slices(scans) from the CT, GT and prediction
 
@@ -172,11 +174,23 @@ class CT3DNIfTIMixin:
             pred_path <str>: path to the predicted mask NIfTI file
             only_slices_with_masks <bool>: Whether or not plot only slices with predictions.
                              Default False
+            save_to_disk <bool>: Whether or not save the plot to disk instead of displaying it
+                             Default False
+            dpi       <int>: Dots per inch utilised when saving images to disk.
+                             Default 300
+            no_axis  <bool>: If True the axis is not displayed.
+                             Default False
+            tight_layout <bool>: Whether or not apply tight_layout over constrained_layout.
+                             Default True
         """
         assert os.path.isfile(ct_path), 'ct_path must point to a valid file'
         assert os.path.isfile(gt_path), 'gt_path must point to a valid file'
         assert os.path.isfile(pred_path), 'pred_path must point to a valid file'
         assert isinstance(only_slices_with_masks, bool), type(only_slices_with_masks)
+        assert isinstance(save_to_disk, bool), type(save_to_disk)
+        assert isinstance(dpi, int), type(dpi)
+        assert isinstance(no_axis, bool), type(no_axis)
+        assert isinstance(tight_layout, bool), type(tight_layout)
 
         ct = NIfTI(ct_path)
         gt = NIfTI(gt_path)
@@ -185,15 +199,26 @@ class CT3DNIfTIMixin:
         assert ct.shape == gt.shape == pred.shape, 'All shapes must be equal'
 
         def plot_img_mask_pred(scan: int, img: NIfTI, gt: NIfTI, pred: NIfTI):
-            fig, axis = plt.subplots(1, 3)
-            axis[0].imshow(img.ndarray[..., scan], cmap='gray')
-            axis[0].set_title('CT')
-            axis[1].imshow(gt.ndarray[..., scan], cmap='gray')
-            axis[1].set_title('GT')
-            axis[2].imshow(pred.ndarray[..., scan], cmap='gray')
-            axis[2].set_title('Pred')
+            fig, axes = plt.subplots(1, 3, constrained_layout=True)
+
+            for axis, image, label in zip(axes.flat, (img, gt, pred), ('CT', 'GT', 'Pred')):
+                axis.imshow(image.ndarray[..., scan], cmap='gray')
+                axis.set_title(label)
+                if no_axis:
+                    axis.set_axis_off()
+
             plt.suptitle(f'slice {scan}')
-            plt.show()
+
+            if tight_layout:
+                plt.tight_layout()
+
+            if save_to_disk:
+                plt.savefig(f'scan_{scan}.png', dpi=dpi)
+            else:
+                plt.show()
+
+            plt.clf()
+            plt.close()
 
         for scan in range(ct.shape[-1]):
             if only_slices_with_masks and pred.ndarray[..., scan].sum() == 0:
