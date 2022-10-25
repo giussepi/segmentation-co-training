@@ -161,7 +161,8 @@ class CT3DNIfTIMixin:
         NIfTI.save_numpy_as_nifti(final_mask, f'pred_{filename}')
 
     @staticmethod
-    def plot_2D_ct_gt_preds(*, ct_path: str, gt_path: str, pred_path: str):
+    def plot_2D_ct_gt_preds(
+            *, ct_path: str, gt_path: str, pred_path: str, only_slices_with_masks: bool = False):
         """
         Plot all 2D slices(scans) from the CT, GT and prediction
 
@@ -169,10 +170,13 @@ class CT3DNIfTIMixin:
             ct_path   <str>: path to the computed tomography NIfTI file
             gt_path   <str>: path to the ground truth mask NIfTI file
             pred_path <str>: path to the predicted mask NIfTI file
+            only_slices_with_masks <bool>: Whether or not plot only slices with predictions.
+                             Default False
         """
         assert os.path.isfile(ct_path), 'ct_path must point to a valid file'
         assert os.path.isfile(gt_path), 'gt_path must point to a valid file'
         assert os.path.isfile(pred_path), 'pred_path must point to a valid file'
+        assert isinstance(only_slices_with_masks, bool), type(only_slices_with_masks)
 
         ct = NIfTI(ct_path)
         gt = NIfTI(gt_path)
@@ -192,4 +196,6 @@ class CT3DNIfTIMixin:
             plt.show()
 
         for scan in range(ct.shape[-1]):
+            if only_slices_with_masks and pred.ndarray[..., scan].sum() == 0:
+                continue
             plot_img_mask_pred(scan, ct, gt, pred)
