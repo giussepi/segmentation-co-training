@@ -68,6 +68,9 @@ class CT3DNIfTIMixin:
                                      final mask. This is necessary to remove inconsistent mask borders
                                      between patches. Default (16, 30, 30)
         """
+        logger.info("ALWAYS SET patch_size TO THE SIZE EMPLOYED DURING TRAINING")
+        logger.info("MAKE SURE TO SET THE RIGHT dataset TO RE-USE THE RIGHT preprocess METHOD")
+
         preprocess_image = kwargs.get('preprocess_image', self.dataset.preprocess)
         patch_size = kwargs.get('patch_size', (32, 80, 80))
         patch_overlapping = kwargs.get('patch_overlapping', (16, 30, 30))
