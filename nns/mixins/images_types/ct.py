@@ -225,9 +225,14 @@ class CT3DNIfTIMixin:
             plt.clf()
             plt.close()
 
-        num_slices = ct.shape[-1] if max_slices == -1 else min(ct.shape[-1], max_slices)
+        num_slices_to_display = ct.shape[-1] if max_slices == -1 else min(ct.shape[-1], max_slices)
+        slices_displayed = 0
 
-        for scan in range(num_slices):
+        for scan in range(ct.shape[-1]):
             if only_slices_with_masks and pred.ndarray[..., scan].sum() == 0:
                 continue
+            if slices_displayed >= num_slices_to_display:
+                break
+
+            slices_displayed += 1
             plot_img_mask_pred(scan, ct, gt, pred)
