@@ -665,17 +665,17 @@ def main():
         pass
 
     model7 = CTModelMGR(  # AEsModelMGR(
-        model=UNet3D,
+        model=XAttentionUNet,
         # UNet3D
-        model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
+        # model_kwargs=dict(feature_scale=1, n_channels=1, n_classes=1, is_batchnorm=True),
         # XAttentionUNet & XGridAttentionUNet & XAttentionUNet_ADSV
-        # model_kwargs=dict(
-        #     n_channels=1, n_classes=1, bilinear=False, batchnorm_cls=get_batchnormxd_class(),
-        #     init_type=UNet3InitMethod.KAIMING, data_dimensions=settings.DATA_DIMENSIONS,
-        #     da_block_cls=intra_model.AttentionBlock,  # da_block_config={'xi': 1.},
-        #     # da_block_config={'thresholds': (.25, .8), 'beta': -1},
-        #     dsv=True,
-        # ),
+        model_kwargs=dict(
+            n_channels=1, n_classes=1, bilinear=False, batchnorm_cls=get_batchnormxd_class(),
+            init_type=UNet3InitMethod.KAIMING, data_dimensions=settings.DATA_DIMENSIONS,
+            da_block_cls=intra_model.AttentionBlock,  # da_block_config={'xi': 1.},
+            # da_block_config={'thresholds': (.25, .8), 'beta': -1},
+            dsv=True,
+        ),
         # XAttentionAENet
         # model_kwargs=dict(
         #     n_channels=1, n_classes=1, bilinear=False,
@@ -714,12 +714,12 @@ def main():
         optimizer=torch.optim.Adam,
         optimizer_kwargs=dict(lr=1e-4, betas=(0.9, 0.999), weight_decay=1e-6),
         sanity_checks=False,
-        labels_data=LiTS17OnlyLesionLabels,  # CT82Labels,  # LiTS17OnlyLiverLabels
+        labels_data=LiTS17OnlyLiverLabels,  # LiTS17OnlyLesionLabels,  # CT82Labels,  # LiTS17OnlyLiverLabels
         data_dimensions=settings.DATA_DIMENSIONS,
-        dataset=LiTS17CropDataset,  # CT82Dataset,  # LiTS17Dataset
+        dataset=LiTS17Dataset,  # LiTS17CropDataset,  # CT82Dataset,  # LiTS17Dataset
         dataset_kwargs={
             'train_path': settings.LITS17_TRAIN_PATH,  # settings.CT82_TRAIN_PATH,  # settings.LITS17_TRAIN_PATH
-            'val_path': settings.LITS17_VAL_PATH,  # settings.CT82_VAL_PATH,  # settings.LITS17_VAL_PATH
+            'val_path': settings.LITS17_VAL_PATH,   # settings.CT82_VAL_PATH,  # settings.LITS17_VAL_PATH
             'test_path': settings.LITS17_TEST_PATH,  # settings.CT82_TEST_PATH,  # settings.LITS17_TEST_PATH
             'cotraining': settings.COTRAINING,
             'cache': settings.DB_CACHE,
@@ -764,12 +764,15 @@ def main():
     model7()
     # model7.print_data_logger_summary()
     # model7.plot_and_save(None, 154)
-    # id_ = '000'
-    # model7.predict(f'/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro/test/cv_fold_5/CT_{id_}.nii.gz')
+    # id_ = '006'  # '004'
+    # model7.predict(f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/test/cv_fold_5/CT_{id_}.nii.gz',
+    #                patch_size=(32, 80, 80))
     # model7.plot_2D_ct_gt_preds(
-    #     ct_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro/test/cv_fold_5/CT_{id_}.nii.gz',
-    #     gt_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Lesion368x368x-2-Pro/test/cv_fold_5/label_{id_}.nii.gz',
-    #     pred_path=f'pred_CT_{id_}.nii.gz'
+    #     ct_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/test/cv_fold_5/CT_{id_}.nii.gz',
+    #     gt_path=f'/media/giussepi/TOSHIBA EXT/LiTS17Liver-Pro/test/cv_fold_5/label_{id_}.nii.gz',
+    #     pred_path=f'pred_CT_{id_}.nii.gz',
+    #     only_slices_with_masks=True, save_to_disk=True, dpi=300, no_axis=True, tight_layout=False,
+    #     max_slices=62
     # )
     # summary(model6.module, (4, 3, *settings.CROP_IMG_SHAPE), depth=1, verbose=1)
     # m = UNet3D(feature_scale=1, n_classes=1, n_channels=1, is_batchnorm=True)
