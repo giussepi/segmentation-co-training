@@ -163,7 +163,8 @@ class CT3DNIfTIMixin:
     @staticmethod
     def plot_2D_ct_gt_preds(
             *, ct_path: str, gt_path: str, pred_path: str, only_slices_with_masks: bool = False,
-            save_to_disk: bool = False, dpi: int = 300, no_axis: bool = False, tight_layout: bool = True
+            save_to_disk: bool = False, dpi: int = 300, no_axis: bool = False, tight_layout: bool = True,
+            max_slices: int = -1
     ):
         """
         Plot all 2D slices(scans) from the CT, GT and prediction
@@ -182,6 +183,8 @@ class CT3DNIfTIMixin:
                              Default False
             tight_layout <bool>: Whether or not apply tight_layout over constrained_layout.
                              Default True
+            max_slices <int>: Maximum number of slices to plot/save. Set it to -1 to plot them all
+                             Default -1
         """
         assert os.path.isfile(ct_path), 'ct_path must point to a valid file'
         assert os.path.isfile(gt_path), 'gt_path must point to a valid file'
@@ -191,6 +194,8 @@ class CT3DNIfTIMixin:
         assert isinstance(dpi, int), type(dpi)
         assert isinstance(no_axis, bool), type(no_axis)
         assert isinstance(tight_layout, bool), type(tight_layout)
+        assert isinstance(max_slices, int), type(max_slices)
+        assert max_slices > 0 or max_slices == -1, max_slices
 
         ct = NIfTI(ct_path)
         gt = NIfTI(gt_path)
@@ -220,7 +225,9 @@ class CT3DNIfTIMixin:
             plt.clf()
             plt.close()
 
-        for scan in range(ct.shape[-1]):
+        num_slices = ct.shape[-1] if max_slices == -1 else min(ct.shape[-1], max_slices)
+
+        for scan in range(num_slices):
             if only_slices_with_masks and pred.ndarray[..., scan].sum() == 0:
                 continue
             plot_img_mask_pred(scan, ct, gt, pred)
