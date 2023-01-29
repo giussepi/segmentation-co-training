@@ -55,11 +55,10 @@ class ExpandPrediction:
         assert len(sub_preds.shape) >= 2
 
         padded = pad(sub_preds, [1, 1, 1, 1])
-        padded *= 2
         height, width = padded.shape[-2:]
         top_middle = padded[..., :height-2, 1:width-1]
         middle_left = padded[..., 1:height-1, :width-2]
-        middle_middle = sub_preds * 2
+        middle_middle = sub_preds
         middle_right = padded[..., 1:height-1, 2:]
         bottom_middle = padded[..., 2:, 1:width-1]
 
@@ -71,10 +70,10 @@ class ExpandPrediction:
 
             return ((preds*top_left + preds*top_middle + preds*top_right +
                      preds*middle_left + preds*middle_middle + preds*middle_right +
-                     preds*bottom_left + preds*bottom_middle + preds*bottom_right) > 1).float()
+                     preds*bottom_left + preds*bottom_middle + preds*bottom_right) >= 1).float()
 
         return ((preds*top_middle + preds*middle_left + preds*middle_middle + preds*middle_right
-                 + preds*bottom_middle) > 1).float()
+                 + preds*bottom_middle) >= 1).float()
 
     def process(self, sub_preds, preds, **kwargs):
         """
