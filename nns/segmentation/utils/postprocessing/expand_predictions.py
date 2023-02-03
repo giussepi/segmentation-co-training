@@ -68,15 +68,10 @@ class ExpandPrediction:
             bottom_left = padded[..., 2:, :width-2]
             bottom_right = padded[..., 2:, 2:]
 
-            # return ((preds*top_left + preds*top_middle + preds*top_right +
-            #          preds*middle_left + preds*middle_middle + preds*middle_right +
-            #          preds*bottom_left + preds*bottom_middle + preds*bottom_right) >= 1).float()
             return (preds*(top_left + top_middle + top_right +
                            middle_left + middle_middle + middle_right +
                            bottom_left + bottom_middle + bottom_right) >= 1).float()
 
-        # return ((preds*top_middle + preds*middle_left + preds*middle_middle + preds*middle_right
-        #          + preds*bottom_middle) >= 1).float()
         return (preds*(top_middle + middle_left + middle_middle + middle_right
                        + bottom_middle) >= 1).float()
 
