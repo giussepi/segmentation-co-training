@@ -12,6 +12,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from gtorch_utils.constants import DB
+from gtorch_utils.datasets.segmentation.datasets.consep.dataloaders import OnlineCoNSePDataset, \
+    SeedWorker, OfflineCoNSePDataset
+from gtorch_utils.datasets.segmentation.datasets.consep.datasets.constants import BinaryCoNSeP
+from gtorch_utils.datasets.segmentation.datasets.consep.processors.offline import CreateDataset
+from gtorch_utils.datasets.segmentation.datasets.consep.utils.patches.constants import PatchExtractType
+from gtorch_utils.datasets.segmentation.datasets.consep.utils.patches.patches import ProcessDataset
+from gtorch_utils.datasets.segmentation.datasets.ct82.datasets import CT82Dataset, CT82Labels
+from gtorch_utils.datasets.segmentation.datasets.ct82.processors import CT82MGR
+from gtorch_utils.datasets.segmentation.datasets.ct82.settings import TRANSFORMS
+from gtorch_utils.datasets.segmentation.datasets.lits17.processors import LiTS17MGR, LiTS17CropMGR
+from gtorch_utils.datasets.segmentation.datasets.lits17.datasets import LiTS17OnlyLiverLabels, \
+    LiTS17Dataset, LiTS17OnlyLesionLabels, LiTS17CropDataset
 from gtorch_utils.nns.models.segmentation import UNet, UNet_3Plus_DeepSup, UNet_3Plus, UNet_3Plus_DeepSup_CGM
 from gtorch_utils.nns.models.segmentation.unet.unet_parts import TinyUpAE, TinyAE, MicroUpAE, MicroAE
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
@@ -28,16 +40,6 @@ from torchinfo import summary
 from tqdm import tqdm
 
 import settings
-from consep.dataloaders import OnlineCoNSePDataset, SeedWorker, OfflineCoNSePDataset
-from consep.datasets.constants import BinaryCoNSeP
-from consep.processors.offline import CreateDataset
-from consep.utils.patches.constants import PatchExtractType
-from consep.utils.patches.patches import ProcessDataset
-from ct82.datasets import CT82Dataset, CT82Labels
-from ct82.processors import CT82MGR
-from ct82.settings import TRANSFORMS
-from lits17.processors import LiTS17MGR, LiTS17CropMGR
-from lits17.datasets import LiTS17OnlyLiverLabels, LiTS17Dataset, LiTS17OnlyLesionLabels, LiTS17CropDataset
 from nns.backbones import resnet101, resnet152, xception
 from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR, \
@@ -716,7 +718,7 @@ def main():
         sanity_checks=False,
         labels_data=LiTS17OnlyLiverLabels,  # LiTS17OnlyLesionLabels,  # CT82Labels,  # LiTS17OnlyLiverLabels
         data_dimensions=settings.DATA_DIMENSIONS,
-        dataset=LiTS17Dataset,  # LiTS17CropDataset,  # CT82Dataset,  # LiTS17Dataset
+        dataset=LiTS17CropDataset,  # CT82Dataset,  # LiTS17Dataset
         dataset_kwargs={
             'train_path': settings.LITS17_TRAIN_PATH,  # settings.CT82_TRAIN_PATH,  # settings.LITS17_TRAIN_PATH
             'val_path': settings.LITS17_VAL_PATH,   # settings.CT82_VAL_PATH,  # settings.LITS17_VAL_PATH
