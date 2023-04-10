@@ -25,6 +25,7 @@ from gtorch_utils.datasets.segmentation.datasets.lits17.processors import LiTS17
 from gtorch_utils.datasets.segmentation.datasets.lits17.datasets import LiTS17OnlyLiverLabels, \
     LiTS17Dataset, LiTS17OnlyLesionLabels, LiTS17CropDataset
 from gtorch_utils.nns.managers.callbacks.metrics.constants import MetricEvaluatorMode
+from gtorch_utils.nns.mixins.images_types import CT3DNIfTIMixin
 from gtorch_utils.nns.models.backbones import resnet101, resnet152, xception
 from gtorch_utils.nns.models.segmentation import UNet, UNet_3Plus_DeepSup, UNet_3Plus, UNet_3Plus_DeepSup_CGM, \
     Deeplabv3plus
@@ -53,7 +54,6 @@ from nns.models import UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
     MultiAttentionBlock, UNet3D, XGridAttentionUNet, UNet4Plus, ModularUNet4Plus, XAttentionAENet, \
     XAttentionUNet_ADSV, XAttentionUNet_SDSV
-from nns.mixins.images_types import CT3DNIfTIMixin
 from nns.models.layers.disagreement_attention import inter_model
 from nns.models.layers.disagreement_attention import intra_model
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
