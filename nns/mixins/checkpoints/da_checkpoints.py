@@ -9,7 +9,7 @@ import torch
 from torch.optim.optimizer import Optimizer
 from logzero import logger
 
-from nns.mixins.checkpoints.base import CheckPointBaseMixin
+from gtorch_utils.nns.mixins.checkpoints.base import CheckPointBaseMixin
 
 
 __all__ = ['DACheckPointMixin']

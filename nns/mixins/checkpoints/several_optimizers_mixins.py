@@ -8,7 +8,7 @@ import torch
 from logzero import logger
 from torch.optim.optimizer import Optimizer
 
-from nns.mixins.checkpoints.base import CheckPointBaseMixin
+from gtorch_utils.nns.mixins.checkpoints.base import CheckPointBaseMixin
 
 
 __all__ = ['SeveralOptimizersCheckPointMixin']
