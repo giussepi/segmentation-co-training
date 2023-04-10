@@ -6,6 +6,7 @@ TODO: INCOMPLETE MODULE, THE IMPLEMENTATIONS INSTRUCTIONS ARE IN LINES 352 - 280
 from typing import Optional
 
 import torch
+from gtorch_utils.nns.models.mixins import InitMixin
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from gtorch_utils.nns.models.segmentation.unet3_plus.layers import unetConv2
 from gtorch_utils.utils.images import apply_padding
@@ -13,7 +14,6 @@ from gtorch_utils.utils.images import apply_padding
 from nns.models.layers.disagreement_attention.inter_model import ThresholdedDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.layers import DAConvBlockGS
-from nns.models.mixins import InitMixin
 
 
 __all__ = ['UNet_3Plus_Intra_DA_GS_HDX']

@@ -4,10 +4,10 @@
 from typing import Optional, Union, Tuple
 
 import torch
+from gtorch_utils.nns.models.mixins import InitMixin
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
 from torch.nn.modules.batchnorm import _BatchNorm
 
-from nns.models.mixins import InitMixin
 from nns.models.unet.utils import unetConvX, UnetUp_CT
 
 

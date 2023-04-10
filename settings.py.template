@@ -8,8 +8,6 @@ import torch
 from gtorch_utils.segmentation import torchmetrics
 from monai import transforms as ts
 
-from gtorch_utils.nns.utils.metrics import MetricItem
-
 ###############################################################################
 #                                GENERAL CONFIG                               #
 ###############################################################################
@@ -29,13 +27,21 @@ COTRAINING = True
 #                 otherwise, the co-training masks will be used (normal workflow)
 ORIGINAL_MASKS = True
 # Metrics to be used by ModelMGR and CoTraining
-METRICS = [
-    MetricItem(torchmetrics.DiceCoefficient(), main=True),
-    MetricItem(torchmetrics.Specificity()),
-    # MetricItem(torchmetrics.Recall()),
-    MetricItem(torchmetrics.Accuracy()),
-    MetricItem(torchmetrics.BalancedAccuracy()),
-]
+
+
+def get_metrics():
+    """ avoiding circular import """
+    from gtorch_utils.nns.utils.metrics import MetricItem
+    return [
+        MetricItem(torchmetrics.DiceCoefficient(), main=True),
+        MetricItem(torchmetrics.Specificity()),
+        # MetricItem(torchmetrics.Recall()),
+        MetricItem(torchmetrics.Accuracy()),
+        MetricItem(torchmetrics.BalancedAccuracy()),
+
+    ]
+
+
 DISABLE_PROGRESS_BAR = False
 
 if CUDA == MULTIGPUS == True and torch.cuda.is_available():

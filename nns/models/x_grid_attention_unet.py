@@ -7,6 +7,7 @@ import torch
 import numpy as np
 from torch.nn import functional as F
 from logzero import logger
+from gtorch_utils.nns.models.mixins import InitMixin
 from gtorch_utils.nns.models.segmentation.unet.unet_parts import DoubleConv, Down, OutConv,\
     UpConcat, UnetDsv, UnetGridGatingSignal
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
@@ -15,7 +16,6 @@ from torch.nn.modules.batchnorm import _BatchNorm
 from nns.models.layers.disagreement_attention.intra_model import AttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.layers import AttentionConvBlock
-from nns.models.mixins import InitMixin
 
 
 __all__ = ['XGridAttentionUNet']

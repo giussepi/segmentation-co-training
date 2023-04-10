@@ -4,13 +4,13 @@
 from typing import Optional
 
 import torch
+from gtorch_utils.nns.models.mixins import InitMixin
 from gtorch_utils.nns.models.segmentation import UNet_3Plus
 from gtorch_utils.utils.images import apply_padding
 
 from nns.models.layers.disagreement_attention.inter_model import ThresholdedDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
 from nns.models.layers.disagreement_attention.layers import DAConvBlock
-from nns.models.mixins import InitMixin
 
 
 __all__ = ['UNet_3Plus_Intra_DA']

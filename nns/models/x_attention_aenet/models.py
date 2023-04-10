@@ -6,6 +6,7 @@ from typing import Optional, Tuple, Union, Dict
 
 import torch
 from logzero import logger
+from gtorch_utils.nns.models.mixins import InitMixin
 from gtorch_utils.nns.models.segmentation.unet.unet_parts import DoubleConv, AEDown, AEDown2, \
     OutConv, AEUpConcat, AEUpConcat2, UnetDsv, UnetGridGatingSignal
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
@@ -16,7 +17,6 @@ from nns.models.x_attention_aenet.layers import AttentionAEConvBlock, AttentionA
     OutEncoder
 from nns.models.layers.disagreement_attention.intra_model import AttentionBlock
 from nns.models.layers.disagreement_attention.base_disagreement import BaseDisagreementAttentionBlock
-from nns.models.mixins import InitMixin
 
 
 __all__ = ['XAttentionAENet']
