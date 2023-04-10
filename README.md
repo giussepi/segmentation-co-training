@@ -437,6 +437,7 @@ This application is using [logzero](https://logzero.readthedocs.io/en/latest/). 
 
 
 ## TODO
+- [ ] Review sanity checks after refactoring
 - [ ] Update DAModelMGR to use BaseModelMGR, support several_crops, etc
 - [ ] Modify UNet3D to support tensorboard when using 3D data
 - [x] Review issue about passing the skip connections (in all DA models)
