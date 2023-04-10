@@ -4,13 +4,13 @@
 from unittest.mock import MagicMock
 
 import torch
+from gtorch_utils.nns.managers.callbacks import MaskPlotter
 from gtorch_utils.nns.managers.exceptions import ModelMGRImageChannelsError
 from logzero import logger
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 
 from settings import USE_AMP
-from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.managers import MultiPredsModelMGRMixin
 
 

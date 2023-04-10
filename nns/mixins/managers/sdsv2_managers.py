@@ -6,7 +6,8 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import torch
-from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping
+from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping, \
+    MetricEvaluator, MaskPlotter
 from gutils.folders import clean_create_folder
 from logzero import logger
 from torch import nn
@@ -14,8 +15,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from nns.callbacks.metrics import MetricEvaluator
-from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.managers.base import BaseModelMGR
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
@@ -118,7 +117,7 @@ class SDSVModelMGRMixin2(BaseModelMGR):
             func_plot_palette <callable>: Function to plot and save the colour palette. It must
                                           receive as first argument the saving path. Default None
             plotter_conf          <dict>: initial configuration for MaskPlotter. See
-                                          nns.callbacks.plotters.masks import MaskPlotter
+                                          gtorch_utils.nns.managers.callbacks.plotters.masks import MaskPlotter
                                           Default dict(alpha=.7, dir_per_file=False, superimposed=False, max_values=False, decoupled=False)
         Returns:
             loss_list<List[torch.Tensor]>, metric_scores<dict>, extra_data<dict>

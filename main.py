@@ -24,6 +24,7 @@ from gtorch_utils.datasets.segmentation.datasets.ct82.settings import TRANSFORMS
 from gtorch_utils.datasets.segmentation.datasets.lits17.processors import LiTS17MGR, LiTS17CropMGR
 from gtorch_utils.datasets.segmentation.datasets.lits17.datasets import LiTS17OnlyLiverLabels, \
     LiTS17Dataset, LiTS17OnlyLesionLabels, LiTS17CropDataset
+from gtorch_utils.nns.managers.callbacks.metrics.constants import MetricEvaluatorMode
 from gtorch_utils.nns.models.segmentation import UNet, UNet_3Plus_DeepSup, UNet_3Plus, UNet_3Plus_DeepSup_CGM
 from gtorch_utils.nns.models.segmentation.unet.unet_parts import TinyUpAE, TinyAE, MicroUpAE, MicroAE
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
@@ -41,7 +42,6 @@ from tqdm import tqdm
 
 import settings
 from nns.backbones import resnet101, resnet152, xception
-from nns.callbacks.metrics.constants import MetricEvaluatorMode
 from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR, \
     ADSVModelMGR, SDSVModelMGR
 from nns.mixins.constants import LrShedulerTrack

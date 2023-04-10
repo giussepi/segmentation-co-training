@@ -10,7 +10,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import openslide as ops
 import torch
-from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping, MemoryPrint
+from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping, MemoryPrint, \
+    MetricEvaluator, MaskPlotter
+from gtorch_utils.nns.managers.callbacks.metrics.constants import MetricEvaluatorMode
 from gutils.decorators import timing
 from gutils.folders import clean_create_folder
 from gutils.images.processing import get_slices_coords
@@ -22,9 +24,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from nns.callbacks.metrics import MetricEvaluator
-from nns.callbacks.metrics.constants import MetricEvaluatorMode
-from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.checkpoints import CheckPointMixin
 from nns.mixins.data_loggers import DataLoggerMixin
@@ -129,7 +128,7 @@ class BaseModelMGR(SanityChecksMixin, CheckPointMixin, DataLoggerMixin, SubDatas
             optimizer_kwargs: optimizer keyword arguments
             sanity_checks <bool>: Whether or not run model sanity checks. Default False
             labels_data <object>: class containing all the details of the classes/labels. See
-                                   nns.callbacks.plotters.masks.MaskPlotter definition
+                                   gtorch_utils.nns.managers.callbacks.plotters.masks.MaskPlotter definition
             data_dimensions <int>: Number of dimension of the data. Currently 2D and 3D supported.
                                    Default 2.
             ###################################################################
@@ -161,7 +160,7 @@ If true it track the loss values, else it tracks the metric values.
             metrics    <list>: List of MetricItems to be used by the manager
                                Default [MetricItem(DiceCoefficient(), main=True),]
             metric_mode <int>: Evaluation mode of the metric.
-                               See nns.callbacks.metrics.constants.MetricEvaluatorMode
+                               See gtorch_utils.nns.managers.callbacks.metrics.constants.MetricEvaluatorMode
                                Default MetricEvaluatorMode.MAX
             earlystopping_kwargs <dict>: Early stopping parameters. When metric = True, it is applied to the
                                          metric values; otherwise, it is applied to the loss values.
@@ -621,7 +620,7 @@ If true it track the loss values, else it tracks the metric values.
             func_plot_palette <callable>: Function to plot and save the colour palette. It must
                                           receive as first argument the saving path. Default None
             plotter_conf          <dict>: initial configuration for MaskPlotter. See
-                                          nns.callbacks.plotters.masks import MaskPlotter
+                                          gtorch_utils.nns.managers.callbacks.plotters.masks import MaskPlotter
                                           Default dict(alpha=.7, dir_per_file=False, superimposed=False, max_values=False, decoupled=False)
         Returns:
             loss<torch.Tensor>, metric_scores<dict>, extra_data<dict>

@@ -5,13 +5,12 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import torch
-from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping
+from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping, MetricEvaluator
 from logzero import logger
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from nns.callbacks.metrics import MetricEvaluator
 from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.managers.base import BaseModelMGR
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR

@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """ nns/managers/da """
 
-from unittest.mock import MagicMock
+# from unittest.mock import MagicMock
 
 import torch
+from gtorch_utils.nns.managers.callbacks import MaskPlotter
 from gtorch_utils.nns.managers.exceptions import ModelMGRImageChannelsError
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 
 from settings import USE_AMP
-from nns.callbacks.plotters.masks import MaskPlotter
 from nns.mixins.managers import DAModelMGRMixin
 
 

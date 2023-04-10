@@ -6,10 +6,10 @@ from typing import Dict, Union, List
 
 import numpy as np
 import torch
+from gtorch_utils.nns.managers.callbacks.plotters.training import TrainingPlotter
 from logzero import logger
 from tabulate import tabulate
 
-from nns.callbacks.plotters.training import TrainingPlotter
 from nns.mixins.torchmetrics.mixins import TorchMetricsMixin
 
 

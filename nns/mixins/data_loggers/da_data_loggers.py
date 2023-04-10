@@ -5,11 +5,11 @@ import os
 from typing import Optional
 
 import numpy as np
+from gtorch_utils.nns.managers.callbacks import TrainingPlotter
 from logzero import logger
 from tabulate import tabulate
 from tqdm import tqdm
 
-from nns.callbacks.plotters.training import TrainingPlotter
 from nns.mixins.exceptions import IniCheckpintError
 from nns.mixins.torchmetrics.mixins import DATorchMetricsMixin
 

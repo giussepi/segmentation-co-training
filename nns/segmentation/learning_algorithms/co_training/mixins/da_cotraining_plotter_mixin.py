@@ -6,9 +6,9 @@ from typing import Dict, Union, List
 
 import numpy as np
 import torch
+from gtorch_utils.nns.managers.callbacks import TrainingPlotter
 from tabulate import tabulate
 
-from nns.callbacks.plotters.training import TrainingPlotter
 from nns.segmentation.learning_algorithms.co_training.mixins.base_cotraining_plotter_mixin import \
     BaseCotrainingPlotterMixin
 
