@@ -6,12 +6,13 @@ from typing import Optional
 
 import numpy as np
 from gtorch_utils.nns.managers.callbacks import TrainingPlotter
+from gtorch_utils.nns.mixins.exceptions import IniCheckpintError
 from logzero import logger
 from tabulate import tabulate
 from tqdm import tqdm
 
-from nns.mixins.exceptions import IniCheckpintError
 from nns.mixins.torchmetrics.mixins import DATorchMetricsMixin
+
 
 __all__ = ['DADataLoggerMixin']
 
