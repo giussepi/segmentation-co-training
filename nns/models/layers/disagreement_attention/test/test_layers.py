@@ -4,11 +4,11 @@
 import unittest
 
 import torch
+from gtorch_utils.nns.utils import Normalizer
 from gutils.exceptions.common import ExclusiveArguments
 
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
 from nns.models.layers.disagreement_attention.layers import AttentionMerging, AttentionMergingBlock
-from nns.utils import Normalizer
 
 
 class Test_AttentionMerging(unittest.TestCase):

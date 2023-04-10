@@ -25,9 +25,12 @@ from gtorch_utils.datasets.segmentation.datasets.lits17.processors import LiTS17
 from gtorch_utils.datasets.segmentation.datasets.lits17.datasets import LiTS17OnlyLiverLabels, \
     LiTS17Dataset, LiTS17OnlyLesionLabels, LiTS17CropDataset
 from gtorch_utils.nns.managers.callbacks.metrics.constants import MetricEvaluatorMode
-from gtorch_utils.nns.models.segmentation import UNet, UNet_3Plus_DeepSup, UNet_3Plus, UNet_3Plus_DeepSup_CGM
+from gtorch_utils.nns.models.backbones import resnet101, resnet152, xception
+from gtorch_utils.nns.models.segmentation import UNet, UNet_3Plus_DeepSup, UNet_3Plus, UNet_3Plus_DeepSup_CGM, \
+    Deeplabv3plus
 from gtorch_utils.nns.models.segmentation.unet.unet_parts import TinyUpAE, TinyAE, MicroUpAE, MicroAE
 from gtorch_utils.nns.models.segmentation.unet3_plus.constants import UNet3InitMethod
+from gtorch_utils.nns.utils.sync_batchnorm import get_batchnormxd_class
 # from gtorch_utils.nns.utils.reproducibility import Reproducibility
 from gtorch_utils.segmentation import loss_functions
 from gtorch_utils.segmentation.loss_functions.dice import dice_coef_loss
@@ -41,11 +44,10 @@ from torchinfo import summary
 from tqdm import tqdm
 
 import settings
-from nns.backbones import resnet101, resnet152, xception
 from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR, \
     ADSVModelMGR, SDSVModelMGR
 from nns.mixins.constants import LrShedulerTrack
-from nns.models import Deeplabv3plus, UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
+from nns.models import UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
     UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS, UNet_3Plus_Intra_DA_GS_HDX, XAttentionUNet, UNet2D, \
     UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, \
@@ -57,7 +59,6 @@ from nns.models.layers.disagreement_attention import intra_model
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
 from nns.segmentation.learning_algorithms import CoTraining, DACoTraining
 from nns.segmentation.utils.postprocessing import ExpandPrediction
-from nns.utils.sync_batchnorm import get_batchnormxd_class
 
 
 logzero.loglevel(settings.LOG_LEVEL)

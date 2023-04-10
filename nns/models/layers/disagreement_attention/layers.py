@@ -6,10 +6,10 @@ from typing import Union, Optional
 import torch
 from torch.nn.modules.batchnorm import _BatchNorm
 from gtorch_utils.nns.models.segmentation.unet.unet_parts import XConv
+from gtorch_utils.nns.utils import Normalizer
 from gutils.exceptions.common import ExclusiveArguments
 
 from nns.models.layers.disagreement_attention.constants import AttentionMergingType
-from nns.utils import Normalizer
 
 
 __all__ = [

@@ -5,11 +5,11 @@ from typing import List, Union, Optional, Dict
 
 import numpy as np
 import torch
+from gtorch_utils.nns.utils.metrics import MetricItem
 from gtorch_utils.segmentation.torchmetrics import DiceCoefficient
 from logzero import logger
 
 from nns.mixins.torchmetrics.exceptions import PrepareToSaveError, SeparateMetricsError
-from nns.utils.metrics import MetricItem
 
 
 __all__ = ['TorchMetricsBaseMixin']

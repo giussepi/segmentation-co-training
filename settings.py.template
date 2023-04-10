@@ -8,7 +8,7 @@ import torch
 from gtorch_utils.segmentation import torchmetrics
 from monai import transforms as ts
 
-from nns.utils.metrics import MetricItem
+from gtorch_utils.nns.utils.metrics import MetricItem
 
 ###############################################################################
 #                                GENERAL CONFIG                               #

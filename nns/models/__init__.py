@@ -3,7 +3,6 @@
 
 from nns.models.attention_unet import AttentionUNet
 from nns.models.attention_unet2 import AttentionUNet as AttentionUNet2
-from nns.models.deeplab.models.deeplabv3plus import Deeplabv3plus
 from nns.models.modular_unet4plus import ModularUNet4Plus
 from nns.models.unet.models import UNet2D, UNet_Grid_Attention, UNet_Att_DSV, SingleAttentionBlock, MultiAttentionBlock, UNet3D
 from nns.models.unet_3plus_da import UNet_3Plus_DA, UNet_3Plus_DA_Train

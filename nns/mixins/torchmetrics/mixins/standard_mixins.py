@@ -12,7 +12,7 @@ from torchmetrics import MetricCollection
 
 # from nns.mixins.torchmetrics.exceptions import PrepareToSaveError, SeparateMetricsError
 from nns.mixins.torchmetrics.mixins.base import TorchMetricsBaseMixin
-# from nns.utils.metrics import MetricItem
+# from gtorch_utils.nns.utils.metrics import MetricItem
 
 
 __all__ = ['TorchMetricsMixin']

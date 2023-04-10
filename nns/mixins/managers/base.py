@@ -13,6 +13,7 @@ import torch
 from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping, MemoryPrint, \
     MetricEvaluator, MaskPlotter
 from gtorch_utils.nns.managers.callbacks.metrics.constants import MetricEvaluatorMode
+from gtorch_utils.nns.utils.sync_batchnorm import patch_replication_callback
 from gutils.decorators import timing
 from gutils.folders import clean_create_folder
 from gutils.images.processing import get_slices_coords
@@ -30,7 +31,6 @@ from nns.mixins.data_loggers import DataLoggerMixin
 from nns.mixins.sanity_checks import SanityChecksMixin
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
 from nns.mixins.subdatasets import SubDatasetsMixin
-from nns.utils.sync_batchnorm import patch_replication_callback
 
 
 __all__ = ['BaseModelMGR']
