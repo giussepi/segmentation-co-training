@@ -10,13 +10,13 @@ import numpy as np
 import torch
 from gutils.decorators import timing
 from gtorch_utils.nns.managers.callbacks import EarlyStopping
+from gtorch_utils.nns.mixins.subdatasets import SubDatasetsMixin
 from gtorch_utils.segmentation import metrics
 from logzero import logger
 from PIL import Image
 from tqdm import tqdm
 
 from nns.managers import ModelMGR
-from nns.mixins.subdatasets import SubDatasetsMixin
 from nns.segmentation.learning_algorithms.co_training.mixins import CotrainingPlotterMixin
 from .settings import DISABLE_PROGRESS_BAR
 
