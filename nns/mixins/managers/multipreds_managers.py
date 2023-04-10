@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping, \
     MetricEvaluator, MaskPlotter
+from gtorch_utils.nns.mixins.torchmetrics.mixins import ModularTorchMetricsMixin
 from gutils.decorators import timing
 from gutils.folders import clean_create_folder
 from logzero import logger
@@ -20,7 +21,6 @@ from tqdm import tqdm
 from nns.mixins.constants import LrShedulerTrack
 from nns.mixins.managers.base import BaseModelMGR
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
-from nns.mixins.torchmetrics.mixins import ModularTorchMetricsMixin
 
 
 __all__ = ['MultiPredsModelMGRMixin']

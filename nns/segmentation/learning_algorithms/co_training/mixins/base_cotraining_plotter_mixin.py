@@ -7,10 +7,9 @@ from typing import Dict, Union, List
 import numpy as np
 import torch
 from gtorch_utils.nns.managers.callbacks.plotters.training import TrainingPlotter
+from gtorch_utils.nns.mixins.torchmetrics.mixins import TorchMetricsMixin
 from logzero import logger
 from tabulate import tabulate
-
-from nns.mixins.torchmetrics.mixins import TorchMetricsMixin
 
 
 __all__ = ['BaseCotrainingPlotterMixin']
