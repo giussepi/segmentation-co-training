@@ -24,6 +24,8 @@ from gtorch_utils.datasets.segmentation.datasets.ct82.settings import TRANSFORMS
 from gtorch_utils.datasets.segmentation.datasets.lits17.processors import LiTS17MGR, LiTS17CropMGR
 from gtorch_utils.datasets.segmentation.datasets.lits17.datasets import LiTS17OnlyLiverLabels, \
     LiTS17Dataset, LiTS17OnlyLesionLabels, LiTS17CropDataset
+from gtorch_utils.nns.managers.adsv import ADSVModelMGR
+from gtorch_utils.nns.managers.standard import ModelMGR
 from gtorch_utils.nns.managers.callbacks.metrics.constants import MetricEvaluatorMode
 from gtorch_utils.nns.mixins.constants import LrShedulerTrack
 from gtorch_utils.nns.mixins.images_types import CT3DNIfTIMixin
@@ -46,8 +48,8 @@ from torchinfo import summary
 from tqdm import tqdm
 
 import settings
-from nns.managers import ModelMGR, DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR, \
-    ADSVModelMGR, SDSVModelMGR
+from nns.managers import DAModelMGR, ModularModelMGR, MultiPredsModelMGR, AEsModelMGR, \
+    SDSVModelMGR
 from nns.models import UNet_3Plus_DA, UNet_3Plus_DA_Train, UNet_3Plus_DA2, \
     UNet_3Plus_DA2_Train, UNet_3Plus_DA2Ext, UNet_3Plus_DA2Ext_Train, AttentionUNet, AttentionUNet2, \
     UNet_3Plus_Intra_DA, UNet_3Plus_Intra_DA_GS, UNet_3Plus_Intra_DA_GS_HDX, XAttentionUNet, UNet2D, \

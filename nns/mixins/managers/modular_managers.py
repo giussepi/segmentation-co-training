@@ -10,6 +10,7 @@ import torch
 from gtorch_utils.nns.managers.callbacks import Checkpoint, EarlyStopping, MetricEvaluator, \
     MaskPlotter
 from gtorch_utils.nns.mixins.constants import LrShedulerTrack
+from gtorch_utils.nns.mixins.managers.base import BaseModelMGR
 from gtorch_utils.nns.mixins.torchmetrics.mixins import ModularTorchMetricsMixin
 from gtorch_utils.nns.mixins.sanity_checks import WeightsChangingSanityChecksMixin
 from gutils.decorators import timing
@@ -21,7 +22,6 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from nns.mixins.checkpoints import SeveralOptimizersCheckPointMixin
-from nns.mixins.managers.base import BaseModelMGR
 from nns.mixins.settings import USE_AMP, DISABLE_PROGRESS_BAR
 
 
