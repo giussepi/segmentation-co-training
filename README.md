@@ -58,13 +58,13 @@ Just open your `settings.py` and set `DEBUG = True`. This will set the log level
 **Note**: Always see the class or function definition to pass the correct parameters and see all available options.
 
 ### [CoNSep](https://warwick.ac.uk/fac/cross_fac/tia/data/hovernet/) dataset
-See [consep/README.md](consep/README.md)
+See [github.com/giussepi/gtorch_utils/blob/main/gtorch_utils/datasets/segmentation/datasets/consep/README.md](https://github.com/giussepi/gtorch_utils/blob/main/gtorch_utils/datasets/segmentation/datasets/consep/README.mdconsep/README.md)
 
 ### TCIA Pancreas CT-82 dataset [^1][^2][^3]
-See [ct82/README.md](ct82/README.md)
+See [github.com/giussepi/gtorch_utils/blob/main/gtorch_utils/datasets/segmentation/datasets/ct82/README.md](https://github.com/giussepi/gtorch_utils/blob/main/gtorch_utils/datasets/segmentation/datasets/ct82/README.md)
 
 ### LiTS17 dataset [^4]
-See [lits17/docs/README.md](lits17/README.md)
+See [github.com/giussepi/gtorch_utils/blob/main/gtorch_utils/datasets/segmentation/datasets/lits17/README.md](https://github.com/giussepi/gtorch_utils/blob/main/gtorch_utils/datasets/segmentation/datasets/lits17/README.md)
 
 ### Predict masks for whole CT scans and visualize them
 1. Modify your model manager to support these feature using the `CT3DNIfTIMixin`. E.g.:
